@@ -13,7 +13,7 @@ import folium
 import json
 from cachetools import TTLCache
 from apscheduler.schedulers.background import BackgroundScheduler
-from datetime import datetime, date, timezone, timedelta
+from datetime import datetime, timezone, timedelta
 import re
 from flask_mail import Mail, Message
 import secrets
