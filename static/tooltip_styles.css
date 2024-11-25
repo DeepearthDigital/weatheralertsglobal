@@ -1,0 +1,20 @@
+:root{
+    --tooltip-width-min: 400px;
+    --tooltip-width-max: 500px;
+    --tooltip-bg-color: #fff;
+    --tooltip-border: 5px solid #FF0000;
+    --tooltip-padding: 10px;
+    --tooltip-font-size: 14px;
+    --tooltip-text-align: left;
+}
+
+.my-tooltip {
+    min-width: var(--tooltip-width-min);
+    max-width: var(--tooltip-width-max);
+    white-space: pre-wrap;
+    background-color: var(--tooltip-bg-color);
+    border: var(--tooltip-border);
+    padding: var(--tooltip-padding);
+    font-size: var(--tooltip-font-size);
+    text-align: var(--tooltip-text-align);
+}

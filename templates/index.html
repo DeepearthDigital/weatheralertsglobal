@@ -1,0 +1,230 @@
+{% if current_user.is_authenticated %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Weather Alerts Global</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+    <style>
+body {
+    display: flex;
+    min-height: 100vh;
+    margin: 0;
+    font-family: sans-serif;
+}
+
+#mapid {
+    flex: 1;
+    position: relative; /* Make map a positioning context */
+}
+#login-welcome {
+    position: absolute; /* Absolutely position the key */
+    top: 40px;         /* Adjust vertical position */
+    right: 20px;        /* Adjust horizontal position */
+    background-color: white;
+    border: 1px solid #ccc;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.25);
+    z-index: 1000;     /* Ensure it's above the map */
+}
+#app-title {
+    position: absolute;
+    top: 40px; /* Adjust vertical position */
+    left: 50%;
+    transform: translateX(-50%); /* Center horizontally */
+    background-color: white;
+    border: 1px solid #ccc;
+    padding: 15px; /* Added padding for better spacing */
+    border-radius: 10px;
+    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.25);
+    z-index: 1001; /* Make sure it's on top of the key */
+    font-size: 22px; /* Adjust font size as needed */
+    font-weight: bold; /* Optional bold title */
+}
+#alert-count {
+    position: absolute; /* Absolutely position the key */
+    bottom: 20px;         /* Adjust vertical position */
+    left: 20px;        /* Adjust horizontal position */
+    background-color: white;
+    border: 1px solid #ccc;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.25);
+    z-index: 1000;     /* Ensure it's above the map */
+    font-size: 18px;
+	display: flex;
+    flex-direction: column; /* Align items vertically */
+    align-items: center;     /* Center horizontally */
+    justify-content: center; /* Center vertically */
+    height: auto;            /* Ensure height adjusts to content */
+}
+#alert-count p {
+    margin: 5px 0; /* Add some spacing between paragraphs */
+}
+#severity-key {
+    position: absolute; /* Absolutely position the key */
+    bottom: 20px;         /* Adjust vertical position */
+    right: 20px;        /* Adjust horizontal position */
+    background-color: white;
+    border: 1px solid #ccc;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.25);
+    z-index: 1000;     /* Ensure it's above the map */
+}
+
+#severity-key th,
+#severity-key td {
+    padding: 5px;
+    text-align: left;
+}
+
+#severity-key td:nth-child(2) {
+    width: 20px;
+    height: 20px;
+}
+
+.my-tooltip {
+    width: auto; /* this will let the tooltip decide its width based on its content */
+    min-width: 500px;
+    max-width: 500px;
+    white-space: pre-wrap;
+    background-color: #fff;
+    border: 5px solid #FF0000;
+    padding: 10px;
+    font-size: 16px;
+    text-align: left;
+    font-family: "Gill Sans", "Gill Sans MT", "Myriad Pro", "DejaVu Sans Condensed", Helvetica, Arial, sans-serif;
+}
+    body,td,th {
+    font-family: "Gill Sans", "Gill Sans MT", "Myriad Pro", "DejaVu Sans Condensed", Helvetica, Arial, sans-serif;
+}
+    </style>
+</head>
+<body>
+<div id="mapid"></div>
+<div id="app-title"><img src="../static/images/WAG-brand_black.png" width="400" height="54" alt="Weather Alerts Global"/></div>
+<div id="login-welcome">Welcome, {{ current_user.first_name }}!
+  <a href="{{ url_for('logout') }}">Logout</a></div>
+	<div id="alert-count">
+  <p id="live-alerts-count"><b>{{ alert_count }}</b> live alerts</p>
+  <p id="date-range">covering <b>{{ date_range }}</b></p>
+</div>
+    <table id="severity-key">
+        <thead>
+            <tr>
+                <th>Severity</th>
+                <th>Color</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Minor</td>
+                <td style="background-color: #00FF00;"></td>
+            </tr>
+            <tr>
+                <td>Moderate</td>
+                <td style="background-color: #FFA500;"></td>
+            </tr>
+            <tr>
+                <td>Severe</td>
+                <td style="background-color: #FF0000;"></td>
+            </tr>
+            <tr>
+                <td>Extreme</td>
+                <td style="background-color: #000000;"></td>
+            </tr>
+        </tbody>
+    </table>
+<script>
+    var map = L.map('mapid').setView([51.4779, 0.0015], 5);
+    const fillOpacity = 0.5;
+    const maxWidth = 600;
+
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    var alerts = {{ alerts|safe }};
+
+    function createTooltipContent(alert) {
+        return `<div class="my-tooltip"><b>Alert Details</b><br>` +
+            `<b>Message Type:</b> ${alert.msg_type}<br>` +
+            `<b>Categories:</b> ${alert.categories.join(', ')}<br>` +
+            `<b>Urgency:</b> ${alert.urgency}<br>` +
+            `<b>Severity:</b> ${alert.severity}<br>` +
+            `<b>Certainty:</b> ${alert.certainty}<br>` +
+            `<b>Start:</b> ${moment.unix(alert.start).format('YYYY-MM-DD HH:mm:ss UTC')}<br>` +
+            `<b>End:</b> ${moment.unix(alert.end).format('YYYY-MM-DD HH:mm:ss UTC')}<br>` +
+            `<b>Sender:</b> ${alert.sender}<br>` +
+            `<b>Description:</b> <span class='description-text'>${alert.description}</span>` +
+            `<br><button class="translate">Translate to EN</button></div>`;
+    }
+
+    function handleAlert(alert) {
+        L.geoJSON(alert.geometry, {
+            style: function() {
+                return {
+                    fillColor: alert.color,
+                    color: '#000',
+                    weight: 1,
+                    dashArray: '',
+                    fillOpacity: fillOpacity
+                };
+            },
+            onEachFeature: function(feature, layer) {
+                layer.bindPopup(createTooltipContent(alert), {autoClose: false, maxWidth: maxWidth});
+                layer.on('click', function() {
+                    this.openPopup();
+                });
+                layer.on({
+                    mouseover: function() {
+                        this.setStyle({fillOpacity: 0.2});
+                    },
+                    mouseout: function() {
+                        this.setStyle({fillOpacity: fillOpacity});
+                    }
+                });
+            }
+        }).addTo(map);
+    }
+    function formatKeywords(text) {
+    // Define keywords
+    const keywords = ["Language", "Event", "Headline", "Instruction"];
+
+    // Loop through each keyword and replace it in the text
+    for(let keyword of keywords) {
+        // Use a regular expression to replace the keyword with itself wrapped in <b> tag followed by a colon and a line break
+        const reg = new RegExp(`(${keyword}:)`, 'g');
+        text = text.replace(reg, '<br><b>' + '$1' + '</b>');
+    }
+
+    return text;
+}
+    $(document).ready(function() {
+        alerts.forEach(handleAlert);
+
+$(document).on('click', '.translate', function() {
+    var descriptionElement = $(this).parents('.my-tooltip').find('.description-text');
+    var text = descriptionElement.text();
+
+    $.get('/translate', {text: text}, function(response) {
+        if (response && response.translated_text) {
+            var formattedText = formatKeywords(response.translated_text);
+            descriptionElement.html(formattedText);
+        }
+    });
+});
+    });
+</script>
+</body>
+</html>
+{% else %}
+  <h1>Please log in</h1>
+  <a href="{{ url_for('login') }}">Login</a>
+{% endif %}
