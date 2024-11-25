@@ -15,7 +15,7 @@ Flask-SocketIO==5.4.1
 folium==0.18.0
 google-api-core==2.23.0
 google-api-python-client==2.151.0
-google-auth>=2.0.0,<3.0.0
+google-auth==2.36.0
 google-auth-httplib2==0.2.0
 google-auth-oauthlib==1.2.1
 google-cloud-core==1.7.3
