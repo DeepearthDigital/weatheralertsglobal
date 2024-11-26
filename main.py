@@ -20,6 +20,8 @@ import secrets
 import smtplib
 from itsdangerous import URLSafeTimedSerializer
 import requests
+import pymongo
+import time
 
 load_dotenv()
 app = Flask(__name__)
@@ -44,7 +46,7 @@ app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
 # Initialize Flask-Mail
 mail = Mail(app)
 
-# MongoDB Configuration
+# MongoDB Configuration=++
 MONGODB_URI = os.environ['MONGODB_URI']
 WAG_DATABASE_NAME = os.environ['WAG_DATABASE_NAME']
 WAG_COLLECTION_NAME = os.environ['WAG_COLLECTION_NAME']
@@ -60,6 +62,9 @@ owa_collection = owa_db[OWA_COLLECTION_NAME]
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "login"
+
+wag_collection.create_index([("email", pymongo.ASCENDING)])
+owa_collection.create_index([("start", pymongo.ASCENDING), ("end", pymongo.DESCENDING)])
 
 def generate_verification_token():
     return secrets.token_urlsafe(32)
@@ -79,7 +84,7 @@ class User(UserMixin):
     @staticmethod
     def get(user_id):
         try:
-            user_data = wag_collection.find_one({"_id": ObjectId(user_id)})
+            user_data = wag_collection.find_one({"_id": ObjectId(user_id)}, {"_id": 1, "email": 1, "password": 1, "first_name": 1, "last_name": 1, "verified": 1})
             if user_data:
                 user = User(str(user_data["_id"]), user_data["email"], user_data["password"],
                             user_data["first_name"], user_data["last_name"], user_data["verified"])
@@ -283,20 +288,29 @@ def keep_recent_entries_efficient(days_to_keep=30): # Default limit - change for
     except Exception as e:
         logging.exception("Error cleaning up entries:")
 
-QUERY_LIMIT = 1000  # Default limit - change for production (say 100000)
+QUERY_LIMIT = 100  # Default limit - change for production (say 100000)
 
 def generate_map_data():
+    start_time = time.time()
+    logging.info("Generating map data...")  # Start log message
     my_map = folium.Map(location=[51.4779, 0.0015], zoom_start=5)
     alerts = []
     today_utc = datetime.now(timezone.utc).date()
-    start_of_today_utc = int((datetime(today_utc.year, today_utc.month, today_utc.day, 0, 0, 0,
-                                            tzinfo=timezone.utc) - timedelta(days=5)).timestamp()) # Default limit - change for production (say 2 days)
+    start_of_two_days_ago_utc = int((datetime(today_utc.year, today_utc.month, today_utc.day, 0, 0, 0, tzinfo=timezone.utc) - timedelta(days=2)).timestamp())
     end_of_today_utc = int(datetime(today_utc.year, today_utc.month, today_utc.day, 23, 59, 59, tzinfo=timezone.utc).timestamp())
 
-    for alert_data in owa_collection.find({
-        "start": {"$lte": end_of_today_utc},
-        "end": {"$gte": start_of_today_utc}
-    }).limit(QUERY_LIMIT):
+    # Query to include events that span over midnight
+    cursor = owa_collection.find({
+        "$or": [
+            {"start": {"$gte": start_of_two_days_ago_utc, "$lte": end_of_today_utc}},
+            # start is within the last two days
+            {"end": {"$gte": start_of_two_days_ago_utc, "$lte": end_of_today_utc}}  # end is within the last two days
+        ]
+    }).limit(QUERY_LIMIT)
+
+    explanation = cursor.explain()
+    logging.info(f"Query explanation:\n{explanation}")
+    for alert_data in cursor:
         try:
             alert = alert_data['alert']
             geometry = alert['geometry']
@@ -348,6 +362,9 @@ def generate_map_data():
 
     folium.LayerControl().add_to(my_map)
     map_js = my_map.get_root().render()
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+    logging.info(f"Map data generated in {elapsed_time:.4f} seconds.")  # End log message with elapsed time
     return {'map_js': map_js, 'alerts': alerts}
 
 
@@ -375,18 +392,23 @@ def calculate_center(geometry):
 def scheduled_task():
     try:
         keep_recent_entries_efficient()
-        map_data = generate_map_data()
+        map_data = generate_map_data()  # generate_map_data is called from the scheduler
         cache['map_data'] = map_data
         logging.info("Scheduled task completed.")
     except Exception as e:
         logging.exception("Error in scheduled task:")
 
-
 scheduler = BackgroundScheduler()
-scheduler.add_job(scheduled_task, 'cron', day_of_week='*', hour=0, minute=0)
+scheduler.add_job(scheduled_task, 'interval', seconds=600) # Update every 10 minutes
 
 def start_scheduler():
-    scheduler.start()
+    try:
+        # Run the task once at startup
+        scheduled_task()
+        scheduler.start()
+        logging.info("Scheduler started.")
+    except Exception as e:
+        logging.exception("Error starting scheduler:")
 
 def shutdown_scheduler():
     try:
