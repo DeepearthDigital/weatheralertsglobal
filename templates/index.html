@@ -9,151 +9,91 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/switchery/0.8.2/switchery.min.css">
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+	<link rel="stylesheet" href="../static/styles.css">
     <style>
-body {
-    display: flex;
-    min-height: 100vh;
-    margin: 0;
-    font-family: sans-serif;
-}
-
-#mapid {
-    flex: 1;
-    position: relative; /* Make map a positioning context */
-}
-#login-welcome {
-    position: absolute; /* Absolutely position the key */
-    top: 40px;         /* Adjust vertical position */
-    right: 20px;        /* Adjust horizontal position */
-    background-color: white;
-    border: 1px solid #ccc;
-    padding: 15px;
-    border-radius: 10px;
-    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.25);
-    z-index: 1000;     /* Ensure it's above the map */
-}
-#app-title {
-    position: absolute;
-    top: 40px; /* Adjust vertical position */
-    left: 50%;
-    transform: translateX(-50%); /* Center horizontally */
-    background-color: white;
-    border: 1px solid #ccc;
-    padding: 15px; /* Added padding for better spacing */
-    border-radius: 10px;
-    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.25);
-    z-index: 1001; /* Make sure it's on top of the key */
-    font-size: 22px; /* Adjust font size as needed */
-    font-weight: bold; /* Optional bold title */
-}
-#alert-count {
-    position: absolute; /* Absolutely position the key */
-    bottom: 20px;         /* Adjust vertical position */
-    left: 20px;        /* Adjust horizontal position */
-    background-color: white;
-    border: 1px solid #ccc;
-    padding: 15px;
-    border-radius: 10px;
-    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.25);
-    z-index: 1000;     /* Ensure it's above the map */
-    font-size: 18px;
-	display: flex;
-    flex-direction: column; /* Align items vertically */
-    align-items: center;     /* Center horizontally */
-    justify-content: center; /* Center vertically */
-    height: auto;            /* Ensure height adjusts to content */
-}
-#alert-count p {
-    margin: 5px 0; /* Add some spacing between paragraphs */
-}
-#severity-key {
-    position: absolute; /* Absolutely position the key */
-    bottom: 20px;         /* Adjust vertical position */
-    right: 20px;        /* Adjust horizontal position */
-    background-color: white;
-    border: 1px solid #ccc;
-    padding: 15px;
-    border-radius: 10px;
-    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.25);
-    z-index: 1000;     /* Ensure it's above the map */
-}
-
-#severity-key th,
-#severity-key td {
-    padding: 5px;
-    text-align: left;
-}
-
-#severity-key td:nth-child(2) {
-    width: 20px;
-    height: 20px;
-}
-
-.my-tooltip {
-    width: auto; /* this will let the tooltip decide its width based on its content */
-    min-width: 500px;
-    max-width: 500px;
-    white-space: pre-wrap;
-    background-color: #fff;
-    border: 5px solid #FF0000;
-    padding: 10px;
-    font-size: 16px;
-    text-align: left;
-    font-family: "Gill Sans", "Gill Sans MT", "Myriad Pro", "DejaVu Sans Condensed", Helvetica, Arial, sans-serif;
-}
-    body,td,th {
-    font-family: "Gill Sans", "Gill Sans MT", "Myriad Pro", "DejaVu Sans Condensed", Helvetica, Arial, sans-serif;
-}
     </style>
 </head>
 <body>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/switchery/0.8.2/switchery.min.js"></script>
 <div id="mapid"></div>
-<div id="app-title"><img src="../static/images/WAG-brand_black.png" width="400" height="54" alt="Weather Alerts Global"/></div>
-<div id="login-welcome">Welcome, {{ current_user.first_name }}!
-  <a href="{{ url_for('logout') }}">Logout</a></div>
-	<div id="alert-count">
-  <p id="live-alerts-count"><b>{{ alert_count }}</b> live alerts</p>
-  <p id="date-range">covering <b>{{ date_range }}</b></p>
-</div>
+<div id="top-right-panel">
+    <div id="login-welcome"><div id="app-title"><h1>Weather Alerts Global</h1></div>
+      <h2>Welcome, {{ current_user.first_name }}!</h2>
+		<a href="{{ url_for('logout') }}" class="btn btn-primary">Logout</a>
+		<a href="{{ url_for('change_password') }}" class="btn btn-primary">Change Password</a>	
+    </div>
+  <div id="alert-count">
+        <p>There are <b>{{ alert_count }}</b> live alerts in place covering the period <b>{{ date_range }}</b></p>
+  </div>
+
     <table id="severity-key">
         <thead>
-            <tr>
-                <th>Severity</th>
-                <th>Color</th>
-            </tr>
         </thead>
         <tbody>
+
+          <tr>
+              <th align="center" valign="middle" bgcolor="#E8E8E8" class="square"><h4 class="square">{{ alert_count }}</h4></th>
+              <th align="left" valign="middle" class="severity-text"><h3>Live Alerts</h3></th>
+          </tr>
+			<tr>
+              <td align="center" valign="middle" class="square" style="background-color: #00FF00;"><h4 class="square">{{ alert_counts.Minor|default(0) }}</h4></td>
+			  <td align="left" valign="middle" class="severity-text"><h3>Minor</h3></td>  
+          </tr>
             <tr>
-                <td>Minor</td>
-                <td style="background-color: #00FF00;"></td>
+              <td align="center" valign="middle" class="square" style="background-color: #FFA500;"><h4>{{ alert_counts.Moderate|default(0) }}</h4></td>
+			  <td align="left" valign="middle" class="severity-text"><h3>Moderate</h3></td>   
             </tr>
             <tr>
-                <td>Moderate</td>
-                <td style="background-color: #FFA500;"></td>
+              <td align="center" valign="middle" class="square" style="background-color: #FF0000;"><h4 class="text-severe-extreme">{{ alert_counts.Severe|default(0) }}</h4></td>
+			  <td align="left" valign="middle" class="severity-text"><h3>Severe</h3></td>  
             </tr>
             <tr>
-                <td>Severe</td>
-                <td style="background-color: #FF0000;"></td>
-            </tr>
-            <tr>
-                <td>Extreme</td>
-                <td style="background-color: #000000;"></td>
+              <td align="center" valign="middle" class="square" style="background-color: #313131;" ><h4 class="text-severe-extreme">{{ alert_counts.Extreme|default(0) }}</h4></td>
+			  <td align="left" valign="middle" class="severity-text"><h3>Extreme</h3></td>
+                
             </tr>
         </tbody>
     </table>
+  <p>Light/Dark Mode <input type="checkbox" class="lightdark-switch" /></p>
+</div>
 <script>
-    var map = L.map('mapid').setView([51.4779, 0.0015], 5);
-    const fillOpacity = 0.5;
-    const maxWidth = 600;
+	  var map = L.map('mapid').setView([51.4779, 0.0015], 5);
+		// Set maximum bounds (adjust these values as needed)
+		var southWest = L.latLng(-90, -180);
+		var northEast = L.latLng(90, 180);
+		map.setMaxBounds(L.latLngBounds(southWest, northEast));
+	  const fillOpacity = 0.5;
+	  const maxWidth = 600;
 
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    }).addTo(map);
+	  // Define both tile layers
+	  const voyagerLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+			attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+			subdomains: 'abcd',
+			maxZoom: 19
+		});
+
+	  const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png', {
+			attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+			subdomains: 'abcd',
+			maxZoom: 19
+		});
+
+	  // Add the Voyager layer initially
+	  voyagerLayer.addTo(map);
 
     var alerts = {{ alerts|safe }};
 
     function createTooltipContent(alert) {
-        return `<div class="my-tooltip"><b>Alert Details</b><br>` +
+		    const severityColor = {
+        Minor: "#00FF00",
+        Moderate: "#FFA500",
+        Severe: "#FF0000",
+        Extreme: "#313131"
+    }[alert.severity] || "#FF0000"; // Default to red if severity is unknown
+        return `<div class="my-tooltip" data-severity="${alert.severity}" style="border-color: ${severityColor};"><div class="underline">Alert Details</div>` +
             `<b>Message Type:</b> ${alert.msg_type}<br>` +
             `<b>Categories:</b> ${alert.categories.join(', ')}<br>` +
             `<b>Urgency:</b> ${alert.urgency}<br>` +
@@ -162,7 +102,7 @@ body {
             `<b>Start:</b> ${moment.unix(alert.start).format('YYYY-MM-DD HH:mm:ss UTC')}<br>` +
             `<b>End:</b> ${moment.unix(alert.end).format('YYYY-MM-DD HH:mm:ss UTC')}<br>` +
             `<b>Sender:</b> ${alert.sender}<br>` +
-            `<b>Description:</b> <span class='description-text'>${alert.description}</span>` +
+            `<div class="underline">Description</div><span class='description-text'>${alert.description}</span>` +
             `<br><button class="translate">Translate to EN</button></div>`;
     }
 
@@ -179,9 +119,19 @@ body {
             },
             onEachFeature: function(feature, layer) {
                 layer.bindPopup(createTooltipContent(alert), {autoClose: false, maxWidth: maxWidth});
-                layer.on('click', function() {
-                    this.openPopup();
-                });
+            layer.on('click', function() {
+                this.openPopup();
+                // Get the popup and style it based on the severity.
+                const severity = $(this._popup._content).find('.my-tooltip').data('severity');
+                const popupWrapper = this._popup._wrapper;
+                const severityColor = {
+                  Minor: "#00FF00",
+                  Moderate: "#FFA500",
+                  Severe: "#FF0000",
+                  Extreme: "#313131"
+                }[severity] || "#FF0000";
+                $(popupWrapper).find('.leaflet-popup-content-wrapper').addClass('severity-popup').css('background', severityColor + ' !important');
+            });
                 layer.on({
                     mouseover: function() {
                         this.setStyle({fillOpacity: 0.2});
@@ -193,6 +143,7 @@ body {
             }
         }).addTo(map);
     }
+
     function formatKeywords(text) {
     // Define keywords
     const keywords = ["Language", "Event", "Headline", "Instruction"];
@@ -206,8 +157,87 @@ body {
 
     return text;
 }
-    $(document).ready(function() {
-        alerts.forEach(handleAlert);
+	$(document).ready(function() {
+		alerts.forEach(handleAlert);
+
+		// Draggable panel code
+		let isDragging = false;
+		let offsetX, offsetY;
+
+		$('#top-right-panel').mousedown(function(e) {
+			isDragging = true;
+			offsetX = e.clientX - $(this).offset().left;
+			offsetY = e.clientY - $(this).offset().top;
+		});
+
+		$(document).mousemove(function(e) {
+			if (isDragging) {
+				let x = e.clientX - offsetX;
+				let y = e.clientY - offsetY;
+
+				// Set minimum offsets to prevent panel from going off-screen
+				let minX = 0;
+				let minY = 0;
+
+				x = Math.max(minX, x);
+				y = Math.max(minY, y);
+
+				$('#top-right-panel').offset({ left: x, top: y });
+			}
+		});
+
+		$(document).mouseup(function() {
+			isDragging = false;
+		});
+		
+	$('.lightdark-switch').change(function() {
+	  if ($(this).is(':checked')) {
+		darkLayer.addTo(map);
+		map.removeLayer(voyagerLayer); // Change map style
+
+		// Set dark mode styles
+		  
+		$('#top-right-panel').css({
+		  'background-color': '#333', // Panel background
+		  'color': '#eee',             // Panel text
+		  'border': '1px solid #ccc'
+		});
+		$('.square').css({
+		  'color': '#000000'             // Panel text
+		});
+		$('.text-severe-extreme').css({
+		  'color': '#FFFFFF'             // Panel text
+		});
+		$('.my-tooltip').css({
+		  'color': '#FFFFFF',             // Panel text
+		  'background-color': '#333'
+		});
+		$('body').css('color', '#eee'); // Body text
+
+	  } else {
+		voyagerLayer.addTo(map);
+		map.removeLayer(darkLayer); // Change map style
+
+		// Set light mode styles
+		  
+		$('#top-right-panel').css({
+		  'background-color': 'white', // Panel background
+		  'color': '#000000',             // Panel text
+		  'border': '1px solid #000000'
+		});
+		$('.square').css({
+		  'color': '#000000'             // Panel text
+		});
+		$('.text-severe-extreme').css({
+		  'color': '#FFFFFF'             // Panel text
+		});
+		$('.my-tooltip').css({
+		  'color': '#000000',             // Panel text
+		  'background-color': '#FFFFFF'
+		});
+		$('body').css('color', '#333'); // Body text
+	  }
+	});
 
 $(document).on('click', '.translate', function() {
     var descriptionElement = $(this).parents('.my-tooltip').find('.description-text');
@@ -221,6 +251,10 @@ $(document).on('click', '.translate', function() {
     });
 });
     });
+  var elems = Array.prototype.slice.call(document.querySelectorAll('.lightdark-switch'));
+  elems.forEach(function(html) {
+    var switchery = new Switchery(html);
+  });
 </script>
 </body>
 </html>

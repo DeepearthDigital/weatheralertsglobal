@@ -2,16 +2,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Welcome to Weather Alerts Global</title>
+	<link rel="stylesheet" href="../static/styles.css">
     <style>
-
-#login {
-    background-color: white;
-    border: 1px solid #ccc;
-    padding: 15px; /* Added padding for better spacing */
-    border-radius: 10px;
-    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.25);
-}
-
 body {
   background-image: url(../static/images/blizzard-road-art.jpg); /* Your image path */
   background-size: cover; /* Cover the entire viewport */
@@ -22,93 +14,84 @@ body {
   justify-content: center; /* Center horizontally */
   align-items: center; /* Center vertically */
   min-height: 100vh; /* Ensure body takes up full viewport height */
-
-}
-.container {
-  position: relative; /* Needed for absolute positioning of the image */
-  display: flex;       /* Added to center both the logo and login box horizontally */
-  flex-direction: column; /* Stack logo above login form */
-  align-items: center; /* Center horizontally */
-}
-
-.wag-logo {
-  position: absolute;
-  top: -150px; /* Adjust as needed based on the logo size and desired position */
-  left: 50%;
-  transform: translateX(-50%);
-  width: 600px;
-  height: 81px;
-}
-    body,td,th {
-    font-family: "Gill Sans", "Gill Sans MT", "Myriad Pro", "DejaVu Sans Condensed", Helvetica, Arial, sans-serif;
-}
-.form-group {
-    display: flex;
-    align-items: center;
-    margin-bottom: 10px;
-}
-
-.form-group label {
-    width: 100px; /* Adjust width as needed */
-    margin-right: 10px;
-}
-
-.form-group input[type="text"],
-.form-group input[type="email"],
-.form-group input[type="password"] {
-    flex-grow: 1;
-}
+	}
     </style>
 </head>
 
-<body>
-<script>
-  document.getElementById("registerForm").addEventListener("submit", function(event) {
-    const email = document.getElementById("email").value;
-    // Regular expression for email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+<<body>
+    <div class="container">
+        <a href="{{ url_for('index') }}"> <img src="../static/images/WAG-brand.png" alt="Weather Alerts Global" class="wag-logo"></a>
+        <div id="login">
+            <h1>Register</h1>
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    <ul class=flashes>
+                        {% for message in messages %}
+                            <li>{{ message }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            {% endwith %}
+            <form id="registerForm" method="POST">
+                <p>Registration is limited to the following domains: {{ allowed_domains | join(', ') }}</p>
+				                {% if error_message %}
+                    <div id="error-message-container"> </div>
+                {% endif %}
+				<p>If you would like access please e-mail <a href="mailto:support@weatheralerts.global">support@weatheralerts.global</a></p>
+                <div class="form-group">
+                    <label for="first_name">First Name:</label>
+                    <input type="text" id="first_name" name="first_name" required>
+                </div>
+                <div class="form-group">
+                    <label for="last_name">Last Name:</label>
+                    <input type="text" id="last_name" name="last_name" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">Email:</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password:</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <input type="submit" value="Register">
+            </form>
+            <p>Upon successful registration, a verification email will be sent to your email address.</p>
+        </div>
+    </div>
 
-    if (!emailRegex.test(email)) {
-      event.preventDefault(); // Prevent form submission
-      alert("Please enter a valid email address.");
-      document.getElementById("email").focus(); // Focus on the email input
+    <script>
+document.addEventListener('DOMContentLoaded', function() {
+    const registerForm = document.getElementById('registerForm');
+    const errorMessageContainer = document.getElementById('error-message-container');
+
+    if (registerForm) {
+        registerForm.addEventListener('submit', function(event) {
+            const email = document.getElementById("email").value;
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+            if (!emailRegex.test(email)) {
+                event.preventDefault();
+                alert("Please enter a valid email address.");
+                document.getElementById("email").focus();
+            }
+        });
+    } else {
+        console.error("Form element with ID 'registerForm' not found.");
     }
-  });
-</script>
-<div class="container">
-  <img src="../static/images/WAG-brand.png" alt="WAG Brand" class="wag-logo">	
-<div id="login">
-    <h1>Register</h1>
-    {% with messages = get_flashed_messages() %}
-        {% if messages %}
-            <ul class=flashes>
-                {% for message in messages %}
-                    <li>{{ message }}</li>
-                {% endfor %}
-            </ul>
-        {% endif %}
-    {% endwith %}
-    <form id="registerForm" method="POST">
-        <div class="form-group">
-            <label for="first_name">First Name:</label>
-            <input type="text" id="first_name" name="first_name" required>
-        </div>
-        <div class="form-group">
-            <label for="last_name">Last Name:</label>
-            <input type="text" id="last_name" name="last_name" required>
-        </div>
-        <div class="form-group">
-            <label for="email">Email:</label>
-            <input type="email" id="email" name="email" required>
-        </div>
-        <div class="form-group">
-            <label for="password">Password:</label>
-            <input type="password" id="password" name="password" required>
-        </div>
-        <input type="submit" value="Register">
-    </form>
-    <p>Upon successful registration, a verification email will be sent to your email address.</p>
-</div>
-	</div>
+
+    if (errorMessageContainer) {
+        const errorMessage = '{{ error_message }}'.trim();
+        if (errorMessage !== "") {
+            const errorParagraph = document.createElement('p');
+            errorParagraph.textContent = errorMessage;
+            errorParagraph.className = 'error-message';
+            errorMessageContainer.appendChild(errorParagraph);
+        }
+    } else {
+        console.error("Container element with ID 'error-message-container' not found.");
+    }
+});
+    </script>
 </body>
 </html>
