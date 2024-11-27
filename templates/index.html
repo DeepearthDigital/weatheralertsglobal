@@ -10,139 +10,162 @@
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
     <style>
-body {
-    display: flex;
-    min-height: 100vh;
-    margin: 0;
-    font-family: sans-serif;
-}
+    body {
+        display: flex;
+        min-height: 100vh;
+        margin: 0;
+        font-family: sans-serif;
+    }
 
-#mapid {
-    flex: 1;
-    position: relative; /* Make map a positioning context */
-}
-#login-welcome {
-    position: absolute; /* Absolutely position the key */
-    top: 40px;         /* Adjust vertical position */
-    right: 20px;        /* Adjust horizontal position */
-    background-color: white;
-    border: 1px solid #ccc;
-    padding: 15px;
-    border-radius: 10px;
-    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.25);
-    z-index: 1000;     /* Ensure it's above the map */
-}
-#app-title {
+    #mapid {
+        flex: 1;
+        position: relative; /* Make map a positioning context */
+    }
+
+    #bottom-right-panel {
     position: absolute;
-    top: 40px; /* Adjust vertical position */
-    left: 50%;
-    transform: translateX(-50%); /* Center horizontally */
+    bottom: 20px;
+    right: 21px;
     background-color: white;
     border: 1px solid #ccc;
-    padding: 15px; /* Added padding for better spacing */
+    padding: 25px;
     border-radius: 10px;
     box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.25);
-    z-index: 1001; /* Make sure it's on top of the key */
-    font-size: 22px; /* Adjust font size as needed */
-    font-weight: bold; /* Optional bold title */
+    z-index: 1000;
+    display: flex;
+    flex-direction: column; /* Vertical alignment */
+    align-items: flex-start; /* Align items to the left */
+    min-width: 200px; /* Ensure sufficient width */
+    max-width: 400px;
+    }
+
+    #bottom-right-panel > div {
+        margin-bottom: 5px; /* Spacing between sections */
+    }
+
+    #app-title {
+        position: absolute;
+        top: 20px; /* Adjust vertical position */
+        left: 50%;
+        transform: translateX(-50%); /* Center horizontally */
+        background-color: white;
+        border: 1px solid #ccc;
+        padding: 15px; 
+        border-radius: 10px;
+        box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.25);
+        z-index: 1001; 
+        font-size: 22px; 
+        font-weight: bold; 
+    }
+
+    #severity-key {
+        border-collapse: collapse; /* Improves table appearance */
+        width: 100%; /* Make table fill the panel width */
+		text-align: centre;
+    }
+
+    #severity-key th,
+    #severity-key td {
+        padding: 5px;
+        text-align: centre;
+    }
+
+	.square {
+
+	  display: flex;
+	  justify-content: center;
+	  align-items: center;
 }
-#alert-count {
-    position: absolute; /* Absolutely position the key */
-    bottom: 20px;         /* Adjust vertical position */
-    left: 20px;        /* Adjust horizontal position */
-    background-color: white;
-    border: 1px solid #ccc;
-    padding: 15px;
-    border-radius: 10px;
-    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.25);
-    z-index: 1000;     /* Ensure it's above the map */
-    font-size: 18px;
-	display: flex;
-    flex-direction: column; /* Align items vertically */
-    align-items: center;     /* Center horizontally */
-    justify-content: center; /* Center vertically */
-    height: auto;            /* Ensure height adjusts to content */
-}
-#alert-count p {
-    margin: 5px 0; /* Add some spacing between paragraphs */
-}
-#severity-key {
-    position: absolute; /* Absolutely position the key */
-    bottom: 20px;         /* Adjust vertical position */
-    right: 20px;        /* Adjust horizontal position */
-    background-color: white;
-    border: 1px solid #ccc;
-    padding: 15px;
-    border-radius: 10px;
-    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.25);
-    z-index: 1000;     /* Ensure it's above the map */
+	.severity-text {;
+	  background-color: #F2F2F2;
+	}
+		
+	.my-tooltip {
+	  width: auto;
+	  min-width: 500px;
+	  max-width: 500px;
+	  white-space: pre-wrap;
+	  background-color: #fff;
+	  border: 15px solid #FF0000;
+	  padding: 15px;
+      border-radius: 10px;
+      box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.25);
+      z-index: 1002; 
+	  font-size: 18px;
+	  text-align: left;
+	  font-family: "Gill Sans", "Gill Sans MT", "Myriad Pro", "DejaVu Sans Condensed", Helvetica, Arial, sans-serif;
+	  line-height: 1.5;
+	  box-sizing: border-box; /* This is the key change */
+	}
+.my-tooltip.minor { border-color: #00FF00; }
+.my-tooltip.moderate { border-color: #FFA500; }
+.my-tooltip.severe { border-color: #FF0000; }
+.my-tooltip.extreme { border-color: #000000; }
+	
+	.underline {
+	  text-decoration: underline;
+	  text-decoration-thickness: 2px; /* Adjust underline thickness */
+	  font-weight: bold;
+	  display: flex;
+	  justify-content: center;
 }
 
-#severity-key th,
-#severity-key td {
-    padding: 5px;
-    text-align: left;
-}
-
-#severity-key td:nth-child(2) {
-    width: 20px;
-    height: 20px;
-}
-
-.my-tooltip {
-    width: auto; /* this will let the tooltip decide its width based on its content */
-    min-width: 500px;
-    max-width: 500px;
-    white-space: pre-wrap;
-    background-color: #fff;
-    border: 5px solid #FF0000;
-    padding: 10px;
-    font-size: 16px;
-    text-align: left;
-    font-family: "Gill Sans", "Gill Sans MT", "Myriad Pro", "DejaVu Sans Condensed", Helvetica, Arial, sans-serif;
-}
     body,td,th {
-    font-family: "Gill Sans", "Gill Sans MT", "Myriad Pro", "DejaVu Sans Condensed", Helvetica, Arial, sans-serif;
-}
+        font-family: "Gill Sans", "Gill Sans MT", "Myriad Pro", "DejaVu Sans Condensed", Helvetica, Arial, sans-serif;
+		font-size: 22px;
+    }
     </style>
 </head>
 <body>
 <div id="mapid"></div>
 <div id="app-title"><img src="../static/images/WAG-brand_black.png" width="400" height="54" alt="Weather Alerts Global"/></div>
-<div id="login-welcome">Welcome, {{ current_user.first_name }}!
-  <a href="{{ url_for('logout') }}">Logout</a></div>
-	<div id="alert-count">
-  <p id="live-alerts-count"><b>{{ alert_count }}</b> live alerts</p>
-  <p id="date-range">covering <b>{{ date_range }}</b></p>
-</div>
+<div id="bottom-right-panel">
+    <div id="login-welcome">
+      <h2>Welcome, {{ current_user.first_name }}!</h2><a href="{{ url_for('logout') }}">Logout </a><a href="{{ url_for('change_password') }}"> Change Password</a>
+    </div>
+  <div id="alert-count">
+        <p>There are <b>{{ alert_count }}</b> live alerts in place covering the period <b>{{ date_range }}</b></p>
+  </div>
+
     <table id="severity-key">
         <thead>
-            <tr>
+            <tr class="severity-text">
                 <th>Severity</th>
-                <th>Color</th>
+                <th>Number</th>
             </tr>
         </thead>
         <tbody>
+
+          <tr>
+              <th align="center" valign="middle" bgcolor="#E8E8E8" class="square"><h4 class="square">{{ alert_count }}</h4></th>
+              <th align="center" valign="middle" class="severity-text"><h4>Live Alerts</h4></th>
+          </tr>
+			<tr>
+              <td align="center" valign="middle" class="square" style="background-color: #00FF00;"><h4 class="square">{{ alert_counts.Minor|default(0) }}</h4></td>
+			  <td align="center" valign="middle" class="severity-text"><h4>Minor</h4></td>  
+          </tr>
             <tr>
-                <td>Minor</td>
-                <td style="background-color: #00FF00;"></td>
+              <td align="center" valign="middle" class="square" style="background-color: #FFA500;"><h4>{{ alert_counts.Moderate|default(0) }}</h4></td>
+			  <td align="center" valign="middle" class="severity-text"><h4>Moderate</h4></td>   
             </tr>
             <tr>
-                <td>Moderate</td>
-                <td style="background-color: #FFA500;"></td>
+              <td align="center" valign="middle" class="square" style="background-color: #FF0000; color: #FFFFFF;"><h4>{{ alert_counts.Severe|default(0) }}</h4></td>
+			  <td align="center" valign="middle" class="severity-text"><h4>Severe</h4></td>  
             </tr>
             <tr>
-                <td>Severe</td>
-                <td style="background-color: #FF0000;"></td>
-            </tr>
-            <tr>
-                <td>Extreme</td>
-                <td style="background-color: #000000;"></td>
+              <td align="center" valign="middle" class="square" style="background-color: #000000; color: #FFFFFF;" ><h4>{{ alert_counts.Extreme|default(0) }}</h4></td>
+			  <td align="center" valign="middle" class="severity-text"><h4>Extreme</h4></td>
+                
             </tr>
         </tbody>
     </table>
+</div>
 <script>
     var map = L.map('mapid').setView([51.4779, 0.0015], 5);
+	// Set maximum bounds (adjust these values as needed)
+	var southWest = L.latLng(-90, -180);
+	var northEast = L.latLng(90, 180);
+	map.setMaxBounds(L.latLngBounds(southWest, northEast));
     const fillOpacity = 0.5;
     const maxWidth = 600;
 
@@ -153,7 +176,7 @@ body {
     var alerts = {{ alerts|safe }};
 
     function createTooltipContent(alert) {
-        return `<div class="my-tooltip"><b>Alert Details</b><br>` +
+        return `<div class="my-tooltip" style="border-color: ${alert.color};"><div class="underline">Alert Details</div>` +
             `<b>Message Type:</b> ${alert.msg_type}<br>` +
             `<b>Categories:</b> ${alert.categories.join(', ')}<br>` +
             `<b>Urgency:</b> ${alert.urgency}<br>` +
@@ -162,7 +185,7 @@ body {
             `<b>Start:</b> ${moment.unix(alert.start).format('YYYY-MM-DD HH:mm:ss UTC')}<br>` +
             `<b>End:</b> ${moment.unix(alert.end).format('YYYY-MM-DD HH:mm:ss UTC')}<br>` +
             `<b>Sender:</b> ${alert.sender}<br>` +
-            `<b>Description:</b> <span class='description-text'>${alert.description}</span>` +
+            `<div class="underline">Description</div><span class='description-text'>${alert.description}</span>` +
             `<br><button class="translate">Translate to EN</button></div>`;
     }
 

@@ -59,12 +59,30 @@ owa_db = client[OWA_DATABASE_NAME]
 wag_collection = wag_db[WAG_COLLECTION_NAME]
 owa_collection = owa_db[OWA_COLLECTION_NAME]
 
+allowed_domains_str = os.getenv('ALLOWED_DOMAINS')
+print(f"Environment variable ALLOWED_DOMAINS: {allowed_domains_str}") # Added debugging line
+
+ALLOWED_DOMAINS = set()
+for i in range(1, 100):  # Adjust 100 to a sufficiently large number
+    domain = os.getenv(f'ALLOWED_DOMAINS_{i}')
+    if domain:
+        ALLOWED_DOMAINS.add(domain.strip().lower())
+    else:
+        break  # Stop when no more domains are found
+
+if not ALLOWED_DOMAINS:
+    ALLOWED_DOMAINS = {"example.com"}  # Default
+    logging.warning("Environment variable ALLOWED_DOMAINS not set. Using default domains.")
+
+print(f"ALLOWED_DOMAINS set: {ALLOWED_DOMAINS}") # Added debugging line
+
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "login"
 
 wag_collection.create_index([("email", pymongo.ASCENDING)])
-owa_collection.create_index([("start", pymongo.ASCENDING), ("end", pymongo.DESCENDING)])
+owa_collection.create_index([("start", pymongo.ASCENDING)])
+owa_collection.create_index([("end", pymongo.DESCENDING)])
 
 def generate_verification_token():
     return secrets.token_urlsafe(32)
@@ -132,43 +150,58 @@ def login():
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
-    if request.method == "POST":
-        email = request.form.get("email")
-        password = request.form.get("password")
-        first_name = request.form.get("first_name")
-        last_name = request.form.get("last_name")
-        hashed_password = generate_password_hash(password)
+    if request.method == "GET":
+        return render_template("register.html", allowed_domains=ALLOWED_DOMAINS, error_message=None)# Pass allowed domains to template
 
-        if not is_valid_email(email):
-            flash("Please enter a valid email address.")
-            return render_template("register.html", email=email, first_name=first_name, last_name=last_name)
+    email = request.form.get("email")
+    password = request.form.get("password")
+    first_name = request.form.get("first_name")
+    last_name = request.form.get("last_name")
+    hashed_password = generate_password_hash(password)
 
-        try:
-            user_data = wag_collection.find_one({"email": email})
-            if user_data:
-                flash("Email already exists")
+    error_message = None
+    if not is_valid_email(email):
+        error_message = "Please enter a valid email address."
+    elif email.split('@')[-1].lower() not in ALLOWED_DOMAINS:
+        error_message = f"Registration is restricted to users from {', '.join(ALLOWED_DOMAINS)}."
+
+    if error_message:
+        return render_template("register.html", allowed_domains=ALLOWED_DOMAINS, error_message=error_message)
+
+    print(f"ALLOWED_DOMAINS in register function: {ALLOWED_DOMAINS}")  # Added debugging line
+
+    if error:
+        return render_template("register.html", error=error, email=email, first_name=first_name, last_name=last_name, allowed_domains=ALLOWED_DOMAINS)
+
+
+    try:
+        user_data = wag_collection.find_one({"email": email})
+        if user_data:
+            flash("Email already exists")
+            return render_template("register.html", email=email, first_name=first_name, last_name=last_name, allowed_domains=ALLOWED_DOMAINS)
+        else:
+            token = generate_verification_token()
+            wag_collection.insert_one({
+                "email": email,
+                "password": hashed_password,
+                "first_name": first_name,
+                "last_name": last_name,
+                "verified": False,
+                "verification_token": token
+            })
+            if send_verification_email(email, token):
+                flash("Registration successful. Please check your email to verify your account.")
             else:
-                token = generate_verification_token()
-                wag_collection.insert_one({
-                    "email": email,
-                    "password": hashed_password,
-                    "first_name": first_name,
-                    "last_name": last_name,
-                    "verified": False,
-                    "verification_token": token
-                })
-                if send_verification_email(email, token):
-                    flash("Registration successful. Please check your email to verify your account.")
-                else:
-                    flash("Error sending verification email. Please try again or contact support.")
-                return redirect(url_for("login"))
-        except pymongo_errors.PyMongoError as e:
-            logging.error(f"Database error during registration: {e}")
-            flash("Database error")
-        except Exception as e:
-            logging.exception(f"Unexpected error during registration: {e}")
-            flash("An unexpected error occurred")
-    return render_template("register.html")
+                flash("Error sending verification email. Please try again or contact support.")
+            return redirect(url_for("login"))
+    except pymongo_errors.PyMongoError as e:
+        logging.error(f"Database error during registration: {e}")
+        flash("Database error")
+        return render_template("register.html", email=email, first_name=first_name, last_name=last_name, allowed_domains=ALLOWED_DOMAINS)
+    except Exception as e:
+        logging.exception(f"Unexpected error during registration: {e}")
+        flash("An unexpected error occurred")
+        return render_template("register.html", email=email, first_name=first_name, last_name=last_name, allowed_domains=ALLOWED_DOMAINS)
 
 def send_verification_email(email, token):
     verification_url = url_for('verify_email', token=token, _external=True)
@@ -265,6 +298,38 @@ def reset(token):
         # if a GET request was made, return the reset form
     return render_template('reset_with_token.html', token=token)
 
+@app.route('/change_password', methods=['GET', 'POST'])
+@login_required
+def change_password():
+    if request.method == 'POST':
+        old_password = request.form['old_password']
+        new_password = request.form['new_password']
+        confirm_new_password = request.form['confirm_new_password']
+
+        user_data = wag_collection.find_one({"_id": ObjectId(current_user.id)})
+        if not user_data:
+            flash("User not found")
+            return redirect(url_for('index'))
+
+        if not check_password_hash(user_data['password'], old_password):
+            flash("Incorrect old password.")
+            return redirect(url_for('change_password'))
+
+        if new_password != confirm_new_password:
+            flash("New passwords do not match.")
+            return redirect(url_for('change_password'))
+
+        # Add password strength validation here if needed (e.g., using a library like `password-strength`)
+
+        hashed_new_password = generate_password_hash(new_password)
+        wag_collection.update_one({"_id": ObjectId(current_user.id)}, {"$set": {"password": hashed_new_password}})
+        flash("Password changed successfully!")
+        return redirect(url_for('index'))
+
+
+    return render_template('change_password.html')
+
+
 @app.route("/logout")
 @login_required
 def logout():
@@ -288,7 +353,7 @@ def keep_recent_entries_efficient(days_to_keep=30): # Default limit - change for
     except Exception as e:
         logging.exception("Error cleaning up entries:")
 
-QUERY_LIMIT = 100  # Default limit - change for production (say 100000)
+QUERY_LIMIT = 5000  # Default limit - change for production (say 100000)
 
 def generate_map_data():
     start_time = time.time()
@@ -296,7 +361,7 @@ def generate_map_data():
     my_map = folium.Map(location=[51.4779, 0.0015], zoom_start=5)
     alerts = []
     today_utc = datetime.now(timezone.utc).date()
-    start_of_two_days_ago_utc = int((datetime(today_utc.year, today_utc.month, today_utc.day, 0, 0, 0, tzinfo=timezone.utc) - timedelta(days=2)).timestamp())
+    start_of_two_days_ago_utc = int((datetime(today_utc.year, today_utc.month, today_utc.day, 0, 0, 0, tzinfo=timezone.utc) - timedelta(days=7)).timestamp())
     end_of_today_utc = int(datetime(today_utc.year, today_utc.month, today_utc.day, 23, 59, 59, tzinfo=timezone.utc).timestamp())
 
     # Query to include events that span over midnight
@@ -327,7 +392,7 @@ def generate_map_data():
             event = description_data.get('event', 'N/A')
             headline = description_data.get('headline', 'N/A')
             instruction = description_data.get('instruction', 'N/A')
-            description = f"<br><b>Language:</b> {language}<br><b>Event:</b> {event}<br><b>Headline:</b> {headline}<br><b>Instruction:</b> {instruction}"
+            description = f"<b>Language:</b> {language}<br><b>Event:</b> {event}<br><b>Headline:</b> {headline}<br><b>Instruction:</b> {instruction}"
             center_lat, center_lon = calculate_center(geometry)
 
             severity_color = {
@@ -437,9 +502,15 @@ def index():
             active_alerts_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             current_date = datetime.now().strftime('%Y-%m-%d')
             alert_count, date_range = get_alert_stats(alerts)
+            alert_counts = {}
+            for alert in alerts:
+                severity = alert['severity']
+                alert_counts[severity] = alert_counts.get(severity, 0) + 1
+
             return render_template('index.html', map_js=map_js, alerts=alerts,
                                    active_alerts_time=active_alerts_time, current_date=current_date,
-                                   alert_count=alert_count, date_range=date_range)
+                                   alert_count=alert_count, date_range=date_range,
+                                   alert_counts=alert_counts) # Pass alert_counts to the template
         except Exception as e:
             logging.exception("Error in index route:")
             return "An error occurred."
