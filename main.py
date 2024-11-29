@@ -353,7 +353,7 @@ def keep_recent_entries_efficient(days_to_keep=1): # Default limit - change for 
     except Exception as e:
         logging.exception("Error cleaning up entries:")
 
-QUERY_LIMIT = 100  # Default limit - change for production (say 100000)
+QUERY_LIMIT = 100000  # Default limit - change for production (say 100000)
 
 def generate_map_data():
     start_time = time.time()
