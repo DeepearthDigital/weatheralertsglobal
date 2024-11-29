@@ -28,8 +28,10 @@ body {
 {% block content %}
     <h1>Reset Password</h1>
     <form method="POST">
+		<div class="form-group">
         <input type="password" name="password" placeholder="New password">
         <input type="password" name="confirm" placeholder="Re-enter password">
+		</div>
 		<div class="d-flex"> 
         <button type="submit" class="btn btn-primary h-spaced-buttons">Update Password</button>
 		</div>
