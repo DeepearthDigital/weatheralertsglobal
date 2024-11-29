@@ -2,6 +2,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Welcome to Weather Alerts Global</title>
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 	<link rel="stylesheet" href="../static/styles.css">
     <style>
 body {
@@ -42,9 +43,12 @@ body {
             <label for="password">Password:</label>
             <input type="password" id="password" name="password" required>
         </div>
-        <input type="submit" value="Login">
-    </form>
-    <a href="{{ url_for('register') }}">Register</a> | <a href="{{ url_for('forgot') }}">Forgot password?</a>
+    <div class="d-flex">  <!-- Important: Add the d-flex class -->
+    <button type="submit" class="btn btn-primary h-spaced-buttons">Login</button>
+    <a href="{{ url_for('register') }}" class="btn btn-primary h-spaced-buttons">Register</a>
+    <a href="{{ url_for('forgot') }}" class="btn btn-primary h-spaced-buttons">Forgot password?</a>
+	</div>
+		</form>
 </div>
 	</div>
 </body>

@@ -341,7 +341,7 @@ def logout():
 cache = TTLCache(maxsize=100000, ttl=60 * 60 * 24)
 
 
-def keep_recent_entries_efficient(days_to_keep=30): # Default limit - change for production (say 2 days - roughly 512mb storage required)
+def keep_recent_entries_efficient(days_to_keep=1): # Default limit - change for production (say 2 days - roughly 512mb storage required)
     try:
         cutoff_time = datetime.now(tz=timezone.utc) - timedelta(days=days_to_keep)
         cutoff_timestamp = int(cutoff_time.timestamp())
@@ -353,7 +353,7 @@ def keep_recent_entries_efficient(days_to_keep=30): # Default limit - change for
     except Exception as e:
         logging.exception("Error cleaning up entries:")
 
-QUERY_LIMIT = 100  # Default limit - change for production (say 100000)
+QUERY_LIMIT = 100000  # Default limit - change for production (say 100000)
 
 def generate_map_data():
     start_time = time.time()
@@ -361,7 +361,7 @@ def generate_map_data():
     my_map = folium.Map(location=[51.4779, 0.0015], zoom_start=5)
     alerts = []
     today_utc = datetime.now(timezone.utc).date()
-    start_of_two_days_ago_utc = int((datetime(today_utc.year, today_utc.month, today_utc.day, 0, 0, 0, tzinfo=timezone.utc) - timedelta(days=7)).timestamp())
+    start_of_two_days_ago_utc = int((datetime(today_utc.year, today_utc.month, today_utc.day, 0, 0, 0, tzinfo=timezone.utc) - timedelta(days=1)).timestamp())
     end_of_today_utc = int(datetime(today_utc.year, today_utc.month, today_utc.day, 23, 59, 59, tzinfo=timezone.utc).timestamp())
 
     # Query to include events that span over midnight
@@ -464,7 +464,7 @@ def scheduled_task():
         logging.exception("Error in scheduled task:")
 
 scheduler = BackgroundScheduler()
-scheduler.add_job(scheduled_task, 'interval', seconds=600) # Update every 10 minutes
+scheduler.add_job(scheduled_task, 'interval', seconds=7200)  # Update every 2 hours
 
 def start_scheduler():
     try:
@@ -493,7 +493,9 @@ def index():
         try:
             keep_recent_entries_efficient()
             map_data = cache.get('map_data')
+            loading = False  # Assume loading is false initially
             if map_data is None:
+                loading = True  # Set loading to True if data needs to be generated
                 map_data = generate_map_data()
                 cache['map_data'] = map_data
 
@@ -510,7 +512,8 @@ def index():
             return render_template('index.html', map_js=map_js, alerts=alerts,
                                    active_alerts_time=active_alerts_time, current_date=current_date,
                                    alert_count=alert_count, date_range=date_range,
-                                   alert_counts=alert_counts) # Pass alert_counts to the template
+                                   alert_counts=alert_counts, loading=loading)
+
         except Exception as e:
             logging.exception("Error in index route:")
             return "An error occurred."

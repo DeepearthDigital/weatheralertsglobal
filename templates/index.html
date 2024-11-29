@@ -19,11 +19,13 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/switchery/0.8.2/switchery.min.js"></script>
 <div id="mapid"></div>
+<div id="loading-screen"></div>
+<div id="loading-message"><div id="login">Gathering Alert Data...</div></div>
 <div id="top-right-panel">
     <div id="login-welcome"><div id="app-title"><h1>Weather Alerts Global</h1></div>
       <h2>Welcome, {{ current_user.first_name }}!</h2>
-		<a href="{{ url_for('logout') }}" class="btn btn-primary">Logout</a>
-		<a href="{{ url_for('change_password') }}" class="btn btn-primary">Change Password</a>	
+		<a href="{{ url_for('logout') }}" class="btn btn-primary h-spaced-buttons">Logout</a>
+		<a href="{{ url_for('change_password') }}" class="btn btn-primary h-spaced-buttons">Change Password</a>	
     </div>
   <div id="alert-count">
         <p>There are <b>{{ alert_count }}</b> live alerts in place covering the period <b>{{ date_range }}</b></p>
@@ -57,6 +59,7 @@
             </tr>
         </tbody>
     </table>
+	<br>
   <p>Light/Dark Mode <input type="checkbox" class="lightdark-switch" /></p>
 </div>
 <script>
@@ -105,6 +108,25 @@
             `<div class="underline">Description</div><span class='description-text'>${alert.description}</span>` +
             `<br><button class="translate">Translate to EN</button></div>`;
     }
+	function handleAlerts() {
+		if (alerts.length > 0) {
+			setTimeout(() => {
+				alerts.forEach(handleAlert);
+				hideLoadingMessage();
+			}, 2000); // Adjust timeout (1 second here)
+
+		} else {
+			setTimeout(() => {
+				if (alerts.length === 0) {
+					console.error("Alerts data not loaded.");
+					$('#loading-message').text('Error loading alert data.').removeClass('hidden');
+				} else {
+					alerts.forEach(handleAlert);
+				}
+				hideLoadingMessage();
+			}, 2000); // Adjust timeout as needed
+		}
+	}
 
     function handleAlert(alert) {
         L.geoJSON(alert.geometry, {
@@ -144,6 +166,10 @@
         }).addTo(map);
     }
 
+	function hideLoadingMessage() {
+    $('#loading-message').addClass('hidden');
+	$('#loading-screen').addClass('hidden');
+}
     function formatKeywords(text) {
     // Define keywords
     const keywords = ["Language", "Event", "Headline", "Instruction"];
@@ -158,6 +184,19 @@
     return text;
 }
 	$(document).ready(function() {
+		const loading = {{ loading|tojson }};
+		const loadingScreen = $('#loading-screen');
+		const loadingMessage = $('#loading-message');
+
+		if (loading) {
+			loadingScreen.addClass('shown');
+			loadingMessage.addClass('shown');
+		}
+
+		handleAlerts();
+		loadingScreen.addClass('hidden');
+		loadingMessage.addClass('hidden');
+
 		alerts.forEach(handleAlert);
 
 		// Draggable panel code

@@ -2,6 +2,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Welcome to Weather Alerts Global</title>
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 	<link rel="stylesheet" href="../static/styles.css">
     <style>
 body {
@@ -54,8 +55,10 @@ body {
                     <label for="password">Password:</label>
                     <input type="password" id="password" name="password" required>
                 </div>
-                <input type="submit" value="Register">
-            </form>
+				<div class="d-flex">
+                <button type="submit" class="btn btn-primary h-spaced-buttons">Register</button>
+            </div>
+				</form>
             <p>Upon successful registration, a verification email will be sent to your email address.</p>
         </div>
     </div>

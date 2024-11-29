@@ -1,18 +1,36 @@
 @charset "UTF-8";
 /* CSS Document */
 
-#login {
-    background-color: white;
-    border: 1px solid #ccc;
-    padding: 15px; /* Added padding for better spacing */
-    border-radius: 10px;
-    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.25);
+#loading-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+	background-image: url('../static/images/roaring-ocean.jpg');
+    background-size: cover; /* Or contain, depending on your image */
+    background-position: center; /* Center the image */
+    z-index: 9998;
+    pointer-events: none;
+	background-color: coral;
 }
-.container {
-  position: relative; /* Needed for absolute positioning of the image */
-  display: flex;       /* Added to center both the logo and login box horizontally */
-  flex-direction: column; /* Stack logo above login form */
-  align-items: center; /* Center horizontally */
+        #loading-message {
+            position: absolute; /* Or fixed, depending on your layout */
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2.5em; /* Big font size */
+            font-weight: bold;
+			z-index: 9999;
+			pointer-events: none;
+}
+        }
+#loading-screen.shown, #loading-message.shown {
+    display: block;
+}
+
+#loading-screen.hidden, #loading-message.hidden {
+    display: none;
 }
 
 .wag-logo {
@@ -22,9 +40,6 @@
   transform: translateX(-50%);
   width: 600px;
   height: 81px;
-}
-    body,td,th {
-    font-family: "Gill Sans", "Gill Sans MT", "Myriad Pro", "DejaVu Sans Condensed", Helvetica, Arial, sans-serif;
 }
 .form-group {
     display: flex;
@@ -55,10 +70,26 @@
 		color: #000000;
     }
 
+
     #mapid {
         flex: 1;
         position: relative; /* Make map a positioning context */
-    }
+		z-index: 1;
+    
+}
+#login {
+    background-color: white;
+    border: 1px solid #000000;
+    padding: 25px;
+    border-radius: 10px;
+    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.25);
+}
+.container {
+  position: relative; /* Needed for absolute positioning of the image */
+  display: flex;       /* Added to center both the logo and login box horizontally */
+  flex-direction: column; /* Stack logo above login form */
+  align-items: center; /* Center horizontally */
+}
 
     #top-right-panel {
     position: absolute;
@@ -154,6 +185,26 @@
 
     body,td,th {
     font-family: Segoe, "Segoe UI", "DejaVu Sans", "Trebuchet MS", Verdana, sans-serif;
-    font-size: 22px;
+    font-size: 18px;
     }
+.h-spaced-buttons {
+  margin-right: 20px; /* Adjust as needed */
+  margin-top: 10px; /* Adjust as needed */
+  margin-bottom: 10px; /* Adjust as needed */	
+}
+h1 {
+  font-size: 2.25em;  /* Size of the heading (em is relative to parent font size) */
+  font-weight: bold; /* Font weight (bold, normal, etc.) */
+  text-align: center; /* Alignment of the text */
+  margin-bottom: 0.5em; /* Spacing below the heading */
+}
+
+h2 {
+  font-size: 1.85em;
+  font-weight: normal; /* Example of different style for h2 */
+  margin-bottom: 0.25em;
+}
+
+
+
 

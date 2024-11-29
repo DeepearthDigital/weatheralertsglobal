@@ -2,10 +2,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Welcome to Weather Alerts Global</title>
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 	<link rel="stylesheet" href="../static/styles.css">
     <style>
 body {
-  background-image: url(../static/images/stormy-sea-art.jpg); /* Your image path */
+  background-image: url(../static/images/drought-by-lake.jpg); /* Your image path */
   background-size: cover; /* Cover the entire viewport */
   background-position: center; /* Center the image */
   background-repeat: no-repeat; /* Prevent image repetition */
@@ -28,7 +29,10 @@ body {
     <h1>Reset Password</h1>
     <form method="POST">
         <input type="email" name="email" placeholder="Your email">
-        <input type="submit" value="Reset Password">
+		<div class="d-flex"> <!-- Important: Add the d-flex class -->
+    <button type="submit" class="btn btn-primary h-spaced-buttons">Reset Password</button>
+	</div>
+	
     </form>	
 {% endblock %}
         </div>
