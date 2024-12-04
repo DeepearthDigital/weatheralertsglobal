@@ -5,10 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Welcome to Weather Alerts Global</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+	<link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+	<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/switchery/0.8.2/switchery.min.css">
 	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 	<link rel="stylesheet" href="../static/styles.css">
@@ -16,8 +14,6 @@
     </style>
 </head>
 <body>
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/switchery/0.8.2/switchery.min.js"></script>
 <div id="mapid"></div>
 <div id="loading-screen"></div>
 <div id="loading-message"><div id="login">Gathering Alert Data...</div></div>
@@ -25,8 +21,10 @@
     <div id="login-welcome"><div id="app-title"><h1>Weather Alerts Global</h1></div>
       <h2>Welcome, {{ current_user.first_name }}!</h2>
 		<a href="{{ url_for('logout') }}" class="btn btn-primary h-spaced-buttons">Logout</a>
-		<a href="{{ url_for('change_password') }}" class="btn btn-primary h-spaced-buttons">Change Password</a>	
-    </div>
+		<a href="{{ url_for('change_password') }}" class="btn btn-primary h-spaced-buttons">Change Password</a>
+		<button id="createAlertButton" class="btn btn-primary h-spaced-buttons">Create Alert Zone Notification</button>
+		<button id="showAlertsButton" class="btn btn-primary h-spaced-buttons">Show Active Alert Notifications Zone</button>
+	</div>
   <div id="alert-count">
         <p>There are <b>{{ alert_count }}</b> live alerts in place covering the period <b>{{ date_range }}</b></p>
   </div>
@@ -61,8 +59,43 @@
     </table>
 	<br>
   <p>Light/Dark Mode <input type="checkbox" class="lightdark-switch" /></p>
+	
 </div>
+	
+<div id="createAlertModal" class="modal fade" role="dialog">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h4 class="modal-title">Create Alert</h4>
+        <button type="button" class="close" data-dismiss="modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="text" id="alertName" placeholder="Alert Name" class="form-control mb-2"><br>
+        <textarea id="alertDescription" placeholder="Describe your alert" class="form-control mb-2"></textarea><br>
+        <div id="alertZonePreview">
+          <!-- GeoJSON preview will go here -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+        <button type="button" id="createAlertSubmit" class="btn btn-primary">Create</button>
+      </div>
+    </div>
+  </div>
+</div>
+	
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/switchery/0.8.2/switchery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 <script>
+$(document).ready(function() {
+    console.log("Document ready");
+    console.log($('#createAlertModal').length); // Check if element exists
+
 	  var map = L.map('mapid').setView([51.4779, 0.0015], 5);
 		// Set maximum bounds (adjust these values as needed)
 		var southWest = L.latLng(-90, -180);
@@ -88,15 +121,53 @@
 	  voyagerLayer.addTo(map);
 
     var alerts = {{ alerts|safe }};
+    let drawnItems = new L.FeatureGroup();
+    map.addLayer(drawnItems);
 
-    function createTooltipContent(alert) {
-		    const severityColor = {
-        Minor: "#00FF00",
-        Moderate: "#FFA500",
-        Severe: "#FF0000",
-        Extreme: "#313131"
-    }[alert.severity] || "#FF0000"; // Default to red if severity is unknown
-        return `<div class="my-tooltip" data-severity="${alert.severity}" style="border-color: ${severityColor};"><div class="underline">Alert Details</div>` +
+    let drawControl = new L.Control.Draw({
+        position: 'topleft',
+        draw: {
+            polygon: {
+                allowIntersection: false,
+                showArea: true,
+                drawError: {
+                    color: '#b00b00',
+                    timeout: 1000
+                },
+                shapeOptions: {
+                    color: '#bada55'
+                }
+            },
+            rectangle: {
+                shapeOptions: {
+                    color: '#bada55'
+                }
+            },
+            polyline: false,
+            circle: false,
+            marker: false,
+            circlemarker: false
+        },
+        edit: {
+            featureGroup: drawnItems
+        }
+    });
+    map.addControl(drawControl);
+
+  $('#openModalButton').click(function() {
+      $('#createAlertModal').modal('show');
+  });
+	
+    function createAlertTooltipContent(alert) {
+        const severityColor = {
+            Minor: "#00FF00",
+            Moderate: "#FFA500",
+            Severe: "#FF0000",
+            Extreme: "#313131",
+			Unknown: "#313131"
+        }[alert.severity] || "#FF0000";
+        return `<div class="my-tooltip" data-severity="${alert.severity}" style="border-color: ${severityColor};">` +
+            `<div class="underline"><h3>Alert Details</h3></div>` +
             `<b>Message Type:</b> ${alert.msg_type}<br>` +
             `<b>Categories:</b> ${alert.categories.join(', ')}<br>` +
             `<b>Urgency:</b> ${alert.urgency}<br>` +
@@ -105,28 +176,28 @@
             `<b>Start:</b> ${moment.unix(alert.start).format('YYYY-MM-DD HH:mm:ss UTC')}<br>` +
             `<b>End:</b> ${moment.unix(alert.end).format('YYYY-MM-DD HH:mm:ss UTC')}<br>` +
             `<b>Sender:</b> ${alert.sender}<br>` +
-            `<div class="underline">Description</div><span class='description-text'>${alert.description}</span>` +
-            `<br><button class="translate">Translate to EN</button></div>`;
+            `<div class="underline"><h3>Description</h3></div><span class='description-text'>${alert.description}</span>` +
+            `<br><button type="submit" class="btn btn-primary h-spaced-buttons translate">Translate to EN</button></div>`;
     }
-	function handleAlerts() {
-		if (alerts.length > 0) {
-			setTimeout(() => {
-				alerts.forEach(handleAlert);
-				hideLoadingMessage();
-			}, 2000); // Adjust timeout (1 second here)
 
-		} else {
-			setTimeout(() => {
-				if (alerts.length === 0) {
-					console.error("Alerts data not loaded.");
-					$('#loading-message').text('Error loading alert data.').removeClass('hidden');
-				} else {
-					alerts.forEach(handleAlert);
-				}
-				hideLoadingMessage();
-			}, 2000); // Adjust timeout as needed
-		}
-	}
+    function handleAlerts() {
+        if (alerts.length > 0) {
+            setTimeout(() => {
+                alerts.forEach(handleAlert);
+                hideLoadingMessage();
+            }, 2000);
+        } else {
+            setTimeout(() => {
+                if (alerts.length === 0) {
+                    console.error("Alerts data not loaded.");
+                    $('#loading-message').text('Error loading alert data.').removeClass('hidden');
+                } else {
+                    alerts.forEach(handleAlert);
+                }
+                hideLoadingMessage();
+            }, 2000);
+        }
+    }
 
     function handleAlert(alert) {
         L.geoJSON(alert.geometry, {
@@ -140,20 +211,20 @@
                 };
             },
             onEachFeature: function(feature, layer) {
-                layer.bindPopup(createTooltipContent(alert), {autoClose: false, maxWidth: maxWidth});
-            layer.on('click', function() {
-                this.openPopup();
-                // Get the popup and style it based on the severity.
-                const severity = $(this._popup._content).find('.my-tooltip').data('severity');
-                const popupWrapper = this._popup._wrapper;
-                const severityColor = {
-                  Minor: "#00FF00",
-                  Moderate: "#FFA500",
-                  Severe: "#FF0000",
-                  Extreme: "#313131"
-                }[severity] || "#FF0000";
-                $(popupWrapper).find('.leaflet-popup-content-wrapper').addClass('severity-popup').css('background', severityColor + ' !important');
-            });
+                layer.bindPopup(createAlertTooltipContent(alert), {autoClose: false, maxWidth: maxWidth});
+                layer.on('click', function() {
+                    this.openPopup();
+                    const severity = $(this._popup._content).find('.my-tooltip').data('severity');
+                    const popupWrapper = this._popup._wrapper;
+                    const severityColor = {
+                        Minor: "#00FF00",
+                        Moderate: "#FFA500",
+                        Severe: "#FF0000",
+                        Extreme: "#313131",
+						Unknown: "#313131"
+                    }[severity] || "#FF0000";
+                    $(popupWrapper).find('.leaflet-popup-content-wrapper').addClass('severity-popup').css('background', severityColor + ' !important');
+                });
                 layer.on({
                     mouseover: function() {
                         this.setStyle({fillOpacity: 0.2});
@@ -166,134 +237,366 @@
         }).addTo(map);
     }
 
-	function hideLoadingMessage() {
-    $('#loading-message').addClass('hidden');
-	$('#loading-screen').addClass('hidden');
-}
-    function formatKeywords(text) {
-    // Define keywords
-    const keywords = ["Language", "Event", "Headline", "Instruction"];
-
-    // Loop through each keyword and replace it in the text
-    for(let keyword of keywords) {
-        // Use a regular expression to replace the keyword with itself wrapped in <b> tag followed by a colon and a line break
-        const reg = new RegExp(`(${keyword}:)`, 'g');
-        text = text.replace(reg, '<br><b>' + '$1' + '</b>');
+    function hideLoadingMessage() {
+        $('#loading-message').addClass('hidden');
+        $('#loading-screen').addClass('hidden');
     }
 
-    return text;
-}
-	$(document).ready(function() {
-		const loading = {{ loading|tojson }};
-		const loadingScreen = $('#loading-screen');
-		const loadingMessage = $('#loading-message');
+    function formatKeywords(text) {
+        const keywords = ["Language", "Event", "Headline", "Instruction"];
+        for (let keyword of keywords) {
+            const reg = new RegExp(`(${keyword}:)`, 'g');
+            text = text.replace(reg, '<br><b>' + '$1' + '</b>');
+        }
+        return text;
+    }
 
-		if (loading) {
-			loadingScreen.addClass('shown');
-			loadingMessage.addClass('shown');
-		}
 
-		handleAlerts();
-		loadingScreen.addClass('hidden');
-		loadingMessage.addClass('hidden');
+    const loading = {{ loading|tojson }};
+    const loadingScreen = $('#loading-screen');
+    const loadingMessage = $('#loading-message');
 
-		alerts.forEach(handleAlert);
+    if (loading) {
+        loadingScreen.addClass('shown');
+        loadingMessage.addClass('shown');
+    }
 
-		// Draggable panel code
-		let isDragging = false;
-		let offsetX, offsetY;
+    handleAlerts();
+    loadingScreen.addClass('hidden');
+    loadingMessage.addClass('hidden');
 
-		$('#top-right-panel').mousedown(function(e) {
-			isDragging = true;
-			offsetX = e.clientX - $(this).offset().left;
-			offsetY = e.clientY - $(this).offset().top;
-		});
+    //alerts.forEach(handleAlert);
 
-		$(document).mousemove(function(e) {
-			if (isDragging) {
-				let x = e.clientX - offsetX;
-				let y = e.clientY - offsetY;
 
-				// Set minimum offsets to prevent panel from going off-screen
-				let minX = 0;
-				let minY = 0;
+    // Draggable panel code (unchanged)
+    let isDragging = false;
+    let offsetX, offsetY;
 
-				x = Math.max(minX, x);
-				y = Math.max(minY, y);
+    $('#top-right-panel').mousedown(function(e) {
+        isDragging = true;
+        offsetX = e.clientX - $(this).offset().left;
+        offsetY = e.clientY - $(this).offset().top;
+    });
 
-				$('#top-right-panel').offset({ left: x, top: y });
-			}
-		});
-
-		$(document).mouseup(function() {
-			isDragging = false;
-		});
-		
-	$('.lightdark-switch').change(function() {
-	  if ($(this).is(':checked')) {
-		darkLayer.addTo(map);
-		map.removeLayer(voyagerLayer); // Change map style
-
-		// Set dark mode styles
-		  
-		$('#top-right-panel').css({
-		  'background-color': '#333', // Panel background
-		  'color': '#eee',             // Panel text
-		  'border': '1px solid #ccc'
-		});
-		$('.square').css({
-		  'color': '#000000'             // Panel text
-		});
-		$('.text-severe-extreme').css({
-		  'color': '#FFFFFF'             // Panel text
-		});
-		$('.my-tooltip').css({
-		  'color': '#FFFFFF',             // Panel text
-		  'background-color': '#333'
-		});
-		$('body').css('color', '#eee'); // Body text
-
-	  } else {
-		voyagerLayer.addTo(map);
-		map.removeLayer(darkLayer); // Change map style
-
-		// Set light mode styles
-		  
-		$('#top-right-panel').css({
-		  'background-color': 'white', // Panel background
-		  'color': '#000000',             // Panel text
-		  'border': '1px solid #000000'
-		});
-		$('.square').css({
-		  'color': '#000000'             // Panel text
-		});
-		$('.text-severe-extreme').css({
-		  'color': '#FFFFFF'             // Panel text
-		});
-		$('.my-tooltip').css({
-		  'color': '#000000',             // Panel text
-		  'background-color': '#FFFFFF'
-		});
-		$('body').css('color', '#333'); // Body text
-	  }
-	});
-
-$(document).on('click', '.translate', function() {
-    var descriptionElement = $(this).parents('.my-tooltip').find('.description-text');
-    var text = descriptionElement.text();
-
-    $.get('/translate', {text: text}, function(response) {
-        if (response && response.translated_text) {
-            var formattedText = formatKeywords(response.translated_text);
-            descriptionElement.html(formattedText);
+    $(document).mousemove(function(e) {
+        if (isDragging) {
+            let x = e.clientX - offsetX;
+            let y = e.clientY - offsetY;
+            let minX = 0;
+            let minY = 0;
+            x = Math.max(minX, x);
+            y = Math.max(minY, y);
+            $('#top-right-panel').offset({left: x, top: y});
         }
     });
-});
+
+    $(document).mouseup(function() {
+        isDragging = false;
     });
-  var elems = Array.prototype.slice.call(document.querySelectorAll('.lightdark-switch'));
-  elems.forEach(function(html) {
-    var switchery = new Switchery(html);
-  });
+
+
+	if ($('#createAlertModal').length > 0) {
+		$('#createAlertButton').click(function() {
+			setTimeout(function() {
+				console.log("Showing modal (setTimeout)");
+				$('#createAlertModal').modal('show');
+			}, 100);
+		});
+
+		// Function to update the alert zone preview
+		function updateAlertZonePreview() {
+			const geojson = drawnItems.toGeoJSON();
+			if (geojson.features.length > 0) {
+				const preview = L.geoJSON(geojson, {
+					style: {
+						fillColor: 'lightblue',
+						color: '#000',
+						weight: 1,
+						fillOpacity: 0.5
+					}
+				});
+				$('#alertZonePreview').html(`<p><b>Preview of your alert zone:</b></p>`);
+				preview.addTo(map);
+				map.fitBounds(preview.getBounds());
+			} else {
+				$('#alertZonePreview').html('<p>Draw an alert zone on the map.</p>');
+			}
+		}
+
+		map.on('draw:created', function(e) {
+			console.log("draw:created event:", e);
+			const layer = e.layer;
+			drawingLayer.addLayer(e.layer);
+			drawnItems.addLayer(layer); 
+			updateAlertZonePreview();
+		});
+
+		map.on('draw:edited', function(e) {
+			console.log("draw:edited event:", e);
+			updateAlertZonePreview();
+		});
+
+		map.on('draw:deleted', function(e) {
+			console.log("draw:deleted event:", e);
+			updateAlertZonePreview();
+		});
+
+		let drawingLayer = new L.FeatureGroup();
+		map.addLayer(drawingLayer);
+
+		// Alert creation handler
+		$('#createAlertSubmit').click(function() {
+			const alertName = $('#alertName').val();
+			const description = $('#alertDescription').val();
+
+			if (!alertName) {
+				alert("Please enter an alert name.");
+				return;
+			}
+
+			const geojson = drawingLayer.toGeoJSON(); // Get GeoJSON from drawingLayer
+			console.log("GeoJSON data being sent:", geojson);
+
+			if (geojson.features.length === 0) {
+				alert("Please draw an alert zone on the map first.");
+				return;
+			}
+
+			// Basic GeoJSON validation
+			if (!geojson.features[0].geometry || !geojson.features[0].geometry.coordinates || geojson.features[0].geometry.coordinates.length === 0) {
+				alert('Invalid GeoJSON data. Please try again.');
+				return;
+			}
+
+
+			$.ajax({
+				type: "POST",
+				url: "/create_alert_zone",
+				contentType: "application/json",
+				data: JSON.stringify({geojson: geojson, alert_description: description, alert_name: alertName}),
+				success: function(response) {
+					alert(`Alert '${alertName}' created successfully! (ID: ${response.alert_id})`);
+					drawingLayer.clearLayers(); // Clear the drawing layer
+					$('#createAlertModal').modal('hide');
+					$('#alertName').val('');
+					$('#alertDescription').val('');
+					$('#alertZonePreview').empty();
+					// Optionally, re-fetch and redraw alerts here
+					showAlertsButton.click();
+				},
+				error: function(xhr, status, errorThrown) {
+					console.error("Error creating alert:", status, errorThrown, xhr.responseText, xhr);
+					let errorMessage = "Error creating alert.";
+					if (xhr.responseJSON && xhr.responseJSON.error) {
+						errorMessage = `Error creating alert: ${xhr.responseJSON.error}`;
+					}
+					alert(errorMessage);
+				}
+			});
+		});
+	} else {
+		console.error("Modal element not found!");
+	}
+	
+	
+	let showAlerts = false;
+	const showAlertsButton = $('#showAlertsButton');
+
+	showAlertsButton.click(function() {
+		showAlerts = !showAlerts; // Toggle showAlerts state
+		if (showAlerts) {
+			loadAlerts(); // Separate function to load alerts
+			showAlertsButton.text("Hide Active Alert Notifications Zone");
+		} else {
+			drawnItems.clearLayers();
+			showAlertsButton.text("Show Active Alert Notifications Zone");
+		}
+	});
+
+	function loadAlerts() {
+		$.ajax({
+			type: "GET",
+			url: "/get_user_alerts",
+			success: function(response) {
+				drawnItems.clearLayers();
+				if (response.alerts && response.alerts.length > 0) {
+					response.alerts.forEach(addAlertToMap);
+					map.fitBounds(drawnItems.getBounds());
+				} else {
+					alert("No active alert zones found for this user.");
+				}
+			},
+			error: function(xhr, status, errorThrown) {
+				console.error("AJAX error:", status, errorThrown, xhr);
+				let errorMessage = "Error fetching active alert zones.";
+				if (xhr.responseJSON && xhr.responseJSON.error) {
+					errorMessage = xhr.responseJSON.error;
+				}
+				alert(errorMessage);
+			}
+		});
+	}
+
+	function addAlertToMap(alert) {
+		return new Promise((resolve, reject) => {
+			const geometry = alert.geometry || {};
+			const color = alert.color || 'lightblue';
+
+			if (geometry.type && geometry.coordinates && geometry.coordinates.length > 0) {
+				let leafletGeoJSON;
+				if (geometry.type === 'Polygon') {
+					leafletGeoJSON = L.polygon(geometry.coordinates[0].map(coord => [coord[1], coord[0]]), {
+						color: '#000',
+						weight: 2,
+						fillColor: color,
+						fillOpacity: 0.7
+					});
+				} else if (geometry.type === 'Point') {
+					leafletGeoJSON = L.marker([geometry.coordinates[1], geometry.coordinates[0]]);
+				} else {
+					console.warn("Unsupported geometry type:", geometry.type);
+					reject("Unsupported geometry type"); // Reject the promise if unsupported
+					return;
+				}
+
+				leafletGeoJSON.bindPopup(createAlertZonePopupContent(alert), { autoClose: false, maxWidth: maxWidth });
+				leafletGeoJSON.on({
+					mouseover: function(e) {
+						e.target.setStyle({fillOpacity: 0.9});
+					},
+					mouseout: function(e) {
+						e.target.setStyle({fillOpacity: 0.7});
+					}
+				});
+				leafletGeoJSON.addTo(drawnItems);
+				leafletGeoJSON.alertId = alert._id;
+				resolve(); // Resolve the promise after adding to the map
+			} else {
+				console.warn("Invalid geometry data in alert:", alert);
+				reject("Invalid geometry data"); // Reject promise if invalid data
+			}
+		});
+	}
+	
+    function createAlertZonePopupContent(alert) {
+        let deleteButton = `<button class="btn btn-primary h-spaced-buttons delete-alert-button" data-alert-id="${alert._id}">Delete Alert Notification Zone</button>`;
+        return `<div class="my-tooltip"><h3>${alert.alert_name}</h3><p>${alert.alert_description}</p></div>` + deleteButton;
+    }
+
+    map.on('popupopen', function(e) {
+        const popup = e.popup;
+        const popupContent = popup.getElement();
+        const deleteButton = popupContent.querySelector('.delete-alert-button');
+        const layer = e.popup._source; // Get the layer from the popup event
+        const alertId = layer.alertId; // Access the alertId from the layer
+
+        if (deleteButton) {
+            deleteButton.addEventListener('click', function() {
+                if (confirm(`Are you sure you want to delete alert zone with ID: ${alertId}?`)) {
+                    $.ajax({
+                        type: "DELETE",
+                        url: `/delete_alert_zone/${alertId}`,
+                        success: function(response) {
+                            alert("Alert zone deleted successfully!");
+                            drawnItems.removeLayer(layer); // Remove the specific layer
+                            popup.remove();
+                            // showAlertsButton.click(); // Avoid reloading all alerts, inefficient
+                        },
+                        error: function(error) {
+                            alert("Error deleting alert zone: " + error.responseText);
+                            console.error("Error:", error);
+                        }
+                    });
+                }
+            });
+        }
+    });
+
+
+
+    $('.lightdark-switch').change(function() {
+        if ($(this).is(':checked')) {
+            darkLayer.addTo(map);
+            map.removeLayer(voyagerLayer);
+            $('#top-right-panel').css({
+                'background-color': '#333',
+                'color': '#eee',
+                'border': '1px solid #ccc'
+            });
+            $('.square').css({'color': '#000000'});
+            $('.text-severe-extreme').css({'color': '#FFFFFF'});
+            $('.my-tooltip').css({'color': '#FFFFFF', 'background-color': '#333'});
+            $('body').css('color', '#eee');
+        } else {
+            voyagerLayer.addTo(map);
+            map.removeLayer(darkLayer);
+            $('#top-right-panel').css({
+                'background-color': 'white',
+                'color': '#000000',
+                'border': '1px solid #000000'
+            });
+            $('.square').css({'color': '#000000'});
+            $('.text-severe-extreme').css({'color': '#FFFFFF'});
+            $('.my-tooltip').css({'color': '#000000', 'background-color': '#FFFFFF'});
+            $('body').css('color', '#333');
+        }
+    });
+
+    $(document).on('click', '.translate', function() {
+        var descriptionElement = $(this).parents('.my-tooltip').find('.description-text');
+        var text = descriptionElement.text();
+        $.get('/translate', {text: text}, function(response) {
+            if (response && response.translated_text) {
+                var formattedText = formatKeywords(response.translated_text);
+                descriptionElement.html(formattedText);
+            }
+        });
+    });
+
+    var elems = Array.prototype.slice.call(document.querySelectorAll('.lightdark-switch'));
+    elems.forEach(function(html) {
+        var switchery = new Switchery(html);
+    });
+});
+	
+  const taskId = "{{ task_id }}";  // Get the task ID from the Flask template
+  let loading = true;
+  if (!taskId) {
+    loading = false; // No task means no need for loading
+  }
+
+  if (loading) {
+    // Display loading indicator, then check for completion via ajax
+    const checkTaskStatus = () => {
+      $.ajax({
+        url: `/task_status/${taskId}`, // Route to check task status
+        type: 'GET',
+        success: (data) => {
+          if (data.status === 'PENDING' || data.status === 'STARTED') {
+            setTimeout(checkTaskStatus, 1000); // Check again in 1 second
+          } else if (data.status === 'SUCCESS') {
+            location.reload(); // Reload page when map data is ready.
+          } else {
+            console.error("Task failed:", data.result);
+            alert('Error: Could not generate map. Please try again later.');
+            loading = false;
+          }
+        },
+        error: (error) => {
+          console.error("Error checking task status:", error);
+          alert('Error: Could not check task status. Please try again later.');
+          loading = false;
+        }
+      });
+    };
+    checkTaskStatus();
+  }
+
+  //Loading indicator  
+  if(loading){
+    //Add spinner or message here
+    document.getElementById('map').innerHTML = '<div>Generating map...</div>' ;  
+  }
 </script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 # main.py
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify,  current_app, make_response
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, current_app, make_response
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from pymongo import MongoClient, errors as pymongo_errors
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -26,7 +26,7 @@ import threading
 import logging
 import geojson
 from tasks import celery
-
+from tasks import generate_map_data_task
 
 load_dotenv()
 app = Flask(__name__)
@@ -82,9 +82,8 @@ finally:
     print("\nIndex information:")
     print(owa_collection.index_information())
 
-
 allowed_domains_str = os.getenv('ALLOWED_DOMAINS')
-print(f"Environment variable ALLOWED_DOMAINS: {allowed_domains_str}") # Added debugging line
+print(f"Environment variable ALLOWED_DOMAINS: {allowed_domains_str}")  # Added debugging line
 
 ALLOWED_DOMAINS = set()
 for i in range(1, 100):  # Adjust 100 to a sufficiently large number
@@ -98,14 +97,16 @@ if not ALLOWED_DOMAINS:
     ALLOWED_DOMAINS = {"example.com"}  # Default
     logging.warning("Environment variable ALLOWED_DOMAINS not set. Using default domains.")
 
-print(f"ALLOWED_DOMAINS set: {ALLOWED_DOMAINS}") # Added debugging line
+print(f"ALLOWED_DOMAINS set: {ALLOWED_DOMAINS}")  # Added debugging line
 
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "login"
 
+
 def generate_verification_token():
     return secrets.token_urlsafe(32)
+
 
 class User(UserMixin):
     def __init__(self, user_id, email, password, first_name, last_name, verified=False):
@@ -122,7 +123,9 @@ class User(UserMixin):
     @staticmethod
     def get(user_id):
         try:
-            user_data = wag_collection.find_one({"_id": ObjectId(user_id)}, {"_id": 1, "email": 1, "password": 1, "first_name": 1, "last_name": 1, "verified": 1})
+            user_data = wag_collection.find_one({"_id": ObjectId(user_id)},
+                                                {"_id": 1, "email": 1, "password": 1, "first_name": 1, "last_name": 1,
+                                                 "verified": 1})
             if user_data:
                 user = User(str(user_data["_id"]), user_data["email"], user_data["password"],
                             user_data["first_name"], user_data["last_name"], user_data["verified"])
@@ -135,9 +138,11 @@ class User(UserMixin):
             logging.exception(f"Unexpected error fetching user: {e}")
             return None
 
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.get(user_id)
+
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -179,28 +184,31 @@ def register():
     last_name = request.form.get("last_name")
     hashed_password = generate_password_hash(password)
 
-    error = None # Define error variable
-    error_message = None # Better variable name for displaying to the user
+    error = None  # Define error variable
+    error_message = None  # Better variable name for displaying to the user
     if not is_valid_email(email):
         error_message = "Please enter a valid email address."
-        error = True # Set error if validation fails
+        error = True  # Set error if validation fails
     elif email.split('@')[-1].lower() not in ALLOWED_DOMAINS:
         error_message = f"Registration is restricted to users from {', '.join(ALLOWED_DOMAINS)}."
-        error = True # Set error if domain is invalid
+        error = True  # Set error if domain is invalid
 
     if error:  # Now error is defined
-        return render_template("register.html", allowed_domains=ALLOWED_DOMAINS, error_message=error_message, email=email, first_name=first_name, last_name=last_name)
+        return render_template("register.html", allowed_domains=ALLOWED_DOMAINS, error_message=error_message,
+                               email=email, first_name=first_name, last_name=last_name)
 
     print(f"ALLOWED_DOMAINS in register function: {ALLOWED_DOMAINS}")  # Added debugging line
 
     if error:
-        return render_template("register.html", error=error, email=email, first_name=first_name, last_name=last_name, allowed_domains=ALLOWED_DOMAINS)
+        return render_template("register.html", error=error, email=email, first_name=first_name, last_name=last_name,
+                               allowed_domains=ALLOWED_DOMAINS)
 
     try:
         user_data = wag_collection.find_one({"email": email})
         if user_data:
             flash("Email already exists")
-            return render_template("register.html", email=email, first_name=first_name, last_name=last_name, allowed_domains=ALLOWED_DOMAINS)
+            return render_template("register.html", email=email, first_name=first_name, last_name=last_name,
+                                   allowed_domains=ALLOWED_DOMAINS)
         else:
             token = generate_verification_token()
             wag_collection.insert_one({
@@ -219,11 +227,14 @@ def register():
     except pymongo_errors.PyMongoError as e:
         logging.error(f"Database error during registration: {e}")
         flash("Database error")
-        return render_template("register.html", email=email, first_name=first_name, last_name=last_name, allowed_domains=ALLOWED_DOMAINS)
+        return render_template("register.html", email=email, first_name=first_name, last_name=last_name,
+                               allowed_domains=ALLOWED_DOMAINS)
     except Exception as e:
         logging.exception(f"Unexpected error during registration: {e}")
         flash("An unexpected error occurred")
-        return render_template("register.html", email=email, first_name=first_name, last_name=last_name, allowed_domains=ALLOWED_DOMAINS)
+        return render_template("register.html", email=email, first_name=first_name, last_name=last_name,
+                               allowed_domains=ALLOWED_DOMAINS)
+
 
 def send_verification_email(email, token):
     verification_url = url_for('verify_email', token=token, _external=True)
@@ -257,9 +268,11 @@ def verify_email(token):
         flash("Invalid verification token.")
         return redirect(url_for("login"))
 
+
 def is_valid_email(email):
     email_regex = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
     return re.match(email_regex, email) is not None
+
 
 def send_password_reset_email(email, token):
     reset_url = url_for('reset', token=token, _external=True)
@@ -281,6 +294,7 @@ def send_password_reset_email(email, token):
     except Exception as e:
         logging.exception(f"Unexpected error sending password reset email: {e}")
         return False
+
 
 @app.route('/forgot', methods=['GET', 'POST'])
 def forgot():
@@ -320,6 +334,7 @@ def reset(token):
         # if a GET request was made, return the reset form
     return render_template('reset_with_token.html', token=token)
 
+
 @app.route('/change_password', methods=['GET', 'POST'])
 @login_required
 def change_password():
@@ -348,7 +363,6 @@ def change_password():
         flash("Password changed successfully!")
         return redirect(url_for('index'))
 
-
     return render_template('change_password.html')
 
 
@@ -367,10 +381,12 @@ cache_lock = threading.Lock()
 # Trim the database
 QUERY_LIMIT = 100
 
+
 def keep_recent_entries_efficient():  # Deletes entries older than last midnight UTC
     try:
         today_utc = datetime.now(tz=timezone.utc)
-        yesterday_midnight_timestamp = int((today_utc.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)).timestamp())
+        yesterday_midnight_timestamp = int(
+            (today_utc.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)).timestamp())
         result = owa_collection.delete_many({"$or": [
             {"start": {"$lt": yesterday_midnight_timestamp}},
             {"end": {"$lt": yesterday_midnight_timestamp}}
@@ -378,85 +394,6 @@ def keep_recent_entries_efficient():  # Deletes entries older than last midnight
         logging.info(f"Deleted {result.deleted_count} entries older than midnight UTC yesterday.")
     except Exception as e:
         logging.exception("Error cleaning up entries:")
-
-def generate_map_data(future_days=3):
-    start_time = time.time()
-    logging.info("Generating map data...")
-    my_map = folium.Map(location=[51.4779, 0.0015], zoom_start=5)
-    alerts = []
-    today_utc = datetime.now(timezone.utc)
-    yesterday_midnight_timestamp = int((today_utc.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)).timestamp())
-    future_timestamp = int((today_utc + timedelta(days=future_days)).timestamp())
-
-    cursor = owa_collection.find({"$or": [
-        {"start": {"$gte": yesterday_midnight_timestamp, "$lte": future_timestamp}},
-        {"end": {"$gte": yesterday_midnight_timestamp, "$lte": future_timestamp}}
-    ]}).limit(QUERY_LIMIT)
-
-    explanation = cursor.explain()
-    logging.info(f"Query explanation:\n{json.dumps(explanation['executionStats'], indent=2)}")  # Log executionStats BEFORE iterating
-
-    for alert_data in cursor:
-        try:
-            alert = alert_data['alert']
-            geometry = alert['geometry']
-            msg_type = alert_data['msg_type']
-            categories = alert_data['categories']
-            urgency = alert_data['urgency']
-            severity = alert_data['severity']
-            certainty = alert_data['certainty']
-            start_timestamp = alert_data['start']
-            end_timestamp = alert_data['end']
-            sender = alert_data['sender']
-            description_data = alert_data['description'][0]
-            language = description_data.get('language', 'N/A')
-            event = description_data.get('event', 'N/A')
-            headline = description_data.get('headline', 'N/A')
-            instruction = description_data.get('instruction', 'N/A')
-            description = f"<b>Language:</b> {language}<br><b>Event:</b> {event}<br><b>Headline:</b> {headline}<br><b>Instruction:</b> {instruction}"
-            center_lat, center_lon = calculate_center(geometry)
-
-            severity_color = {
-                'Minor': '#00FF00',
-                'Moderate': '#FFA500',
-                'Severe': '#FF0000',
-                'Extreme': '#313131',
-                'Unknown': '#313131'
-            }
-            color = severity_color.get(severity, '#313131')
-
-            alerts.append({
-                'name': f"Alert ({datetime.fromtimestamp(start_timestamp).strftime('%Y-%m-%d %H:%M:%S UTC')} - {datetime.fromtimestamp(end_timestamp).strftime('%Y-%m-%d %H:%M:%S UTC')})",
-                'lat': center_lat,
-                'lon': center_lon,
-                'geometry': geometry,
-                'msg_type': msg_type,
-                'categories': categories,
-                'urgency': urgency,
-                'severity': severity,
-                'certainty': certainty,
-                'start': start_timestamp,
-                'end': end_timestamp,
-                'sender': sender,
-                'description': description,
-                'color': color
-            })
-
-            folium.GeoJson(geometry, style_function=lambda x: {'fillColor': color, 'color': '#000000', 'weight': 1, 'dashArray': '', 'fillOpacity': 0.5}, name=f"Alert ").add_to(my_map)
-
-        except Exception as e:
-            logging.exception("Critical error generating map data:")
-            return None  # Indicate failure
-
-        except (KeyError, TypeError, IndexError) as e:
-            logging.exception(f"Error processing alert data from MongoDB: {e}")
-
-    folium.LayerControl().add_to(my_map)
-    map_js = my_map.get_root().render()
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-    logging.info(f"Map data generated in {elapsed_time:.4f} seconds.")  # End log message with elapsed time
-    return {'map_js': map_js, 'alerts': alerts}
 
 
 def calculate_center(geometry):
@@ -479,50 +416,73 @@ def calculate_center(geometry):
             center_lon = geometry['coordinates'][0]
     return center_lat, center_lon
 
+
 @app.route("/")
 def index():
-    logging.info(f"Index page accessed by user: {current_user.email if current_user.is_authenticated else 'Anonymous User'}")
+    logging.info(
+        f"Index page accessed by user: {current_user.email if current_user.is_authenticated else 'Anonymous User'}")
     if current_user.is_authenticated:
         try:
-            map_data = cache.get('map_data')
-            loading = False
-            if map_data is None:  # Cache miss
+            task = generate_map_data_task.delay(3)  # Launch the Celery task
+            task_id = task.id
+            # Check for completion, and set loading to False when done
+            result = task.get(timeout=1)  # Check for completion after 1s, can be longer
+            if result:
+                loading = False
+                map_data = result
+                alerts = map_data['alerts']
+                map_js = map_data['map_js']
+                active_alerts_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                current_date = datetime.now().strftime('%Y-%m-%d')
+                alert_count, date_range = get_alert_stats(alerts)
+                alert_counts = {}
+                for alert in alerts:
+                    severity = alert['severity']
+                    alert_counts[severity] = alert_counts.get(severity, 0) + 1
+
+                return render_template('index.html', map_js=map_js, alerts=alerts,
+                                       active_alerts_time=active_alerts_time, current_date=current_date,
+                                       alert_count=alert_count, date_range=date_range,
+                                       alert_counts=alert_counts, loading=loading)
+            else:
                 loading = True
-                # Acquire the lock before updating the cache
-                with cache_lock:
-                    # Double-check in case another thread already updated the cache
-                    map_data = cache.get('map_data')
-                    if map_data is None:
-                        map_data = generate_map_data()
-                        if map_data:  # Only cache if generation succeeded
-                            cache['map_data'] = map_data
-                        else:
-                            # Handle the error from generate_map_data appropriately.
-                            # This could be a flash message or a fallback to default data
-                            flash("Error fetching map data. Please try again later.")
-                            map_data = {'map_js': "", 'alerts': []} # Fallback to empty data
+                map_data = {'map_js': '', 'alerts': []}  # Show empty map
 
-            alerts = map_data['alerts']
-            map_js = map_data['map_js']
-            active_alerts_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            current_date = datetime.now().strftime('%Y-%m-%d')
-            alert_count, date_range = get_alert_stats(alerts)
-            alert_counts = {}
-            for alert in alerts:
-                severity = alert['severity']
-                alert_counts[severity] = alert_counts.get(severity, 0) + 1
+                return render_template('index.html', map_js=map_data['map_js'], alerts=map_data['alerts'],
+                                       loading=loading, task_id=task_id)  # Pass task_id to track in js
 
-            return render_template('index.html', map_js=map_js, alerts=alerts,
-                                   active_alerts_time=active_alerts_time, current_date=current_date,
-                                   alert_count=alert_count, date_range=date_range,
-                                   alert_counts=alert_counts, loading=loading)
+        except celery.exceptions.TimeoutError:
+            loading = True
+            map_data = {'map_js': '', 'alerts': []}  # Show empty map
+            return render_template('index.html', map_js=map_data['map_js'], alerts=map_data['alerts'],
+                                   loading=loading, task_id=task_id)  # Pass task_id to track in js
 
         except Exception as e:
             logging.exception("Unhandled error in index route:")
             flash("An unexpected error occurred.")
-            return render_template('error.html') #Render an error template if needed
+            return render_template('error.html')
     else:
         return redirect(url_for("login"))
+
+@app.route('/task_status/<task_id>')
+def task_status(task_id):
+    task = generate_map_data_task.AsyncResult(task_id)
+    if task.state == 'PENDING':
+        response = {
+            'state': task.state,
+        }
+    elif task.state != 'FAILURE':
+        response = {
+            'state': task.state,
+            'result': task.get()
+        }
+    else:
+        # something went wrong in the background job
+        response = {
+            'state': task.state,
+            'result': str(task.info),  # Include error message for debugging
+        }
+    return jsonify(response)
 
 def get_alert_stats(alerts):
     if alerts:
@@ -534,6 +494,7 @@ def get_alert_stats(alerts):
         return len(alerts), date_range
     else:
         return 0, "No alerts currently displayed"
+
 
 def translate_text(text, target_language='en'):
     translate_url = 'https://translation.googleapis.com/language/translate/v2'
@@ -550,12 +511,14 @@ def translate_text(text, target_language='en'):
     else:
         return f"Error: {response.status_code}"
 
+
 @app.route('/translate', methods=['GET'])
 def translate():
     text = request.args.get('text')
     target_language = 'en'  # or whatever language you want
     translated_text = translate_text(text, target_language)
     return {'translated_text': translated_text}
+
 
 @app.route('/create_alert_zone', methods=['POST'])
 @login_required
@@ -580,12 +543,10 @@ def create_alert_zone():
         except (KeyError, IndexError) as e:
             return jsonify({"error": f"Invalid GeoJSON structure: {str(e)}"}), 400
 
-
         alert_description = data.get('alert_description', "No description provided")
         alert_description = alert_description.replace("<", "&lt;").replace(">", "&gt;")
         alert_name = data.get('alert_name', "Unnamed Alert")
         alert_name = alert_name.replace("<", "&lt;").replace(">", "&gt;")
-
 
         alert_data = {
             "user_id": current_user.id,
@@ -605,6 +566,7 @@ def create_alert_zone():
     except Exception as e:
         logging.exception("Error in create_alert_zone:")
         return jsonify({"error": f"Error creating alert: {str(e)}"}), 500
+
 
 @app.route('/delete_alert_zone/<alert_id>', methods=['DELETE'])
 @login_required  # Assuming you have login_required decorator
@@ -634,10 +596,10 @@ def send_alert_notification_zone_creation_email(alert_id):
                 logging.warning(f"Alert with ID {alert_id} not found.")
                 return  # Exit early if alert not found
 
-            logging.info(f"Retrieved Alert Data: {alert_data}") # More detailed logging
+            logging.info(f"Retrieved Alert Data: {alert_data}")  # More detailed logging
 
-            #Use .get() for safer access; provide defaults
-            email = alert_data.get('email', 'support@weatheralerts.global') #Safe default email
+            # Use .get() for safer access; provide defaults
+            email = alert_data.get('email', 'support@weatheralerts.global')  # Safe default email
             name = alert_data.get('alert_name', "Unnamed Alert")
             description = alert_data.get('alert_description', 'No description provided')
             creation_time = alert_data.get('alert_creation_time', datetime.now(tz=timezone.utc))
@@ -646,9 +608,10 @@ def send_alert_notification_zone_creation_email(alert_id):
             geojson_str = json.dumps(geometry) if coordinates else "Geometry data not available"
             center_lat, center_lon = calculate_center(geometry)
 
-            msg = Message('Active Alert Notification Zone Created', sender=app.config['MAIL_DEFAULT_SENDER'], recipients=[email])
+            msg = Message('Active Alert Notification Zone Created', sender=app.config['MAIL_DEFAULT_SENDER'],
+                          recipients=[email])
             msg.body = f"""You have created a new Active Alert Notification Zone.
-            
+
             Name: {name}
             Description: {description}
             Creation Time/Date: {creation_time}
@@ -657,7 +620,7 @@ def send_alert_notification_zone_creation_email(alert_id):
             Center Longitude: {center_lon}
             """
             with app.app_context():
-                mail.send(msg) # Sending the message
+                mail.send(msg)  # Sending the message
 
             collection.update_one({"_id": ObjectId(alert_id)}, {"$set": {"email_sent": True}})
             logging.info(f"Alert Email sent to {email} for alert ID: {alert_id}")
@@ -669,6 +632,7 @@ def send_alert_notification_zone_creation_email(alert_id):
     except Exception as e:
         logging.exception(f"Unexpected error in send_alert_notification_zone_creation_email: {e}")
 
+
 @app.route('/get_user_alerts', methods=['GET'])
 @login_required
 def get_user_alerts():
@@ -678,7 +642,8 @@ def get_user_alerts():
         for alert in user_alerts:
             alert['_id'] = str(alert['_id'])
             alerts_data.append(alert)
-        logging.info(f"Returning {len(alerts_data)} alerts for user {current_user.id}: {alerts_data}") # More detailed logging
+        logging.info(
+            f"Returning {len(alerts_data)} alerts for user {current_user.id}: {alerts_data}")  # More detailed logging
         return jsonify({'alerts': alerts_data})
 
         return jsonify({'alerts': alerts_data})
@@ -689,19 +654,21 @@ def get_user_alerts():
         logging.exception(f"Unexpected error in get_user_alerts: {e}")
         return jsonify({"error": "Server error"}), 500
 
+
 def check_alert_overlap(user_id, alert_geojson):
     """Checks if an alert overlaps with any of a user's saved alert zones."""
 
     try:
         # Query for user's alert zones
-        user_alerts = wag_user_alerts_collection.find({"user_id": user_id, "email_sent": False}, {"geometry":1, "_id":1}) #Only fetch necessary fields
+        user_alerts = wag_user_alerts_collection.find({"user_id": user_id, "email_sent": False},
+                                                      {"geometry": 1, "_id": 1})  # Only fetch necessary fields
 
         for user_alert in user_alerts:
             user_geometry = user_alert['geometry']
-            if user_geometry and user_geometry.get('coordinates'): # additional check to prevent errors
-                #Check for overlap using $geoIntersects (requires GEOSPHERE index)
+            if user_geometry and user_geometry.get('coordinates'):  # additional check to prevent errors
+                # Check for overlap using $geoIntersects (requires GEOSPHERE index)
                 if owa_collection.find({"$geoIntersects": {"geometry": alert_geojson}}, limit=1).count() > 0:
-                    return True #Overlaps, send email
+                    return True  # Overlaps, send email
         return False
 
     except pymongo_errors.PyMongoError as e:
@@ -711,6 +678,7 @@ def check_alert_overlap(user_id, alert_geojson):
         logging.exception(f"Unexpected error during alert overlap check: ")
         return False
 
+
 # Needs work - rewrite
 def check_for_and_send_alerts():
     try:
@@ -719,14 +687,15 @@ def check_for_and_send_alerts():
             {
                 "$lookup": {
                     "from": WAG_USER_ALERTS_COLLECTION_NAME,
-                    "let": {"geometry": {"type": "$geometry.type", "coordinates": "$geometry.coordinates"}}, #Important change: correctly pass geometry
+                    "let": {"geometry": {"type": "$geometry.type", "coordinates": "$geometry.coordinates"}},
+                    # Important change: correctly pass geometry
                     "pipeline": [
                         {
                             "$match": {
                                 "$expr": {
                                     "$and": [  # Ensure both geometries are valid before comparison
-                                        {"$eq": ["$geometry.type", "Polygon"]}, # Check if it's a polygon
-                                        {"$geoIntersects": ["$geometry", "$$geometry"]} # Correctly use geoIntersects
+                                        {"$eq": ["$geometry.type", "Polygon"]},  # Check if it's a polygon
+                                        {"$geoIntersects": ["$geometry", "$$geometry"]}  # Correctly use geoIntersects
                                     ]
                                 }
                             }
@@ -738,17 +707,20 @@ def check_for_and_send_alerts():
             },
             {"$unwind": "$users"},
             {"$match": {"users.user_id": {"$exists": True, "$ne": []}}},
-            {"$project": {"_id": 1, "users.user_id": 1, "users.email": 1, "geometry": 1, "msg_type": 1, "categories": 1, "urgency": 1, "severity": 1, "certainty": 1, "start": 1, "end": 1, "sender": 1, "description": 1}}
+            {"$project": {"_id": 1, "users.user_id": 1, "users.email": 1, "geometry": 1, "msg_type": 1, "categories": 1,
+                          "urgency": 1, "severity": 1, "certainty": 1, "start": 1, "end": 1, "sender": 1,
+                          "description": 1}}
         ])
 
-        #Improved iteration and email handling
+        # Improved iteration and email handling
         for alert in intersecting_alerts:
             for user_info in alert['users']:
                 user_email = user_info['email']
                 send_alert_email(user_email, alert)
 
     except pymongo.errors.OperationFailure as e:
-        logging.exception(f"Database error during alert check and email sending ({e.code}): {e.details}")  # Detailed error logging
+        logging.exception(
+            f"Database error during alert check and email sending ({e.code}): {e.details}")  # Detailed error logging
     except Exception as e:
         logging.exception(f"Unexpected error during alert check and email sending: {e}")
 
@@ -778,6 +750,7 @@ def send_alert_email(user_email, alert_data):
     except Exception as e:
         logging.exception(f"Unexpected error sending alert email: ")
 
+
 def scheduled_task():
     try:
         keep_recent_entries_efficient()
@@ -787,9 +760,12 @@ def scheduled_task():
     except Exception as e:
         logging.exception("Error in scheduled task:")
 
+
 scheduler = BackgroundScheduler()
 scheduler.add_job(scheduled_task, 'interval', seconds=7200)  # Update every 2 hours
-#scheduler.add_job(check_for_and_send_alerts, 'interval', seconds=60, max_instances=500)
+
+
+# scheduler.add_job(check_for_and_send_alerts, 'interval', seconds=60, max_instances=500)
 
 def start_scheduler():
     try:
@@ -800,6 +776,7 @@ def start_scheduler():
     except Exception as e:
         logging.exception("Error starting scheduler:")
 
+
 def shutdown_scheduler():
     try:
         scheduler.shutdown()
@@ -807,8 +784,9 @@ def shutdown_scheduler():
     except Exception as e:
         logging.exception("Error shutting down scheduler: ")
 
+
 atexit.register(shutdown_scheduler)
 Thread(target=start_scheduler).start()
 
 if __name__ == '__main__':
-    app.run(debug=False) # or app.run(debug=False, host='0.0.0.0', port=5000)
+    app.run(debug=False)  # or app.run(debug=False, host='0.0.0.0', port=5000)
