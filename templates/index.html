@@ -14,6 +14,7 @@
     </style>
 </head>
 <body>
+<div id="loading-bar-container" class="hidden"><div id="loading-bar"></div></div>
 <div id="mapid"></div>
 <div id="loading-screen"></div>
 <div id="loading-message"><div id="login">Gathering Alert Data...</div></div>
@@ -23,7 +24,8 @@
 		<a href="{{ url_for('logout') }}" class="btn btn-primary h-spaced-buttons">Logout</a>
 		<a href="{{ url_for('change_password') }}" class="btn btn-primary h-spaced-buttons">Change Password</a>
 		<button id="createAlertButton" class="btn btn-primary h-spaced-buttons">Create Alert Zone Notification</button>
-		<button id="showAlertsButton" class="btn btn-primary h-spaced-buttons">Show Active Alert Notifications Zone</button>
+		<button id="showAlertsButton" class="btn btn-primary h-spaced-buttons">Show Active Alert Notification Zones</button>
+		<button id="deleteAllAlertsButton" class="btn btn-danger h-spaced-buttons">Delete All Active Alert Zones</button>
 	</div>
   <div id="alert-count">
         <p>There are <b>{{ alert_count }}</b> live alerts in place covering the period <b>{{ date_range }}</b></p>
@@ -406,10 +408,10 @@ $(document).ready(function() {
 		showAlerts = !showAlerts; // Toggle showAlerts state
 		if (showAlerts) {
 			loadAlerts(); // Separate function to load alerts
-			showAlertsButton.text("Hide Active Alert Notifications Zone");
+			showAlertsButton.text("Hide Active Alert Notification Zones");
 		} else {
 			drawnItems.clearLayers();
-			showAlertsButton.text("Show Active Alert Notifications Zone");
+			showAlertsButton.text("Show Active Alert Notification Zones");
 		}
 	});
 
@@ -512,7 +514,29 @@ $(document).ready(function() {
         }
     });
 
+	$('#deleteAllAlertsButton').click(function() {
+		if (confirm("Are you sure you want to delete ALL your active alert zones?")) {
+			$.ajax({
+				type: "DELETE",
+				url: "/delete_all_alert_zones",
+				success: function(response) {
+					alert(response.message); // Display message
+					drawnItems.clearLayers(); // Only clear the user's drawn zones, not all alerts
 
+					// Optionally, update alert count display if needed:
+					$('#alert-count p').text(`There are ${response.deleted_count} active alerts.`); //Update count
+				},
+				error: function(xhr, status, errorThrown) {
+					console.error("Error deleting all alert zones:", status, errorThrown, xhr);
+					let errorMessage = "Error deleting alert zones.";
+					if (xhr.responseJSON && xhr.responseJSON.error) {
+						errorMessage = xhr.responseJSON.error;
+					}
+					alert(errorMessage);
+				}
+			});
+		}
+	});
 
     $('.lightdark-switch').change(function() {
         if ($(this).is(':checked')) {

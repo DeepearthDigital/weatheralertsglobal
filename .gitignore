@@ -1,5 +1,7 @@
 *.env
+*.log
 /tests/
 /wag-webhook/
 /brand/
-*.log
+/backups/
+/tools/

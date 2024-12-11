@@ -34,7 +34,6 @@
 #loading-screen.hidden, #loading-message.hidden {
     display: none;
 }
-
 .wag-logo {
   position: absolute;
   top: -150px; /* Adjust as needed based on the logo size and desired position */
