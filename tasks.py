@@ -1,4 +1,4 @@
-#tasks.py
+# tasks with Websockets
 from celery import Celery
 import smtplib
 from email.mime.text import MIMEText
@@ -12,23 +12,26 @@ import certifi
 from bson import ObjectId
 import json
 from datetime import datetime, timezone, timedelta
-import logging
 import logging.handlers
+import requests  # Import requests
+import redis #Import Redis here
 
 # Create a logger for Celery tasks
 celery_logger = logging.getLogger('celery_app')
 celery_logger.setLevel(logging.INFO)
 
+# Truncate the log file at the start
+log_file_path = 'celery_app.log'
+if os.path.exists(log_file_path):
+    with open(log_file_path, 'w'):
+        pass  # Simply open the file in write mode and immediately close it; this truncates it.
+
 # Create a file handler for Celery task logs
-file_handler = logging.handlers.RotatingFileHandler('celery_app.log', maxBytes=10*1024*1024, backupCount=5) #10MB, 5 backups
+file_handler = logging.handlers.RotatingFileHandler(log_file_path, maxBytes=10 * 1024 * 1024,
+                                                    backupCount=5)  # 10MB, 5 backups
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(filename)s - %(lineno)d - %(message)s - %(exc_info)s')
 file_handler.setFormatter(formatter)
 celery_logger.addHandler(file_handler)
-
-# Truncate the log file at the start
-if os.path.exists('celery_app.log'):
-    with open('celery_app.log', 'w'):
-        pass  # Simply open the file in write mode and immediately close it; this truncates it.
 
 load_dotenv()
 
@@ -70,21 +73,21 @@ try:
 except ValueError:
     raise ValueError("redis_cloud_db must be an integer.")
 
-print(f"Redis Cloud Host: {redis_cloud_host}")
-print(f"Redis Cloud Port: {redis_cloud_port}")
-print(f"Redis Cloud Password: {redis_cloud_password}")
-print(f"Redis Cloud DB: {redis_cloud_db}")
-
+# print(f"Redis Cloud Host: ")
+# print(f"Redis Cloud Port: ")
+# print(f"Redis Cloud Password: ")
+# print(f"Redis Cloud DB: ")
 
 # Celery configuration
 app = Celery('tasks',
              broker=f'redis://:{redis_cloud_password}@{redis_cloud_host}:{redis_cloud_port}/{redis_cloud_db}',
              backend=f'redis://:{redis_cloud_password}@{redis_cloud_host}:{redis_cloud_port}/{redis_cloud_db}')
 
-print(f"Broker URL: {app.conf.broker_url}")
-print(f"Backend URL: {app.conf.result_backend}")
+# print(f"Broker URL: {app.conf.broker_url}")
+# print(f"Backend URL: {app.conf.result_backend}")
 
-QUERY_LIMIT = 10000
+QUERY_LIMIT = 100000
+
 @app.task(name='generate_map_data_task')
 def generate_map_data(future_days=7):
     start_time = time.time()
@@ -163,15 +166,36 @@ def generate_map_data(future_days=7):
             return None  # Indicate failure
 
         except (KeyError, TypeError, IndexError) as e:
-            celery_logger.exception(f"Error processing alert data from MongoDB: {e}")
+            celery_logger.exception(f"Error processing alert data from MongoDB: ")
 
     folium.LayerControl().add_to(my_map)
     map_js = my_map.get_root().render()
     end_time = time.time()
     elapsed_time = end_time - start_time
     celery_logger.info(f"Map data generated in {elapsed_time:.4f} seconds. Celery task completed.") #Added this line
-    return {'map_js': map_js, 'alerts': alerts} #Return the data
+
+    map_data = {'map_js': map_js, 'alerts': alerts}  # Return the data
     celery_logger.info(f"Celery task completed successfully: ")
+
+    # Send the map data to the callback URL - this will trigger the socket.io broadcast.
+    callback_url = 'http://127.0.0.1:5000/map_data_callback'  # Replace with your server address in production.
+    redis_client = redis.Redis(host=redis_cloud_host, port=redis_cloud_port, password=redis_cloud_password,
+                                    db=redis_cloud_db)
+    redis_client.set('map_data_task_id', generate_map_data.request.id)  # Set the task ID
+    celery_logger.info(f"Task ID {generate_map_data.request.id} saved to Redis.")
+    try:
+        response = requests.post(callback_url, json={'map_data': map_data})  # Send it via a POST request with the data
+        if response.status_code == 200:
+            redis_client.setex('map_data', 14400, json.dumps(map_data))  # 4 hours = 14400 seconds
+            celery_logger.info("Map data update successful, sent via socketio.")
+
+        else:
+            celery_logger.error("Map data update failed via SocketIO.")
+    except requests.exceptions.RequestException as e:
+        celery_logger.exception(f"Error sending request to : ")
+
+    return map_data
+
 
 def calculate_center(geometry):
     center_lat = 37.0902
@@ -193,25 +217,25 @@ def calculate_center(geometry):
             center_lon = geometry['coordinates'][0]
     return center_lat, center_lon
 
+
 def send_email(recipient, subject, body, mail_server, mail_port, mail_username, mail_password):
     msg = MIMEMultipart()
     msg['Subject'] = subject
     msg['From'] = mail_username
     msg['To'] = recipient
     msg.attach(MIMEText(body, 'plain'))
-    celery_logger.info(f"Attempting to send email to {recipient}")
+    celery_logger.info(f"Attempting to send email to ")
 
     try:
         with smtplib.SMTP(mail_server, mail_port) as server:  # Use SMTP for STARTTLS
             server.starttls()  # Upgrade to TLS
             server.login(mail_username, mail_password)
             server.sendmail(mail_username, recipient, msg.as_string())
-            celery_logger.info(f"Email sent successfully to {recipient}")  # Use celery_logger
+            celery_logger.info(f"Email sent successfully to ")  # Use celery_logger
         return True
     except Exception as e:
-        celery_logger.exception(f"Email sending failed: {e}")
+        celery_logger.exception(f"Email sending failed: ")
         return False
-
 
 
 @app.task(name='send_alert_notification_zone_creation_email')
@@ -235,7 +259,8 @@ Center Latitude: {center_lat}
 Center Longitude: {center_lon}
 """
 
-        success = send_email(recipient, "Active Alert Notification Zone Created", body, mail_server, mail_port, mail_username, mail_password)
+        success = send_email(recipient, "Active Alert Notification Zone Created", body, mail_server, mail_port,
+                             mail_username, mail_password)
 
         with MongoClient(MONGODB_URI, tlsCAFile=certifi.where()) as client:
             db = client[WAG_DATABASE_NAME]
@@ -253,20 +278,21 @@ Center Longitude: {center_lon}
                 }
             )
             if success:
-                celery_logger.info(f"Alert zone creation email sent to {recipient} for alert ID: {alert_id}")
+                celery_logger.info(f"Alert zone creation email sent to  for alert ID: ")
             else:
-                celery_logger.error(f"Failed to send alert zone creation email to {recipient} for alert ID: {alert_id}")
+                celery_logger.error(f"Failed to send alert zone creation email to  for alert ID: ")
 
     except Exception as e:
-        celery_logger.exception(f"Error in send_alert_notification_zone_creation_email: {e}")
+        celery_logger.exception(f"Error in send_alert_notification_zone_creation_email: ")
+
 
 @app.task(name='send_weather_alert')
 def send_weather_alert(user_email, owa_alert, wag_alert_id):
     """Sends a weather alert email to a user."""
     try:
-        #Construct the email based on 'owa_alert' data
+        # Construct the email based on 'owa_alert' data
         subject = "Weather Alert!"
-        body = f"A weather alert has been issued affecting your zone:\n{owa_alert}" # You'll need to format this
+        body = f"A weather alert has been issued affecting your zone:\n"  # You'll need to format this
 
         # Update the database to mark the alert as sent or include sent status in email
         with MongoClient(MONGODB_URI, tlsCAFile=certifi.where()) as client:
@@ -274,15 +300,15 @@ def send_weather_alert(user_email, owa_alert, wag_alert_id):
             collection = db[WAG_USER_ALERTS_NOTIFICATION_ZONE_COLLECTION_NAME]
             collection.update_one(
                 {"_id": ObjectId(wag_alert_id)},
-                {"$push": {"notifications": {"type": "weather_alert", "timestamp": datetime.now(timezone.utc), "sent": True}}}
+                {"$push": {
+                    "notifications": {"type": "weather_alert", "timestamp": datetime.now(timezone.utc), "sent": True}}}
             )
-
 
         send_email(user_email, subject, body, MAIL_SERVER, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD)
 
     except smtplib.SMTPException as e:
-        celery_logger.error(f"SMTP error sending weather alert email to {user_email}: ")
+        celery_logger.error(f"SMTP error sending weather alert email to : ")
     except pymongo.errors.PyMongoError as e:
         celery_logger.error(f"Database error updating notification status: ")
     except Exception as e:
-        celery_logger.exception(f"Unexpected error sending weather alert email to {user_email}: ")
+        celery_logger.exception(f"Unexpected error sending weather alert email to : ")
