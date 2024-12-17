@@ -54,9 +54,19 @@ COPY . .
 
 CMD ["gunicorn", "-b", ":8080", "main:app", "--worker-class", "gevent", "--log-level", "info"]
 
+
+
+
+
+
             Or from PyCharm
 
 gunicorn -b :8080 main:app --worker-class gevent
+
+            if you need to stop processs then
+
+lsof -i :8080
+kill
 
 
 
