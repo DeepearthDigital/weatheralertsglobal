@@ -1,4 +1,4 @@
-# main with Websockets
+# main.py with Websockets
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from pymongo import MongoClient, errors as pymongo_errors
@@ -27,6 +27,7 @@ import redis
 from redis.exceptions import ConnectionError
 from celery import Celery
 from flask_socketio import SocketIO, emit, send
+import gevent
 
 load_dotenv()
 app = Flask(__name__)
@@ -105,7 +106,7 @@ def create_index(collection, field_name, index_type=pymongo.ASCENDING):
 def create_geospatial_index(collection, field_name):
     """Creates a 2dsphere index on the specified field. Handles potential errors."""
     try:
-        index_name = f"_2dsphere"
+        index_name = f"{field_name}_2dsphere" # Create a name for the index based on the field name
         result = collection.create_index([(field_name, pymongo.GEOSPHERE)], name=index_name)
         app_logger.info(f"Index '{index_name}' created successfully on collection '{collection.name}'.")
         return result
@@ -117,7 +118,7 @@ def create_geospatial_index(collection, field_name):
             # Consider logging this error
         return None
     except Exception as e:
-        app_logger.info(f"An unexpected error occurred while creating index on collection '{collection.name}': ")
+        app_logger.info(f"An unexpected error occurred while creating index '{index_name}' on collection '{collection.name}': ")
         # Log this error
         return None
 
@@ -918,4 +919,5 @@ Thread(target=start_scheduler, daemon=True).start() #Daemon thread so it doesn't
 if __name__ == '__main__':
     #socketio.run(app, debug=False) # or app.run(debug=False, host='0.0.0.0', port=5000)
     # Make sure to run Deployment using Gunicorn (Recommended for Production)
-    socketio.run(app, debug=False, allow_unsafe_werkzeug=True) # or app.run(debug=False, host='0.0.0.0', port=5000)
+    #socketio.run(app, debug=False, allow_unsafe_werkzeug=True) # or app.run(debug=False, host='0.0.0.0', port=5000)
+    pass
