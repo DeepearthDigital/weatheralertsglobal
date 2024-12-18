@@ -38,8 +38,8 @@ For production, need to set the following
 
                 redis_client.setex('map_data', 7200, json.dumps(map_data))    # Run every two hours
 
-                callback_url = 'http://127.0.0.1:5000/map_data_callback'  # Replace with your server address in production.
-                ie. callback_url = 'https://deepearthweatheralertsglobal-193736185683.europe-north1.run.app/map_data_callback'
+                callback_url = 'http://0.0.0.0:8080/map_data_callback'  # Replace with your server address in production.
+                callback_url = 'https://deepearthweatheralertsglobal-193736185683.europe-north1.run.app/map_data_callback'
 
                 Then in Docker image run;
 
