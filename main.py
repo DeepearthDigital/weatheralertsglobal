@@ -917,7 +917,6 @@ atexit.register(shutdown_scheduler)
 Thread(target=start_scheduler, daemon=True).start() #Daemon thread so it doesn't block app shutdown.
 
 if __name__ == '__main__':
-    #socketio.run(app, debug=False) # or app.run(debug=False, host='0.0.0.0', port=5000)
+    #socketio.run(app, debug=False, allow_unsafe_werkzeug=True, host='0.0.0.0', port=8080)
     # Make sure to run Deployment using Gunicorn (Recommended for Production)
-    #socketio.run(app, debug=False, allow_unsafe_werkzeug=True) # or app.run(debug=False, host='0.0.0.0', port=5000)
     pass
