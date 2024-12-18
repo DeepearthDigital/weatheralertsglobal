@@ -15,6 +15,50 @@ from datetime import datetime, timezone, timedelta
 import logging.handlers
 import requests  # Import requests
 import redis #Import Redis here
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+import ssl
+
+def send_request_with_retry(url, data, max_retries=3, backoff_factor=1, status_forcelist=(500, 502, 503, 504)):
+    """
+    Sends a POST request with retry logic using exponential backoff.
+
+    Args:
+        url (str): The URL to send the POST request to.
+        data (dict): The JSON data to send in the request body.
+        max_retries (int): The maximum number of retry attempts.
+        backoff_factor (float): The factor by which to increase the delay between retries.
+        status_forcelist (tuple): A set of HTTP status codes to retry.
+
+    Returns:
+        requests.Response or None: The Response object if successful, otherwise None.
+
+    Raises:
+        requests.exceptions.RequestException: If the request fails after all retry attempts.
+    """
+    retries = Retry(total=max_retries, backoff_factor=backoff_factor, status_forcelist=status_forcelist)
+
+    # Create an SSL context and set the desired TLS version and CA file
+    context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+    context.load_verify_locations(certifi.where())
+
+    adapter = HTTPAdapter(max_retries=retries)
+    session = requests.Session()
+    session.mount('https://', adapter)
+
+    session.get_adapter('https://').init_poolmanager(
+        maxsize=10,
+        ssl_context=context,
+        connections=10
+    )
+
+    try:
+        response = session.post(url, json=data)
+        response.raise_for_status()
+        return response
+    except requests.exceptions.RequestException as e:
+        celery_logger.exception(f"Error sending request to {url} after {max_retries} retries: ")
+        return None
 
 # Create a logger for Celery tasks
 celery_logger = logging.getLogger('celery_app')
@@ -86,7 +130,7 @@ app = Celery('tasks',
 # print(f"Broker URL: {app.conf.broker_url}")
 # print(f"Backend URL: {app.conf.result_backend}")
 
-QUERY_LIMIT = 1000
+QUERY_LIMIT = 2000
 
 @app.task(name='generate_map_data_task')
 def generate_map_data(future_days=7):
@@ -178,17 +222,16 @@ def generate_map_data(future_days=7):
     celery_logger.info(f"Celery task completed successfully: ")
 
     # Send the map data to the callback URL - this will trigger the socket.io broadcast.
-    callback_url = 'https://weatheralertsglobal-193736185683.europe-west2.run.app/map_data_callback' # Replace with your server address in production.
+    callback_url = 'https://deepearthweatheralertsglobal-193736185683.europe-north1.run.app/map_data_callback'
     redis_client = redis.Redis(host=redis_cloud_host, port=redis_cloud_port, password=redis_cloud_password,
                                     db=redis_cloud_db)
     redis_client.set('map_data_task_id', generate_map_data.request.id)  # Set the task ID
     celery_logger.info(f"Task ID {generate_map_data.request.id} saved to Redis.")
     try:
-        response = requests.post(callback_url, json={'map_data': map_data})  # Send it via a POST request with the data
-        if response.status_code == 200:
-            redis_client.setex('map_data', 14400, json.dumps(map_data))  # 4 hours = 14400 seconds
+        response = send_request_with_retry(callback_url, data={'map_data': map_data})
+        if response and response.status_code == 200:
+            redis_client.setex('map_data', 14400, json.dumps(map_data))
             celery_logger.info("Map data update successful, sent via socketio.")
-
         else:
             celery_logger.error("Map data update failed via SocketIO.")
     except requests.exceptions.RequestException as e:
