@@ -71,7 +71,7 @@
 	  font-optical-sizing: auto;
 	  font-weight: 300;
 	  font-style: normal;
-		font-size: 18px;
+		font-size: 14px;
 		color: #000000;
     }
 
@@ -96,7 +96,7 @@
   align-items: center; /* Center horizontally */
 }
 
-    #top-right-panel {
+#top-right-panel {
     position: absolute;
     top: 20px;
     right: 21px;
@@ -107,15 +107,32 @@
     box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.25);
     z-index: 1000;
     display: flex;
-    flex-direction: column; /* Vertical alignment */
-    align-items: flex-start; /* Align items to the left */
-    min-width: 200px; /* Ensure sufficient width */
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 200px;
     max-width: 400px;
-	min-heigh: 950px; /* Ensure sufficient width */
-    max-height: 950px;
-	cursor: move;
-    }
+    overflow-y: auto;  /* Enable vertical scrolling */
+    max-height: 95vh; /* Limit the panel's maximum height */
+    cursor: move;
+}
 
+
+/* Media query for smaller screens (e.g., tablets and phones) */
+@media (max-width: 768px) {
+    #top-right-panel {
+        position: fixed; /* Switch to fixed for smaller screens */
+        top: 0;
+        right: 0;
+        left: 0; /* Stretch panel to fill screen horizontally */
+        bottom: auto;
+        width: 100%; /* Make panel full-width */
+        max-width: 100%;
+        max-height: 80vh; /* Reduce height if needed */
+        border-radius: 0; /* Remove border-radius on smaller screen */
+        padding: 15px;
+        overflow-y: auto; /* Allow scrolling on smaller screens */
+    }
+}
     #top-right-panel > div {
         margin-top: 5px; /* Spacing between sections */
     }
@@ -163,7 +180,7 @@
 	  font-optical-sizing: auto;
 	  font-weight: 300;
 	  font-style: normal;
-	  font-size: 18px;
+	  font-size: 14px;
 	  color: #000000;	
 	  line-height: 1.5;
 	  box-sizing: border-box; /* This is the key change */

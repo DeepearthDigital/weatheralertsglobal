@@ -27,7 +27,7 @@ Go to the "Variables" tab, where you can set environment variables that will be 
 
 
 Celery terminal run:
-celery -A celery_app worker -l info
+celery -A tasks worker --loglevel=info
 
 
 For production, need to set the following
@@ -39,35 +39,21 @@ For production, need to set the following
                 redis_client.setex('map_data', 7200, json.dumps(map_data))    # Run every two hours
 
                 callback_url = 'http://127.0.0.1:5000/map_data_callback'  # Replace with your server address in production.
-                ie. callback_url = 'https://weatheralertsglobal-193736185683.europe-west2.run.app/map_data_callback'
+                ie. callback_url = 'https://deepearthweatheralertsglobal-193736185683.europe-north1.run.app/map_data_callback'
 
                 Then in Docker image run;
 
-FROM python:3.9-slim
-
-WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-
-COPY . .
-
-CMD ["gunicorn", "-b", ":8080", "main:app", "--worker-class", "gevent", "--log-level", "info"]
 
 
 
+Or from PyCharm/GCP
 
+            gunicorn -b :8080 main:app --worker-class gevent
 
+if you need to stop processs locally then
 
-            Or from PyCharm
-
-gunicorn -b :8080 main:app --worker-class gevent
-
-            if you need to stop processs then
-
-lsof -i :8080
-kill
-
+            lsof -i :8080
+            kill
 
 
 

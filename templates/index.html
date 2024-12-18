@@ -614,7 +614,7 @@ $(document).ready(function() {
   });
 
   // Initialize Socket.IO connection
-  const socket = io.connect('http://' + document.domain + ':' + location.port);
+	const socket = io.connect('https://' + document.domain);
 
 
   // Handle connection and request initial map data
