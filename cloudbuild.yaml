@@ -1,0 +1,115 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: deepearthweatheralertsglobal
+  namespace: '193736185683'
+  selfLink: >-
+    /apis/serving.knative.dev/v1/namespaces/193736185683/services/deepearthweatheralertsglobal
+  uid: 7b4442fa-622e-4f59-9c39-9e2257a44883
+  resourceVersion: AAYpnyMJACo
+  generation: 38
+  creationTimestamp: '2024-12-17T15:34:36.901959Z'
+  labels:
+    commit-sha: 41fba5c3c1aa5ea0b3c8d9ab7950431782aea721
+    gcb-build-id: 71a173ea-8aa9-4924-b884-c8cb9cde75d4
+    gcb-trigger-id: 83f04575-fe70-41a3-9008-4abbfed059e0
+    gcb-trigger-region: global
+    managed-by: gcp-cloud-build-deploy-cloud-run
+    cloud.googleapis.com/location: europe-north1
+  annotations:
+    serving.knative.dev/creator: simon.vacher@gmail.com
+    serving.knative.dev/lastModifier: simon.vacher@gmail.com
+    run.googleapis.com/client-name: cloud-console
+    run.googleapis.com/operation-id: f47f9ca9-55a6-4b4a-ba2f-f0c84bda02d1
+    run.googleapis.com/ingress: all
+    run.googleapis.com/ingress-status: all
+    run.googleapis.com/urls: >-
+      ["https://deepearthweatheralertsglobal-193736185683.europe-north1.run.app","https://deepearthweatheralertsglobal-4jqeqrqpja-lz.a.run.app"]
+spec:
+  template:
+    metadata:
+      labels:
+        client.knative.dev/nonce: 7c1caef5-2173-4c39-bddf-ba62b81f22ac
+        commit-sha: 41fba5c3c1aa5ea0b3c8d9ab7950431782aea721
+        gcb-build-id: 71a173ea-8aa9-4924-b884-c8cb9cde75d4
+        gcb-trigger-id: 83f04575-fe70-41a3-9008-4abbfed059e0
+        gcb-trigger-region: global
+        managed-by: gcp-cloud-build-deploy-cloud-run
+        run.googleapis.com/startupProbeType: Default
+      annotations:
+        autoscaling.knative.dev/maxScale: '5'
+        run.googleapis.com/client-name: cloud-console
+        run.googleapis.com/startup-cpu-boost: 'true'
+        run.googleapis.com/logging-destination: logging
+        run.googleapis.com/logging-level: INFO # Optional, change to INFO or WARNING
+    spec:
+      containerConcurrency: 80
+      timeoutSeconds: 300
+      serviceAccountName: 193736185683-compute@developer.gserviceaccount.com
+      containers:
+      - name: placeholder-1
+        image: >-
+          europe-north1-docker.pkg.dev/deepearth-digital/cloud-run-source-deploy/weatheralertsglobal/deepearthweatheralertsglobal:41fba5c3c1aa5ea0b3c8d9ab7950431782aea721
+        ports:
+        - name: http1
+          containerPort: 8080
+        env:
+        - name: MONGODB_URI
+          value: >-
+            mongodb+srv://wag-ow:LdUL9koZj1v8Po3n@wag-ow.7ydvy.mongodb.net/?retryWrites=true&w=majority&appName=wag-ow
+        - name: OWA_DATABASE_NAME
+          value: openweatheralerts
+        - name: OWA_COLLECTION_NAME
+          value: openweatheralerts
+        - name: WAG_DATABASE_NAME
+          value: weatheralertsglobal
+        - name: WAG_USERS_COLLECTION_NAME
+          value: users
+        - name: WAG_USER_ALERTS_NOTIFICATION_ZONE_COLLECTION_NAME
+          value: user_alert_notification_zones
+        - name: WAG_USER_WEATHER_ALERTS_COLLECTION_NAME
+          value: user_weather_alerts
+        - name: SECRET_KEY
+          value: 5j--FjiWQV3TujQDb6i-wu9jLBhTHfQhfO6Bs6_Ot0E
+        - name: MAIL_SERVER
+          value: smtp.ionos.co.uk
+        - name: MAIL_PORT
+          value: '587'
+        - name: MAIL_USERNAME
+          value: support@weatheralerts.global
+        - name: MAIL_PASSWORD
+          value: madbyb-mygxi7-wIcwuj
+        - name: MAIL_DEFAULT_SENDER
+          value: support@weatheralerts.global
+        - name: SERIALIZER_SECRET
+          value: noKwyp-joqze1-hyqkam
+        - name: GOOGLE_API_KEY
+          value: AIzaSyC4eP7g07ZDf2BV-Ml7oS8re40bmbIFBCg
+        - name: ALLOWED_DOMAINS_1
+          value: greenpeace.org
+        - name: ALLOWED_DOMAINS_2
+          value: deepearth.digital
+        - name: REDIS_CLOUD_HOST
+          value: redis-19605.c335.europe-west2-1.gce.redns.redis-cloud.com
+        - name: REDIS_CLOUD_PORT
+          value: '19605'
+        - name: REDIS_CLOUD_PASSWORD
+          value: 9UrjSL7XJTx2vMQvg2CjvupJgFBb8OJ3
+        - name: REDIS_CLOUD_DB
+          value: '0'
+        - name: REDIS_URL
+          value: >-
+            redis://:9UrjSL7XJTx2vMQvg2CjvupJgFBb8OJ3@redis-19605.c335.europe-west2-1.gce.redns.redis-cloud.com:19605/0
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 4Gi
+        startupProbe:
+          timeoutSeconds: 240
+          periodSeconds: 240
+          failureThreshold: 1
+          tcpSocket:
+            port: 8080
+  traffic:
+  - percent: 100
+    latestRevision: true

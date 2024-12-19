@@ -105,13 +105,13 @@ $(document).ready(function() {
   console.log("Document ready");
   console.log($('#createAlertModal').length); // Check if element exists
 
-    var map = L.map('mapid').setView([51.4779, 0.0015], 5);
-        // Set maximum bounds (adjust these values as needed)
-        var southWest = L.latLng(-90, -180);
-        var northEast = L.latLng(90, 180);
-        map.setMaxBounds(L.latLngBounds(southWest, northEast));
-    const fillOpacity = 0.5;
-    const maxWidth = 600;
+  var map = L.map('mapid').setView([51.4779, 0.0015], 5);
+    // Set maximum bounds (adjust these values as needed)
+    var southWest = L.latLng(-90, -180);
+    var northEast = L.latLng(90, 180);
+    map.setMaxBounds(L.latLngBounds(southWest, northEast));
+  const fillOpacity = 0.5;
+  const maxWidth = 600;
 
   // Define both tile layers
   const voyagerLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
@@ -126,27 +126,28 @@ $(document).ready(function() {
 		maxZoom: 19
 	});
 
-    // Add the Voyager layer initially
-    voyagerLayer.addTo(map);
+  // Add the Voyager layer initially
+  voyagerLayer.addTo(map);
 
-    var alerts = {{ alerts|safe }}; // initial alerts but not updated
-    
-    // Function to process map data and handle alerts
-    function processMapData(data) {
-        if (data && data.map_data) {
-            // Clear existing alerts (as in your original code)
-            map.eachLayer(function (layer) {
-                if (layer instanceof L.GeoJSON && layer.options && layer.options.onEachFeature) {
-                    map.removeLayer(layer);
-                }
-            });
-            alerts = data.map_data.alerts;  // Update the global alerts variable
-            handleAlerts(); // Call handleAlerts *after* updating alerts
-            hideLoadingMessage();
-        } else {
-            console.error("Error: Invalid map data received.");
+  var alerts = {{ alerts|safe }}; // initial alerts but not updated
+
+  // Function to process map data and handle alerts
+  function processMapData(data) {
+    if (data && data.map_data) {
+      // Clear existing alerts (as in your original code)
+      map.eachLayer(function (layer) {
+        if (layer instanceof L.GeoJSON && layer.options && layer.options.onEachFeature) {
+          map.removeLayer(layer);
         }
+      });
+      alerts = data.map_data.alerts; // Update the global alerts variable
+      handleAlerts(); // Call handleAlerts *after* updating alerts
+      hideLoadingMessage();
+    } else {
+      console.error("Error: Invalid map data received.");
+      displayError("Error: Invalid map data received.");
     }
+  }
   let drawnItems = new L.FeatureGroup();
   map.addLayer(drawnItems);
 
@@ -180,32 +181,32 @@ $(document).ready(function() {
   });
   map.addControl(drawControl);
 
- $('#openModalButton').click(function() {
+  $('#openModalButton').click(function() {
     $('#createAlertModal').modal('show');
- });
-  
-    function createAlertTooltipContent(alert) {
-        const severityColor = {
-            Minor: "#00FF00",
-            Moderate: "#FFA500",
-            Severe: "#FF0000",
-            Extreme: "#313131",
-			Unknown: "#313131"
-        }[alert.severity] || "#FF0000";
-        return `<div class="my-tooltip" data-severity="${alert.severity}" style="border-color: ${severityColor};">` +
-            `<div class="underline"><h3>Alert Details</h3></div>` +
-            `<b>Message Type:</b> ${alert.msg_type}<br>` +
-            `<b>Categories:</b> ${alert.categories.join(', ')}<br>` +
-            `<b>Urgency:</b> ${alert.urgency}<br>` +
-            `<b>Severity:</b> ${alert.severity}<br>` +
-            `<b>Certainty:</b> ${alert.certainty}<br>` +
-            `<b>Start:</b> ${moment.unix(alert.start).format('YYYY-MM-DD HH:mm:ss UTC')}<br>` +
-            `<b>End:</b> ${moment.unix(alert.end).format('YYYY-MM-DD HH:mm:ss UTC')}<br>` +
-            `<b>Sender:</b> ${alert.sender}<br>` +
-            `<div class="underline"><h3>Description</h3></div><span class='description-text'>${alert.description}</span>` +
-            `<br><button type="submit" class="btn btn-primary h-spaced-buttons translate">Translate to EN</button></div>`;
-    }
-	
+  });
+
+  function createAlertTooltipContent(alert) {
+    const severityColor = {
+      Minor: "#00FF00",
+      Moderate: "#FFA500",
+      Severe: "#FF0000",
+      Extreme: "#313131",
+      Unknown: "#313131"
+    }[alert.severity] || "#FF0000";
+    return `<div class="my-tooltip" data-severity="${alert.severity}" style="border-color: ${severityColor};">` +
+      `<div class="underline"><h3>Alert Details</h3></div>` +
+      `<b>Message Type:</b> ${alert.msg_type}<br>` +
+      `<b>Categories:</b> ${alert.categories.join(', ')}<br>` +
+      `<b>Urgency:</b> ${alert.urgency}<br>` +
+      `<b>Severity:</b> ${alert.severity}<br>` +
+      `<b>Certainty:</b> ${alert.certainty}<br>` +
+      `<b>Start:</b> ${moment.unix(alert.start).format('YYYY-MM-DD HH:mm:ss UTC')}<br>` +
+      `<b>End:</b> ${moment.unix(alert.end).format('YYYY-MM-DD HH:mm:ss UTC')}<br>` +
+      `<b>Sender:</b> ${alert.sender}<br>` +
+      `<div class="underline"><h3>Description</h3></div><span class='description-text'>${alert.description}</span>` +
+      `<br><button type="submit" class="btn btn-primary h-spaced-buttons translate">Translate to EN</button></div>`;
+  }
+
   function handleAlerts() {
     if (alerts.length > 0) {
       setTimeout(() => {
@@ -216,6 +217,7 @@ $(document).ready(function() {
       setTimeout(() => {
         if (alerts.length === 0) {
           console.error("Alerts data not loaded.");
+          displayError('Error loading alert data.');
           $('#loading-message').text('Error loading alert data.').removeClass('hidden');
         } else {
           alerts.forEach(handleAlert);
@@ -268,19 +270,19 @@ $(document).ready(function() {
     $('#loading-screen').addClass('hidden');
   }
 
-    function formatKeywords(text) {
+  function formatKeywords(text) {
     // Define keywords
     const keywords = ["Language", "Event", "Headline", "Instruction"];
 
     // Loop through each keyword and replace it in the text
     for(let keyword of keywords) {
-        // Use a regular expression to replace the keyword with itself wrapped in <b> tag followed by a colon and a line break
-        const reg = new RegExp(`(${keyword}:)`, 'g');
-        text = text.replace(reg, '<br><b>' + '$1' + '</b>');
+      // Use a regular expression to replace the keyword with itself wrapped in <b> tag followed by a colon and a line break
+      const reg = new RegExp(`($:)`, 'g');
+      text = text.replace(reg, '<br><b>' + '$1' + '</b>');
     }
 
     return text;
-}
+  }
 
 
   const loading = {{ loading|tojson }};
@@ -295,9 +297,6 @@ $(document).ready(function() {
   handleAlerts();
   loadingScreen.addClass('hidden');
   loadingMessage.addClass('hidden');
-
-  //alerts.forEach(handleAlert);
-
 
   // Draggable panel code (unchanged)
   let isDragging = false;
@@ -327,285 +326,281 @@ $(document).ready(function() {
 
 
     if ($('#createAlertModal').length > 0) {
-        $('#createAlertButton').click(function() {
-            setTimeout(function() {
-                console.log("Showing modal (setTimeout)");
-                $('#createAlertModal').modal('show');
-            }, 100);
-        });
+      $('#createAlertButton').click(function() {
+        setTimeout(function() {
+          console.log("Showing modal (setTimeout)");
+          $('#createAlertModal').modal('show');
+        }, 100);
+      });
 
-        // Function to update the alert zone preview
-        function updateAlertZonePreview() {
-            const geojson = drawnItems.toGeoJSON();
-            if (geojson.features.length > 0) {
-                const preview = L.geoJSON(geojson, {
-                    style: {
-                        fillColor: 'lightblue',
-                        color: '#000',
-                        weight: 1,
-                        fillOpacity: 0.5
-                    }
-                });
-                $('#alertZonePreview').html(`<p><b>Preview of your alert zone:</b></p>`);
-                preview.addTo(map);
-                map.fitBounds(preview.getBounds());
-            } else {
-                $('#alertZonePreview').html('<p>Draw an alert zone on the map.</p>');
+      // Function to update the alert zone preview
+      function updateAlertZonePreview() {
+        const geojson = drawnItems.toGeoJSON();
+        if (geojson.features.length > 0) {
+          const preview = L.geoJSON(geojson, {
+            style: {
+              fillColor: 'lightblue',
+              color: '#000',
+              weight: 1,
+              fillOpacity: 0.5
             }
+          });
+          $('#alertZonePreview').html(`<p><b>Preview of your alert zone:</b></p>`);
+          preview.addTo(map);
+          map.fitBounds(preview.getBounds());
+        } else {
+          $('#alertZonePreview').html('<p>Draw an alert zone on the map.</p>');
+        }
+      }
+
+      map.on('draw:created', function(e) {
+        console.log("draw:created event:", e);
+        const layer = e.layer;
+        drawingLayer.addLayer(e.layer);
+        drawnItems.addLayer(layer);
+        updateAlertZonePreview();
+      });
+
+      map.on('draw:edited', function(e) {
+        console.log("draw:edited event:", e);
+        updateAlertZonePreview();
+      });
+
+      map.on('draw:deleted', function(e) {
+        console.log("draw:deleted event:", e);
+        updateAlertZonePreview();
+      });
+
+      let drawingLayer = new L.FeatureGroup();
+      map.addLayer(drawingLayer);
+
+      // Alert creation handler
+      $('#createAlertSubmit').click(function() {
+        const alertName = $('#alertName').val();
+        const description = $('#alertDescription').val();
+
+        if (!alertName) {
+          displayError("Please enter an alert name.");
+          return;
         }
 
-        map.on('draw:created', function(e) {
-            console.log("draw:created event:", e);
-            const layer = e.layer;
-            drawingLayer.addLayer(e.layer);
-            drawnItems.addLayer(layer);
-            updateAlertZonePreview();
-        });
+        const geojson = drawingLayer.toGeoJSON(); // Get GeoJSON from drawingLayer
+        console.log("GeoJSON data being sent:", geojson);
 
-        map.on('draw:edited', function(e) {
-            console.log("draw:edited event:", e);
-            updateAlertZonePreview();
-        });
+        if (geojson.features.length === 0) {
+            displayError("Please draw an alert zone on the map first.");
+            return;
+        }
 
-        map.on('draw:deleted', function(e) {
-            console.log("draw:deleted event:", e);
-            updateAlertZonePreview();
-        });
+        // Basic GeoJSON validation
+        if (!geojson.features[0].geometry || !geojson.features[0].geometry.coordinates || geojson.features[0].geometry.coordinates.length === 0) {
+            displayError('Invalid GeoJSON data. Please try again.');
+            return;
+        }
 
-        let drawingLayer = new L.FeatureGroup();
-        map.addLayer(drawingLayer);
 
-        // Alert creation handler
-        $('#createAlertSubmit').click(function() {
-            const alertName = $('#alertName').val();
-            const description = $('#alertDescription').val();
-
-            if (!alertName) {
-                alert("Please enter an alert name.");
-                return;
+        $.ajax({
+          type: "POST",
+          url: "/create_alert_zone",
+          contentType: "application/json",
+          data: JSON.stringify({geojson: geojson, alert_description: description, alert_name: alertName}),
+          success: function(response) {
+            displaySuccess(`Alert '${alertName}' created successfully! (ID: ${response.alert_id})`);
+            drawingLayer.clearLayers(); // Clear the drawing layer
+            $('#createAlertModal').modal('hide');
+            $('#alertName').val('');
+            $('#alertDescription').val('');
+            $('#alertZonePreview').empty();
+            // Optionally, re-fetch and redraw alerts here
+            showAlertsButton.click();
+          },
+          error: function(xhr, status, errorThrown) {
+            console.error("Error creating alert:", status, errorThrown, xhr.responseText, xhr);
+            let errorMessage = "Error creating alert.";
+            if (xhr.responseJSON && xhr.responseJSON.error) {
+              errorMessage = `Error creating alert: ${xhr.responseJSON.error}`;
             }
-
-            const geojson = drawingLayer.toGeoJSON(); // Get GeoJSON from drawingLayer
-            console.log("GeoJSON data being sent:", geojson);
-
-            if (geojson.features.length === 0) {
-                alert("Please draw an alert zone on the map first.");
-                return;
-            }
-
-            // Basic GeoJSON validation
-            if (!geojson.features[0].geometry || !geojson.features[0].geometry.coordinates || geojson.features[0].geometry.coordinates.length === 0) {
-                alert('Invalid GeoJSON data. Please try again.');
-                return;
-            }
-
-
-            $.ajax({
-                type: "POST",
-                url: "/create_alert_zone",
-                contentType: "application/json",
-                data: JSON.stringify({geojson: geojson, alert_description: description, alert_name: alertName}),
-                success: function(response) {
-                    alert(`Alert '${alertName}' created successfully! (ID: ${response.alert_id})`);
-                    drawingLayer.clearLayers(); // Clear the drawing layer
-                    $('#createAlertModal').modal('hide');
-                    $('#alertName').val('');
-                    $('#alertDescription').val('');
-                    $('#alertZonePreview').empty();
-                    // Optionally, re-fetch and redraw alerts here
-                    showAlertsButton.click();
-                },
-                error: function(xhr, status, errorThrown) {
-                    console.error("Error creating alert:", status, errorThrown, xhr.responseText, xhr);
-                    let errorMessage = "Error creating alert.";
-                    if (xhr.responseJSON && xhr.responseJSON.error) {
-                        errorMessage = `Error creating alert: ${xhr.responseJSON.error}`;
-                    }
-                    alert(errorMessage);
-                }
-            });
+            displayError(errorMessage);
+          }
         });
+      });
     } else {
-        console.error("Modal element not found!");
+      console.error("Modal element not found!");
     }
-    
-    
+
+
     let showAlerts = false;
     const showAlertsButton = $('#showAlertsButton');
 
     showAlertsButton.click(function() {
-        showAlerts = !showAlerts; // Toggle showAlerts state
-        if (showAlerts) {
-            loadAlerts(); // Separate function to load alerts
-            showAlertsButton.text("Hide Active Alert Notifications Zone");
-            showAlertsButton.text("Hide Active Alert Notification Zones");
-        } else {
-            drawnItems.clearLayers();
-            showAlertsButton.text("Show Active Alert Notifications Zone");
-            showAlertsButton.text("Show Active Alert Notification Zones");
-        }
+      showAlerts = !showAlerts; // Toggle showAlerts state
+      if (showAlerts) {
+        loadAlerts(); // Separate function to load alerts
+        showAlertsButton.text("Hide Active Alert Notification Zones");
+      } else {
+        drawnItems.clearLayers();
+        showAlertsButton.text("Show Active Alert Notification Zones");
+      }
     });
 
     function loadAlerts() {
-        $.ajax({
-            type: "GET",
-            url: "/get_user_alerts",
-            success: function(response) {
-                drawnItems.clearLayers();
-                if (response.alerts && response.alerts.length > 0) {
-                    response.alerts.forEach(addAlertToMap);
-                    map.fitBounds(drawnItems.getBounds());
-                } else {
-                    alert("No active alert zones found for this user.");
-                }
-            },
-            error: function(xhr, status, errorThrown) {
-                console.error("AJAX error:", status, errorThrown, xhr);
-                let errorMessage = "Error fetching active alert zones.";
-                if (xhr.responseJSON && xhr.responseJSON.error) {
-                    errorMessage = xhr.responseJSON.error;
-                }
-                alert(errorMessage);
-            }
-        });
+      $.ajax({
+        type: "GET",
+        url: "/get_user_alerts",
+        success: function(response) {
+          drawnItems.clearLayers();
+          if (response.alerts && response.alerts.length > 0) {
+            response.alerts.forEach(addAlertToMap);
+            map.fitBounds(drawnItems.getBounds());
+          } else {
+            displayError("No active alert zones found for this user.");
+          }
+        },
+        error: function(xhr, status, errorThrown) {
+          console.error("AJAX error:", status, errorThrown, xhr);
+          let errorMessage = "Error fetching active alert zones.";
+          if (xhr.responseJSON && xhr.responseJSON.error) {
+            errorMessage = xhr.responseJSON.error;
+          }
+          displayError(errorMessage);
+        }
+      });
     }
 
     function addAlertToMap(alert) {
-        return new Promise((resolve, reject) => {
-            const geometry = alert.geometry || {};
-            const color = alert.color || 'lightblue';
+      return new Promise((resolve, reject) => {
+        const geometry = alert.geometry || {};
+        const color = alert.color || 'lightblue';
 
-            if (geometry.type && geometry.coordinates && geometry.coordinates.length > 0) {
-                let leafletGeoJSON;
-                if (geometry.type === 'Polygon') {
-                    leafletGeoJSON = L.polygon(geometry.coordinates[0].map(coord => [coord[1], coord[0]]), {
-                        color: '#000',
-                        weight: 2,
-                        fillColor: color,
-                        fillOpacity: 0.7
-                    });
-                } else if (geometry.type === 'Point') {
-                    leafletGeoJSON = L.marker([geometry.coordinates[1], geometry.coordinates[0]]);
-                } else {
-                    console.warn("Unsupported geometry type:", geometry.type);
-                    reject("Unsupported geometry type"); // Reject the promise if unsupported
-                    return;
-                }
+        if (geometry.type && geometry.coordinates && geometry.coordinates.length > 0) {
+          let leafletGeoJSON;
+          if (geometry.type === 'Polygon') {
+            leafletGeoJSON = L.polygon(geometry.coordinates[0].map(coord => [coord[1], coord[0]]), {
+              color: '#000',
+              weight: 2,
+              fillColor: color,
+              fillOpacity: 0.7
+            });
+          } else if (geometry.type === 'Point') {
+            leafletGeoJSON = L.marker([geometry.coordinates[1], geometry.coordinates[0]]);
+          } else {
+            console.warn("Unsupported geometry type:", geometry.type);
+            reject("Unsupported geometry type"); // Reject the promise if unsupported
+            return;
+          }
 
-                leafletGeoJSON.bindPopup(createAlertZonePopupContent(alert), { autoClose: false, maxWidth: maxWidth });
-                leafletGeoJSON.on({
-                    mouseover: function(e) {
-                        e.target.setStyle({fillOpacity: 0.9});
-                    },
-                    mouseout: function(e) {
-                        e.target.setStyle({fillOpacity: 0.7});
-                    }
-                });
-                leafletGeoJSON.addTo(drawnItems);
-                leafletGeoJSON.alertId = alert._id;
-                resolve(); // Resolve the promise after adding to the map
-            } else {
-                console.warn("Invalid geometry data in alert:", alert);
-                reject("Invalid geometry data"); // Reject promise if invalid data
-            }
-        });
-    }
-    
-  function createAlertZonePopupContent(alert) {
-    let deleteButton = `<button class="btn btn-primary h-spaced-buttons delete-alert-button" data-alert-id="${alert._id}">Delete Alert Notification Zone</button>`;
-    return `<div class="my-tooltip"><h3>${alert.alert_name}</h3><p>${alert.alert_description}</p></div>` + deleteButton;
-  }
-
-  map.on('popupopen', function(e) {
-    const popup = e.popup;
-    const popupContent = popup.getElement();
-    const deleteButton = popupContent.querySelector('.delete-alert-button');
-    const layer = e.popup._source; // Get the layer from the popup event
-    const alertId = layer.alertId; // Access the alertId from the layer
-
-    if (deleteButton) {
-      deleteButton.addEventListener('click', function() {
-        if (confirm(`Are you sure you want to delete alert zone with ID: ${alertId}?`)) {
-          $.ajax({
-            type: "DELETE",
-            url: `/delete_alert_zone/${alertId}`,
-            success: function(response) {
-              alert("Alert zone deleted successfully!");
-              drawnItems.removeLayer(layer); // Remove the specific layer
-              popup.remove();
-              // showAlertsButton.click(); // Avoid reloading all alerts, inefficient
+          leafletGeoJSON.bindPopup(createAlertZonePopupContent(alert), { autoClose: false, maxWidth: maxWidth });
+          leafletGeoJSON.on({
+            mouseover: function(e) {
+              e.target.setStyle({fillOpacity: 0.9});
             },
-            error: function(error) {
-              alert("Error deleting alert zone: " + error.responseText);
-              console.error("Error:", error);
+            mouseout: function(e) {
+              e.target.setStyle({fillOpacity: 0.7});
             }
           });
+          leafletGeoJSON.addTo(drawnItems);
+          leafletGeoJSON.alertId = alert._id;
+          resolve(); // Resolve the promise after adding to the map
+        } else {
+          console.warn("Invalid geometry data in alert:", alert);
+          reject("Invalid geometry data"); // Reject promise if invalid data
         }
       });
     }
-  });
 
-    $('#deleteAllAlertsButton').click(function() {
-        if (confirm("Are you sure you want to delete ALL your active alert zones?")) {
+  function createAlertZonePopupContent(alert) {
+      let deleteButton = `<button class="btn btn-primary h-spaced-buttons delete-alert-button" data-alert-id="${alert._id}">Delete Alert Notification Zone</button>`;
+      return `<div class="my-tooltip"><h3>${alert.alert_name}</h3><p>${alert.alert_description}</p></div>` + deleteButton;
+    }
+
+  map.on('popupopen', function(e) {
+      const popup = e.popup;
+      const popupContent = popup.getElement();
+      const deleteButton = popupContent.querySelector('.delete-alert-button');
+      const layer = e.popup._source; // Get the layer from the popup event
+      const alertId = layer.alertId; // Access the alertId from the layer
+
+      if (deleteButton) {
+        deleteButton.addEventListener('click', function() {
+          if (confirm(`Are you sure you want to delete alert zone with ID: ${alertId}?`)) {
             $.ajax({
-                type: "DELETE",
-                url: "/delete_all_alert_zones",
-                success: function(response) {
-                    alert(response.message); // Display message
-                    drawnItems.clearLayers(); // Only clear the user's drawn zones, not all alerts
-
-                    // Optionally, update alert count display if needed:
-                    $('#alert-count p').text(`There are ${response.deleted_count} active alerts.`); //Update count
-                },
-                error: function(xhr, status, errorThrown) {
-                    console.error("Error deleting all alert zones:", status, errorThrown, xhr);
-                    let errorMessage = "Error deleting alert zones.";
-                    if (xhr.responseJSON && xhr.responseJSON.error) {
-                        errorMessage = xhr.responseJSON.error;
-                    }
-                    alert(errorMessage);
-                }
+              type: "DELETE",
+              url: `/delete_alert_zone/${alertId}`,
+              success: function(response) {
+                  displaySuccess("Alert zone deleted successfully!");
+                  drawnItems.removeLayer(layer); // Remove the specific layer
+                  popup.remove();
+              },
+              error: function(error) {
+                  displayError("Error deleting alert zone: " + error.responseText);
+                console.error("Error:", error);
+              }
             });
-        }
+          }
+        });
+      }
     });
 
-  $('.lightdark-switch').change(function() {
-    if ($(this).is(':checked')) {
-      darkLayer.addTo(map);
-      map.removeLayer(voyagerLayer);
-      $('#top-right-panel').css({
-        'background-color': '#333',
-        'color': '#eee',
-        'border': '1px solid #ccc'
-      });
-      $('.square').css({'color': '#000000'});
-      $('.text-severe-extreme').css({'color': '#FFFFFF'});
-      $('.my-tooltip').css({'color': '#FFFFFF', 'background-color': '#333'});
-      $('body').css('color', '#eee');
-    } else {
-      voyagerLayer.addTo(map);
-      map.removeLayer(darkLayer);
-      $('#top-right-panel').css({
-        'background-color': 'white',
-        'color': '#000000',
-        'border': '1px solid #000000'
-      });
-      $('.square').css({'color': '#000000'});
-      $('.text-severe-extreme').css({'color': '#FFFFFF'});
-      $('.my-tooltip').css({'color': '#000000', 'background-color': '#FFFFFF'});
-      $('body').css('color', '#333');
-    }
-  });
+  $('#deleteAllAlertsButton').click(function() {
+      if (confirm("Are you sure you want to delete ALL your active alert zones?")) {
+        $.ajax({
+            type: "DELETE",
+            url: "/delete_all_alert_zones",
+          success: function(response) {
+              displaySuccess(response.message);
+            drawnItems.clearLayers(); // Only clear the user's drawn zones, not all alerts
+            // Optionally, update alert count display if needed:
+            $('#alert-count p').text(`There are ${response.deleted_count} active alerts.`); //Update count
+          },
+          error: function(xhr, status, errorThrown) {
+            console.error("Error deleting all alert zones:", status, errorThrown, xhr);
+            let errorMessage = "Error deleting alert zones.";
+            if (xhr.responseJSON && xhr.responseJSON.error) {
+              errorMessage = xhr.responseJSON.error;
+            }
+            displayError(errorMessage);
+          }
+        });
+      }
+    });
+
+    $('.lightdark-switch').change(function() {
+      if ($(this).is(':checked')) {
+        darkLayer.addTo(map);
+        map.removeLayer(voyagerLayer);
+        $('#top-right-panel').css({
+          'background-color': '#333',
+          'color': '#eee',
+          'border': '1px solid #ccc'
+        });
+        $('.square').css({'color': '#000000'});
+        $('.text-severe-extreme').css({'color': '#FFFFFF'});
+        $('.my-tooltip').css({'color': '#FFFFFF', 'background-color': '#333'});
+        $('body').css('color', '#eee');
+      } else {
+        voyagerLayer.addTo(map);
+        map.removeLayer(darkLayer);
+        $('#top-right-panel').css({
+          'background-color': 'white',
+          'color': '#000000',
+          'border': '1px solid #000000'
+        });
+        $('.square').css({'color': '#000000'});
+        $('.text-severe-extreme').css({'color': '#FFFFFF'});
+        $('.my-tooltip').css({'color': '#000000', 'background-color': '#FFFFFF'});
+        $('body').css('color', '#333');
+      }
+    });
 
     $(document).on('click', '.translate', function() {
-        var descriptionElement = $(this).parents('.my-tooltip').find('.description-text');
-        var text = descriptionElement.text();
-        $.get('/translate', {text: text}, function(response) {
-            if (response && response.translated_text) {
-                var formattedText = formatKeywords(response.translated_text);
-                descriptionElement.html(formattedText);
-            }
-        });
+      var descriptionElement = $(this).parents('.my-tooltip').find('.description-text');
+      var text = descriptionElement.text();
+      $.get('/translate', {text: text}, function(response) {
+        if (response && response.translated_text) {
+          var formattedText = formatKeywords(response.translated_text);
+          descriptionElement.html(formattedText);
+        }
+      });
     });
 
   var elems = Array.prototype.slice.call(document.querySelectorAll('.lightdark-switch'));
@@ -613,35 +608,74 @@ $(document).ready(function() {
     var switchery = new Switchery(html);
   });
 
-  // Initialize Socket.IO connection
-	const socket = io.connect('https://weatheralerts.global');
+  // --- Socket.IO ---
+   let socketUrl;
+   if (window.location.hostname === 'localhost' || window.location.hostname === '0.0.0.0') {
+      socketUrl = 'http://localhost:8080';  // Or your local address and port
+   } else {
+      socketUrl = 'https://weatheralerts.global';
+   }
 
-
-  // Handle connection and request initial map data
-    socket.on('connect', function() {
-		console.log("Socket connected.");
-		socket.emit('get_map_data');
-		
+	const socket = io.connect(socketUrl, {
+		timeout: 10000
 	});
+  // Handle connection and request initial map data
+  socket.on('connect', function() {
+    console.log("Socket connected.");
+    socket.emit('get_map_data');
+    //displaySuccess("Connected to server via WebSockets!");
+  });
+    socket.on('connect_error', (error) => {
+       console.error("Connection error", error);
+       //displayError("Error connecting to server via WebSockets!");
+       // Implement retry logic with exponential backoff
+        setTimeout(() => {
+          socket.connect();
+        }, 5000);
+       });
 
-	  // Handle incoming map data updates from server
+  // Handle disconnection
+  socket.on('disconnect', function() {
+    console.log('Socket disconnected');
+    //displayError("Disconnected from server via WebSockets!");
+  });
+
+  // Handle reconnection
+  socket.on('reconnect', function() {
+    console.log("Socket reconnected!");
+    //displaySuccess("Reconnected to server via WebSockets!");
+    socket.emit('get_map_data'); // Re-request data on reconnect
+  });
+
+
+    // Handle incoming map data updates from server
     socket.on('map_data_update', function(data) {
-      console.log("Received map data update via SocketIO");
-      if(data && data.map_data) {
-         // Clear existing alerts
-        map.eachLayer(function (layer) {
-          if (layer instanceof L.GeoJSON && layer.options && layer.options.onEachFeature) {
-            map.removeLayer(layer);
-          }
-        });
-        //Update the local alerts variable
-          alerts = data.map_data.alerts;
-        handleAlerts();
-      } else {
-         console.error("Error: Invalid map data received.");
-      }
-
+        console.log("Received map data update via SocketIO");
+        if(data && data.map_data) {
+            // Clear existing alerts
+            map.eachLayer(function (layer) {
+            if (layer instanceof L.GeoJSON && layer.options && layer.options.onEachFeature) {
+                map.removeLayer(layer);
+            }
+            });
+            //Update the local alerts variable
+            alerts = data.map_data.alerts;
+            handleAlerts();
+        } else {
+            console.error("Error: Invalid map data received.");
+            displayError("Error: Invalid map data received via WebSockets.");
+        }
     });
+
+   // --- Utility Functions ---
+    function displayError(message) {
+        // Display an error message to the user
+        alert("Error: " + message);
+    }
+
+    function displaySuccess(message) {
+      alert("Success: " + message)
+    }
 });
 </script>
 </body>
