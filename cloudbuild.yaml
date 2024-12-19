@@ -54,52 +54,6 @@ spec:
         - name: http1
           containerPort: 8080
         env:
-        - name: MONGODB_URI
-          value: >-
-            mongodb+srv://wag-ow:LdUL9koZj1v8Po3n@wag-ow.7ydvy.mongodb.net/?retryWrites=true&w=majority&appName=wag-ow
-        - name: OWA_DATABASE_NAME
-          value: openweatheralerts
-        - name: OWA_COLLECTION_NAME
-          value: openweatheralerts
-        - name: WAG_DATABASE_NAME
-          value: weatheralertsglobal
-        - name: WAG_USERS_COLLECTION_NAME
-          value: users
-        - name: WAG_USER_ALERTS_NOTIFICATION_ZONE_COLLECTION_NAME
-          value: user_alert_notification_zones
-        - name: WAG_USER_WEATHER_ALERTS_COLLECTION_NAME
-          value: user_weather_alerts
-        - name: SECRET_KEY
-          value: 5j--FjiWQV3TujQDb6i-wu9jLBhTHfQhfO6Bs6_Ot0E
-        - name: MAIL_SERVER
-          value: smtp.ionos.co.uk
-        - name: MAIL_PORT
-          value: '587'
-        - name: MAIL_USERNAME
-          value: support@weatheralerts.global
-        - name: MAIL_PASSWORD
-          value: madbyb-mygxi7-wIcwuj
-        - name: MAIL_DEFAULT_SENDER
-          value: support@weatheralerts.global
-        - name: SERIALIZER_SECRET
-          value: noKwyp-joqze1-hyqkam
-        - name: GOOGLE_API_KEY
-          value: AIzaSyC4eP7g07ZDf2BV-Ml7oS8re40bmbIFBCg
-        - name: ALLOWED_DOMAINS_1
-          value: greenpeace.org
-        - name: ALLOWED_DOMAINS_2
-          value: deepearth.digital
-        - name: REDIS_CLOUD_HOST
-          value: redis-19605.c335.europe-west2-1.gce.redns.redis-cloud.com
-        - name: REDIS_CLOUD_PORT
-          value: '19605'
-        - name: REDIS_CLOUD_PASSWORD
-          value: 9UrjSL7XJTx2vMQvg2CjvupJgFBb8OJ3
-        - name: REDIS_CLOUD_DB
-          value: '0'
-        - name: REDIS_URL
-          value: >-
-            redis://:9UrjSL7XJTx2vMQvg2CjvupJgFBb8OJ3@redis-19605.c335.europe-west2-1.gce.redns.redis-cloud.com:19605/0
         resources:
           limits:
             cpu: 1000m
