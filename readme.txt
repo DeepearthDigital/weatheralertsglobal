@@ -49,11 +49,13 @@ For production, need to set the following
 Or from PyCharm/GCP
 
             gunicorn -b :8080 main:app --worker-class gevent
+            gunicorn -b :8080 main:app --worker-class gevent -w 4 --log-level debug
 
 if you need to stop processs locally then
 
             lsof -i :8080
             kill
+            lsof -i :8080 | awk 'NR!=1 {print $2}' | xargs kill
 
 
 
