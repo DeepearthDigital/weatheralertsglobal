@@ -539,7 +539,7 @@ def get_alert_stats(alerts):
         latest_start = max(alert['start'] for alert in alerts)
         earliest_date = datetime.fromtimestamp(earliest_start, tz=timezone.utc).strftime('%Y-%m-%d')
         latest_date = datetime.fromtimestamp(latest_start, tz=timezone.utc).strftime('%Y-%m-%d')
-        date_range = f" - "
+        date_range = f"{earliest_date} - {latest_date}"
         return len(alerts), date_range
     else:
         return 0, "No alerts currently displayed"

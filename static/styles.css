@@ -113,29 +113,42 @@
     max-width: 400px;
     overflow-y: auto;  /* Enable vertical scrolling */
     max-height: 95vh; /* Limit the panel's maximum height */
-    cursor: move;
 }
 
 
-/* Media query for smaller screens (e.g., tablets and phones) */
-@media (max-width: 768px) {
-    #top-right-panel {
-        position: fixed; /* Switch to fixed for smaller screens */
-        top: 0;
-        right: 0;
-        left: 0; /* Stretch panel to fill screen horizontally */
-        bottom: auto;
-        width: 100%; /* Make panel full-width */
-        max-width: 100%;
-        max-height: 80vh; /* Reduce height if needed */
-        border-radius: 0; /* Remove border-radius on smaller screen */
-        padding: 15px;
-        overflow-y: auto; /* Allow scrolling on smaller screens */
-    }
+#top-right-panel .button-container{
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
 }
-    #top-right-panel > div {
-        margin-top: 5px; /* Spacing between sections */
+
+#top-right-panel .table-container {
+    overflow-x: auto; /* Enables horizontal scrolling */
+  }
+
+#top-right-panel table {
+  width: 100%; /* Makes sure that the table take sup the full width */
+}
+
+#top-right-panel th, #top-right-panel td{
+    padding: 8px;
+    font-size: 0.9em;
+}
+
+@media (max-width: 480px) {
+
+  #top-right-panel .button-container {
+    flex-direction: column; /* Stack buttons on small screens */
+  }
+  #top-right-panel .table-container {
+      overflow-x: scroll; /* Allow scrolling for the table on small screens */
+  }
+
+    #top-right-panel th, #top-right-panel td{
+        font-size: 0.8em;
     }
+
+}
 
     #app-title {
 
@@ -158,8 +171,8 @@
 	  display: flex;
 	  justify-content: center;
 	  align-items: center;
-	  width: 80px;
-	  height: 80px;
+	  width: 60px;
+	  height: 60px;
 }
 	.text-severe-extreme {
 	  color: #FFFFFF;
@@ -230,6 +243,12 @@ h2 {
 }
 h3 {
   font-size: 1.25em;
+  font-weight: normal; /* Example of different style for h2 */
+  margin-bottom: 0.5em;
+  margin-top: 0.5em;
+}
+h4 {
+  font-size: 1em;
   font-weight: normal; /* Example of different style for h2 */
   margin-bottom: 0.5em;
   margin-top: 0.5em;

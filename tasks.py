@@ -130,7 +130,7 @@ app = Celery('tasks',
 # print(f"Broker URL: {app.conf.broker_url}")
 # print(f"Backend URL: {app.conf.result_backend}")
 
-QUERY_LIMIT = 2000
+QUERY_LIMIT = 1000
 
 @app.task(name='generate_map_data_task')
 def generate_map_data(future_days=7):
@@ -222,7 +222,7 @@ def generate_map_data(future_days=7):
     celery_logger.info(f"Celery task completed successfully: ")
 
     # Send the map data to the callback URL - this will trigger the socket.io broadcast.
-    callback_url = 'https://deepearthweatheralertsglobal-193736185683.europe-north1.run.app/map_data_callback'
+    callback_url = 'http://0.0.0.0:8080/map_data_callback'  # Replace with your server address in production.
     redis_client = redis.Redis(host=redis_cloud_host, port=redis_cloud_port, password=redis_cloud_password,
                                     db=redis_cloud_db)
     redis_client.set('map_data_task_id', generate_map_data.request.id)  # Set the task ID

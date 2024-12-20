@@ -17,58 +17,62 @@
 <div id="loading-bar-container" class="hidden"><div id="loading-bar"></div></div>
 <div id="mapid"></div>
 <div id="loading-screen"></div>
-<div id="loading-message"><div id="login"><h3>Gathering Alert Data...</h3><br><p>Please be patient</p></div></div>
+<div id="loading-message"><div id="login"><h3>Gathering Alert Data...</h3><p>Please be patient</p></div></div>
+	
+	
+	
 <div id="top-right-panel">
-  <div id="login-welcome"><div id="app-title"><h1>Weather Alerts Global</h1></div>
+  <div id="login-welcome">
+    <div id="app-title">
+      <h1>Weather Alerts Global</h1>
+    </div>
     <h2>Welcome, {{ current_user.first_name }}!</h2>
-        <a href="{{ url_for('logout') }}" class="btn btn-primary h-spaced-buttons">Logout</a>
-        <a href="{{ url_for('change_password') }}" class="btn btn-primary h-spaced-buttons">Change Password</a>
+	  <div id="alert-count"><p>There are <b>{{ alert_count }}</b> live alerts in place covering the period <b>{{ date_range }}</b></p><div id="date-range"></div></div>
+    <div class="button-container">
+      <a href="{{ url_for('logout') }}" class="btn btn-primary h-spaced-buttons">Logout</a>
+      <a href="{{ url_for('change_password') }}" class="btn btn-primary h-spaced-buttons">Change Password</a>
+    </div>
+    <div class="button-container">
         <button id="createAlertButton" class="btn btn-primary h-spaced-buttons">Create Alert Zone Notification</button>
         <button id="showAlertsButton" class="btn btn-primary h-spaced-buttons">Show Active Alert Notifications Zone</button>
         <button id="deleteAllAlertsButton" class="btn btn-danger h-spaced-buttons">Delete All Active Alert Zones</button>
-    </div>
-    <div id="alert-count">
+      </div>
+  </div>
   
-    </div>
-
-    <div id="date-range">
-    
-    </div>
-
+  
+	
+  <div class="table-container">
     <table id="severity-key">
-     <thead>
-     </thead>
-     <tbody>
-
-      <tr>
-       <th align="center" valign="middle" bgcolor="#E8E8E8" class="square"><h4 class="square">{{ alert_count }}</h4></th>
-       <th align="left" valign="middle" class="severity-text"><h3>Live Alerts</h3></th>
-      </tr>
+      <thead></thead>
+      <tbody>
         <tr>
-       <td align="center" valign="middle" class="square" style="background-color: #00FF00;"><h4 class="square">{{ alert_counts.Minor|default(0) }}</h4></td>
-        <td align="left" valign="middle" class="severity-text"><h3>Minor</h3></td> 
-      </tr>
-      <tr>
-       <td align="center" valign="middle" class="square" style="background-color: #FFA500;"><h4>{{ alert_counts.Moderate|default(0) }}</h4></td>
-        <td align="left" valign="middle" class="severity-text"><h3>Moderate</h3></td>  
-      </tr>
-      <tr>
-       <td align="center" valign="middle" class="square" style="background-color: #FF0000;"><h4 class="text-severe-extreme">{{ alert_counts.Severe|default(0) }}</h4></td>
-        <td align="left" valign="middle" class="severity-text"><h3>Severe</h3></td> 
-      </tr>
-      <tr>
-       <td align="center" valign="middle" class="square" style="background-color: #313131;" ><h4 class="text-severe-extreme">{{ alert_counts.Extreme|default(0) }}</h4></td>
-        <td align="left" valign="middle" class="severity-text"><h3>Extreme</h3></td>    
-      </tr>
-     </tbody>
+          <th align="center" valign="middle" bgcolor="#E8E8E8" class="square"><h3 class="square">{{ alert_count }}</h3></th>
+          <th align="left" valign="middle" class="severity-text"><h3>Live Alerts</h3></th>
+        </tr>
+        <tr>
+          <td align="center" valign="middle" class="square" style="background-color: #00FF00;"><h3 class="square">{{ alert_counts.Minor|default(0) }}</h3></td>
+          <td align="left" valign="middle" class="severity-text"><h3>Minor</h3></td>
+        </tr>
+        <tr>
+          <td align="center" valign="middle" class="square" style="background-color: #FFA500;"><h3>{{ alert_counts.Moderate|default(0) }}</h3></td>
+          <td align="left" valign="middle" class="severity-text"><h3>Moderate</h3></td>
+        </tr>
+        <tr>
+          <td align="center" valign="middle" class="square" style="background-color: #FF0000;"><h3 class="text-severe-extreme">{{ alert_counts.Severe|default(0) }}</h3></td>
+          <td align="left" valign="middle" class="severity-text"><h3>Severe</h3></td>
+        </tr>
+        <tr>
+          <td align="center" valign="middle" class="square" style="background-color: #313131;" ><h3 class="text-severe-extreme">{{ alert_counts.Extreme|default(0) }}</h3></td>
+          <td align="left" valign="middle" class="severity-text"><h3>Extreme</h3></td>
+        </tr>
+      </tbody>
     </table>
-    <div id="alert-counts-container"></div>
-   <br>
-   <p>Light/Dark Mode <input type="checkbox" class="lightdark-switch" /></p>
-
-  
+  </div>
+  <div id="alert-counts-container"></div>
+  <br>
+  <p>Light/Dark Mode <input type="checkbox" class="lightdark-switch" /></p>
 </div>
-  
+	
 <div id="createAlertModal" class="modal fade" role="dialog">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -297,32 +301,6 @@ $(document).ready(function() {
   handleAlerts();
   loadingScreen.addClass('hidden');
   loadingMessage.addClass('hidden');
-
-  // Draggable panel code (unchanged)
-  let isDragging = false;
-  let offsetX, offsetY;
-
-  $('#top-right-panel').mousedown(function(e) {
-    isDragging = true;
-    offsetX = e.clientX - $(this).offset().left;
-    offsetY = e.clientY - $(this).offset().top;
-  });
-
-  $(document).mousemove(function(e) {
-    if (isDragging) {
-      let x = e.clientX - offsetX;
-      let y = e.clientY - offsetY;
-      let minX = 0;
-      let minY = 0;
-      x = Math.max(minX, x);
-      y = Math.max(minY, y);
-      $('#top-right-panel').offset({left: x, top: y});
-    }
-  });
-
-  $(document).mouseup(function() {
-    isDragging = false;
-  });
 
 
     if ($('#createAlertModal').length > 0) {
