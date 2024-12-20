@@ -135,23 +135,37 @@ $(document).ready(function() {
 
   var alerts = {{ alerts|safe }}; // initial alerts but not updated
 
-  // Function to process map data and handle alerts
-  function processMapData(data) {
-    if (data && data.map_data) {
-      // Clear existing alerts (as in your original code)
-      map.eachLayer(function (layer) {
-        if (layer instanceof L.GeoJSON && layer.options && layer.options.onEachFeature) {
-          map.removeLayer(layer);
+    // Function to process map data and handle alerts
+     function processMapData(data) {
+        if (data && data.map_data) {
+          // Use a flag to track if the map has been cleared to prevent duplicates.
+          let mapCleared = false;
+          //Update the alerts first
+            if(data.map_data.page === 1){
+                alerts = data.map_data.alerts;  //On the first page we will overwrite the data
+            } else {
+                alerts = alerts.concat(data.map_data.alerts)  //Otherwise we will add to the existing data
+            }
+
+           // Remove existing GeoJSON layers, but only if we have not already cleared them on this response.
+            map.eachLayer(function (layer) {
+                if (layer instanceof L.GeoJSON && layer.options && layer.options.onEachFeature) {
+                   if(!mapCleared){
+                    map.removeLayer(layer);
+                    }
+                }
+            });
+             mapCleared = true; //Set the flag to true.
+
+
+          handleAlerts(); // Call handleAlerts *after* updating alerts
+          hideLoadingMessage();
+        } else {
+          console.error("Error: Invalid map data received.");
+          displayError("Error: Invalid map data received.");
         }
-      });
-      alerts = data.map_data.alerts; // Update the global alerts variable
-      handleAlerts(); // Call handleAlerts *after* updating alerts
-      hideLoadingMessage();
-    } else {
-      console.error("Error: Invalid map data received.");
-      displayError("Error: Invalid map data received.");
-    }
-  }
+      }
+
   let drawnItems = new L.FeatureGroup();
   map.addLayer(drawnItems);
 

@@ -130,20 +130,59 @@ app = Celery('tasks',
 # print(f"Broker URL: {app.conf.broker_url}")
 # print(f"Backend URL: {app.conf.result_backend}")
 
-QUERY_LIMIT = 1000
+QUERY_LIMIT_BATCH = 5000  # Set a more reasonable limit for fetching from DB initially.
+QUERY_LIMIT = 100000 #This is the ultimate limit for the query
 
 @app.task(name='generate_map_data_task')
-def generate_map_data(future_days=7):
+def generate_map_data(future_days=7, page=1, total_pages=None, existing_map_data=None, total_alerts=0):
     start_time = time.time()
-    celery_logger.info("Generating map data... Celery task started.")
+    celery_logger.info(f"Generating map data... Celery task started. Page: {page}, Total pages: {total_pages}, QUERY_LIMIT_BATCH: {QUERY_LIMIT_BATCH}, QUERY_LIMIT: {QUERY_LIMIT}")
     my_map = folium.Map(location=[51.4779, 0.0015], zoom_start=5)
-    alerts = []
+    alerts = existing_map_data.get('alerts', []) if existing_map_data else []  # Initialize if passed.
+
     today_utc = datetime.now(timezone.utc)
     today_start_utc = today_utc.replace(hour=0, minute=0, second=0, microsecond=0)
     today_end_utc = today_start_utc + timedelta(days=1)
     today_start_timestamp = int(today_start_utc.timestamp())
     today_end_timestamp = int(today_end_utc.timestamp())
     future_timestamp = int((today_utc + timedelta(days=future_days)).timestamp())
+
+
+    # Calculate skip value based on page number
+    skip = (page - 1) * QUERY_LIMIT_BATCH
+    if page == 1:
+        total_alerts = owa_collection.count_documents({
+        "$or": [
+            {"start": {"$gte": today_start_timestamp}, "end": {"$lte": today_end_timestamp}},  # Alerts starting and ending today
+            {"start": {"$lt": today_end_timestamp}, "end": {"$gt": today_start_timestamp}},  # Alerts spanning today
+            {"start": {"$gte": today_end_timestamp}, "end": {"$lte": future_timestamp}}  # Future alerts within the future_days range
+
+        ]
+        })
+        total_pages = (total_alerts + QUERY_LIMIT_BATCH - 1) // QUERY_LIMIT_BATCH # Calculate the total number of pages
+    elif not total_pages:
+      celery_logger.error("Error.  Total Pages not defined in subsequent page request")
+      return {'error': 'Total pages not defined'} # Error response
+
+    if skip >= QUERY_LIMIT:
+      celery_logger.info(f"Total alerts {len(alerts)} exceeds QUERY_LIMIT of {QUERY_LIMIT}.  Halting map data generation.")
+      map_data = {'map_js': "", 'alerts': alerts, 'total_pages': total_pages, 'page': page }  # Return the data
+      # Send the map data to the callback URL - this will trigger the socket.io broadcast.
+      callback_url = 'http://0.0.0.0:8080/map_data_callback'  # Replace with your server address in production.
+      redis_client = redis.Redis(host=redis_cloud_host, port=redis_cloud_port, password=redis_cloud_password,
+                                     db=redis_cloud_db)
+      redis_client.set('map_data_task_id', generate_map_data.request.id)  # Set the task ID
+      celery_logger.info(f"Task ID {generate_map_data.request.id} saved to Redis.")
+      try:
+         response = send_request_with_retry(callback_url, data={'map_data': map_data})
+         if response and response.status_code == 200:
+            redis_client.setex('map_data', 14400, json.dumps(map_data))
+            celery_logger.info("Map data update successful, sent via socketio.")
+         else:
+           celery_logger.error("Map data update failed via SocketIO.")
+      except requests.exceptions.RequestException as e:
+          celery_logger.exception(f"Error sending request to : ")
+      return map_data
 
     cursor = owa_collection.find({
         "$or": [
@@ -152,7 +191,7 @@ def generate_map_data(future_days=7):
             {"start": {"$gte": today_end_timestamp}, "end": {"$lte": future_timestamp}}  # Future alerts within the future_days range
 
         ]
-    }).limit(QUERY_LIMIT)
+    }).skip(skip).limit(QUERY_LIMIT_BATCH)
 
     explanation = cursor.explain()
     celery_logger.info(f"Query explanation:\n{json.dumps(explanation['executionStats'], indent=2)}")
@@ -216,9 +255,9 @@ def generate_map_data(future_days=7):
     map_js = my_map.get_root().render()
     end_time = time.time()
     elapsed_time = end_time - start_time
-    celery_logger.info(f"Map data generated in {elapsed_time:.4f} seconds. Celery task completed.") #Added this line
+    celery_logger.info(f"Map data generated in {elapsed_time:.4f} seconds. Celery task completed.")  # Added this line
 
-    map_data = {'map_js': map_js, 'alerts': alerts}  # Return the data
+    map_data = {'map_js': map_js, 'alerts': alerts, 'total_pages': total_pages, 'page': page }  # Return the data
     celery_logger.info(f"Celery task completed successfully: ")
 
     # Send the map data to the callback URL - this will trigger the socket.io broadcast.
@@ -230,12 +269,18 @@ def generate_map_data(future_days=7):
     try:
         response = send_request_with_retry(callback_url, data={'map_data': map_data})
         if response and response.status_code == 200:
-            redis_client.setex('map_data', 14400, json.dumps(map_data))
-            celery_logger.info("Map data update successful, sent via socketio.")
+           redis_client.setex('map_data', 14400, json.dumps(map_data))
+           celery_logger.info("Map data update successful, sent via socketio.")
         else:
-            celery_logger.error("Map data update failed via SocketIO.")
+           celery_logger.error("Map data update failed via SocketIO.")
     except requests.exceptions.RequestException as e:
-        celery_logger.exception(f"Error sending request to : ")
+       celery_logger.exception(f"Error sending request to : ")
+    # Check if we have more pages, but only if the number of alerts are less than the query limit.
+    if page < total_pages and len(alerts) < QUERY_LIMIT:
+       celery_logger.info(f"Triggering next page {page+1} of {total_pages}.")
+       generate_map_data.delay(future_days, page+1, total_pages, map_data, len(alerts))
+    else:
+       celery_logger.info("Map data generation completed. No more pages")
 
     return map_data
 

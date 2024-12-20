@@ -474,33 +474,41 @@ def index():
         try:
             app_logger.info("Attempting to retrieve map_data from Redis...")
             map_data_json = redis_client.get('map_data')
+            cached_task_id = redis_client.get('map_data_task_id')  # Returns None if not found
+
             if map_data_json:
                 map_data = json.loads(map_data_json)
                 app_logger.info("Retrieved map_data from Redis.")
                 loading = False
-            else:
-                app_logger.info("Redis cache miss for map_data. Retrieving from database...")
-                loading = True
-                task_id = redis_client.get('map_data_task_id')  # Populate task_id
-                if task_id:
-                    async_result = AsyncResult(task_id, app=celery_app)
-                    if async_result.state == 'PENDING' or async_result.state == 'STARTED':
-                        app_logger.info('Map data generation task already running.')
-                        loading = True  # Set loading to true to indicate that task is running
-                    elif async_result.state == 'SUCCESS':
-                        map_data_json = redis_client.get('map_data')
-                        if map_data_json:
-                            map_data = json.loads(map_data_json)
-                            app_logger.info("Retrieved map_data from Redis.")
-                            loading = False
-                    else:
-                        app_logger.warning(
-                            "Previous task failed.")  # Handle task failure (e.g., retry or display an error)
-                        flash("Error generating map data. Please try again later.")
-                        loading = False  # Ensure loading is false
-                else:
-                    app_logger.info("Task ID not found in Redis.")
+            elif cached_task_id:
+                app_logger.info("Task ID found in Redis, checking if running...")
+                async_result = AsyncResult(cached_task_id.decode('utf-8'), app=celery_app)
+                if async_result.state in ['PENDING', 'STARTED', 'RETRY']:
+                    app_logger.info("Map Data task is running, setting loading screen")
                     loading = True
+                elif async_result.state == 'SUCCESS':
+                     map_data_json = redis_client.get('map_data')
+                     if map_data_json:
+                        map_data = json.loads(map_data_json)
+                        app_logger.info("Retrieved map_data from Redis after successful task completion")
+                        loading = False
+                     else:
+                         app_logger.info("Redis data not found after a successful task.")
+                         loading = True # Indicate we need to reload
+                         task = celery_app.send_task('generate_map_data_task') # Generate the map data
+                         redis_client.set('map_data_task_id', task.id)
+                         app_logger.info(f"Triggered map data generation, task id: {task.id}")
+                else:
+                    app_logger.warning(
+                        "Previous task failed.")  # Handle task failure (e.g., retry or display an error)
+                    flash("Error generating map data. Please try again later.")
+                    loading = False  # Ensure loading is false
+            else:
+                app_logger.info("Map data not found in Redis. Generating...")
+                loading = True
+                task = celery_app.send_task('generate_map_data_task') # Start the task initially.
+                redis_client.set('map_data_task_id', task.id)
+                app_logger.info(f"Starting map data generation task id: {task.id}")
 
             # Handle the response - this section is now ALWAYS executed
             alerts = map_data.get('alerts', [])
@@ -514,7 +522,7 @@ def index():
                 severity = alert.get('severity', 'Unknown')  # Handle potential missing keys
                 alert_counts[severity] = alert_counts.get(severity, 0) + 1
 
-            #app_logger.info(f"Alerts sent to template: {alerts}")  # Debugging
+            #app_logger.info(f"Alerts sent to template: ")  # Debugging
             return render_template('index.html', map_js=map_js, alerts=alerts,
                                    active_alerts_time=active_alerts_time, current_date=current_date,
                                    alert_count=alert_count, date_range=date_range,
@@ -528,9 +536,6 @@ def index():
             app_logger.exception("Unhandled error in index route:")
             flash("An unexpected error occurred.")
             return render_template('error.html')
-
-    else:
-        return redirect(url_for("login"))
 
 
 def get_alert_stats(alerts):
@@ -852,10 +857,23 @@ def map_data_callback():
         data = request.get_json()  # Get the json data
         if data and 'map_data' in data:
             map_data = data['map_data']
-            print(f"map_data received")
-            app_logger.info(f"map_data received:")
+            print(f"map_data received: ")
+            app_logger.info(f"map_data received: ")
+            # Retrieve existing map data from redis.
+            existing_map_data_json = redis_client.get('map_data')
+            if existing_map_data_json:
+                existing_map_data = json.loads(existing_map_data_json)
+                # Add the new alerts to existing alerts, only if the page is > 1.  On the first request the whole set is overwritten.
+                if map_data['page'] > 1:
+                    existing_map_data['alerts'].extend(map_data['alerts'])
+                    map_data['alerts'] = existing_map_data['alerts'] #Ensure all data is sent to the user.
+                    app_logger.info(f"Added {len(map_data['alerts'])} new alerts to redis: ")
+                else:
+                     app_logger.info("This is the first page, overwriting the cache")
+            else:
+                 app_logger.info("No existing data in redis.")
             socketio.emit('map_data_update', {'map_data': map_data})  # Send the data via socketio
-            app_logger.info(f'Map data broadcasted via SocketIO: ')
+            app_logger.info(f'Map data broadcasted via SocketIO, page: {map_data["page"]} of {map_data["total_pages"] if map_data.get("total_pages") else "Unknown"}')
             return jsonify({'status': 'success', 'message': 'Map data broadcasted via SocketIO'}), 200
         else:
             app_logger.info(f'No map data found in request body. Nothing to emit')
