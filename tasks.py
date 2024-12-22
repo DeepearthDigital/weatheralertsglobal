@@ -18,6 +18,85 @@ import redis #Import Redis here
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import ssl
+from shapely.geometry import shape, mapping
+from shapely.ops import transform
+import pyproj
+from functools import partial
+
+load_dotenv()
+
+# Email Configuration (Use environment variables for security!)
+MAIL_SERVER = os.environ['MAIL_SERVER']
+MAIL_PORT = os.environ['MAIL_PORT']
+MAIL_USERNAME = os.environ['MAIL_USERNAME']
+MAIL_PASSWORD = os.environ['MAIL_PASSWORD']
+MAIL_USE_TLS = True
+MAIL_USE_SSL = False
+MAIL_DEFAULT_SENDER = os.environ['MAIL_DEFAULT_SENDER']
+
+# MongoDB Configuration=++
+MONGODB_URI = os.environ['MONGODB_URI']
+WAG_DATABASE_NAME = os.environ['WAG_DATABASE_NAME']
+WAG_USERS_COLLECTION_NAME = os.environ['WAG_USERS_COLLECTION_NAME']
+WAG_USER_ALERTS_NOTIFICATION_ZONE_COLLECTION_NAME = os.environ['WAG_USER_ALERTS_NOTIFICATION_ZONE_COLLECTION_NAME']
+OWA_DATABASE_NAME = os.environ['OWA_DATABASE_NAME']
+OWA_COLLECTION_NAME = os.environ['OWA_COLLECTION_NAME']
+
+# Redis Cloud details from environment variables.
+redis_cloud_host = os.environ.get('REDIS_CLOUD_HOST')
+redis_cloud_port = os.environ.get('REDIS_CLOUD_PORT')
+redis_cloud_password = os.environ.get('REDIS_CLOUD_PASSWORD')
+redis_cloud_db = os.environ.get('REDIS_CLOUD_DB', 0)
+
+if not all([redis_cloud_host, redis_cloud_port, redis_cloud_password]):
+    raise ValueError("Redis Cloud environment variables are missing.")
+
+try:
+    redis_cloud_db = int(redis_cloud_db)
+except ValueError:
+    raise ValueError("redis_cloud_db must be an integer.")
+
+# Celery configuration
+app = Celery('tasks',
+             broker=f'redis://:{redis_cloud_password}@{redis_cloud_host}:{redis_cloud_port}/{redis_cloud_db}',
+             backend=f'redis://:{redis_cloud_password}@{redis_cloud_host}:{redis_cloud_port}/{redis_cloud_db}')
+
+# Create a logger for Celery tasks
+celery_logger = logging.getLogger('celery_app')
+celery_logger.setLevel(logging.INFO)
+
+# Truncate the log file at the start
+log_file_path = 'celery_app.log'
+if os.path.exists(log_file_path):
+    with open(log_file_path, 'w'):
+        pass  # Simply open the file in write mode and immediately close it; this truncates it.
+
+# Create a file handler for Celery task logs
+file_handler = logging.handlers.RotatingFileHandler(log_file_path, maxBytes=10 * 1024 * 1024,
+                                                    backupCount=5)  # 10MB, 5 backups
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(filename)s - %(lineno)d - %(message)s - %(exc_info)s')
+file_handler.setFormatter(formatter)
+celery_logger.addHandler(file_handler)
+
+
+# Database connections using MongoClient
+mongo_client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
+owa_db = mongo_client[OWA_DATABASE_NAME]
+owa_collection = owa_db[OWA_COLLECTION_NAME]
+wag_db = mongo_client[WAG_DATABASE_NAME]
+wag_collection = wag_db[WAG_USERS_COLLECTION_NAME]
+wag_user_alerts_notification_zone_collection = wag_db[WAG_USER_ALERTS_NOTIFICATION_ZONE_COLLECTION_NAME]
+
+
+MAP_DATA_CALLBACK_URL = 'https://weatheralerts.global/map_data_callback'
+# Define a function to format timestamps for alert names
+def format_timestamp(timestamp):
+    return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S UTC')
+
+# Define a function for creating redis client
+def create_redis_client():
+    return redis.Redis(host=redis_cloud_host, port=redis_cloud_port, password=redis_cloud_password,
+                           db=redis_cloud_db)
 
 def send_request_with_retry(url, data, max_retries=3, backoff_factor=1, status_forcelist=(500, 502, 503, 504)):
     """
@@ -57,88 +136,16 @@ def send_request_with_retry(url, data, max_retries=3, backoff_factor=1, status_f
         response.raise_for_status()
         return response
     except requests.exceptions.RequestException as e:
-        celery_logger.exception(f"Error sending request to {url} after {max_retries} retries: ")
+        celery_logger.exception(f"Error sending request to  after  retries: ")
         return None
 
-# Create a logger for Celery tasks
-celery_logger = logging.getLogger('celery_app')
-celery_logger.setLevel(logging.INFO)
-
-# Truncate the log file at the start
-log_file_path = 'celery_app.log'
-if os.path.exists(log_file_path):
-    with open(log_file_path, 'w'):
-        pass  # Simply open the file in write mode and immediately close it; this truncates it.
-
-# Create a file handler for Celery task logs
-file_handler = logging.handlers.RotatingFileHandler(log_file_path, maxBytes=10 * 1024 * 1024,
-                                                    backupCount=5)  # 10MB, 5 backups
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(filename)s - %(lineno)d - %(message)s - %(exc_info)s')
-file_handler.setFormatter(formatter)
-celery_logger.addHandler(file_handler)
-
-load_dotenv()
-
-# Email Configuration (Use environment variables for security!)
-MAIL_SERVER = os.environ['MAIL_SERVER']
-MAIL_PORT = os.environ['MAIL_PORT']
-MAIL_USERNAME = os.environ['MAIL_USERNAME']
-MAIL_PASSWORD = os.environ['MAIL_PASSWORD']
-MAIL_USE_TLS = True
-MAIL_USE_SSL = False
-MAIL_DEFAULT_SENDER = os.environ['MAIL_DEFAULT_SENDER']
-
-# MongoDB Configuration=++
-MONGODB_URI = os.environ['MONGODB_URI']
-WAG_DATABASE_NAME = os.environ['WAG_DATABASE_NAME']
-WAG_USERS_COLLECTION_NAME = os.environ['WAG_USERS_COLLECTION_NAME']
-WAG_USER_ALERTS_NOTIFICATION_ZONE_COLLECTION_NAME = os.environ['WAG_USER_ALERTS_NOTIFICATION_ZONE_COLLECTION_NAME']
-OWA_DATABASE_NAME = os.environ['OWA_DATABASE_NAME']
-OWA_COLLECTION_NAME = os.environ['OWA_COLLECTION_NAME']
-
-client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
-owa_db = client[OWA_DATABASE_NAME]
-owa_collection = owa_db[OWA_COLLECTION_NAME]
-wag_db = client[WAG_DATABASE_NAME]
-wag_collection = wag_db[WAG_USERS_COLLECTION_NAME]
-wag_user_alerts_notification_zone_collection = wag_db[WAG_USER_ALERTS_NOTIFICATION_ZONE_COLLECTION_NAME]
-
-# Redis Cloud details from environment variables.
-redis_cloud_host = os.environ.get('REDIS_CLOUD_HOST')
-redis_cloud_port = os.environ.get('REDIS_CLOUD_PORT')
-redis_cloud_password = os.environ.get('REDIS_CLOUD_PASSWORD')
-redis_cloud_db = os.environ.get('REDIS_CLOUD_DB', 0)
-
-if not all([redis_cloud_host, redis_cloud_port, redis_cloud_password]):
-    raise ValueError("Redis Cloud environment variables are missing.")
-
-try:
-    redis_cloud_db = int(redis_cloud_db)
-except ValueError:
-    raise ValueError("redis_cloud_db must be an integer.")
-
-# print(f"Redis Cloud Host: ")
-# print(f"Redis Cloud Port: ")
-# print(f"Redis Cloud Password: ")
-# print(f"Redis Cloud DB: ")
-
-# Celery configuration
-app = Celery('tasks',
-             broker=f'redis://:{redis_cloud_password}@{redis_cloud_host}:{redis_cloud_port}/{redis_cloud_db}',
-             backend=f'redis://:{redis_cloud_password}@{redis_cloud_host}:{redis_cloud_port}/{redis_cloud_db}')
-
-# print(f"Broker URL: {app.conf.broker_url}")
-# print(f"Backend URL: {app.conf.result_backend}")
-
-QUERY_LIMIT_BATCH = 5000  # Set a more reasonable limit for fetching from DB initially.
-QUERY_LIMIT = 100000 #This is the ultimate limit for the query
 
 @app.task(name='generate_map_data_task')
-def generate_map_data(future_days=7, page=1, total_pages=None, existing_map_data=None, total_alerts=0):
+def generate_map_data(future_days=7,  page = 1, page_size = 100000, total_alerts=0):
     start_time = time.time()
-    celery_logger.info(f"Generating map data... Celery task started. Page: {page}, Total pages: {total_pages}, QUERY_LIMIT_BATCH: {QUERY_LIMIT_BATCH}, QUERY_LIMIT: {QUERY_LIMIT}")
+    celery_logger.info(f"Generating map data... Celery task started. QUERY_LIMIT_BATCH: , QUERY_LIMIT: , Page: {page}, Page Size: {page_size}")
     my_map = folium.Map(location=[51.4779, 0.0015], zoom_start=5)
-    alerts = existing_map_data.get('alerts', []) if existing_map_data else []  # Initialize if passed.
+    alerts = [] #Initialize if passed.
 
     today_utc = datetime.now(timezone.utc)
     today_start_utc = today_utc.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -147,59 +154,127 @@ def generate_map_data(future_days=7, page=1, total_pages=None, existing_map_data
     today_end_timestamp = int(today_end_utc.timestamp())
     future_timestamp = int((today_utc + timedelta(days=future_days)).timestamp())
 
-
-    # Calculate skip value based on page number
-    skip = (page - 1) * QUERY_LIMIT_BATCH
-    if page == 1:
-        total_alerts = owa_collection.count_documents({
+    total_alerts = owa_collection.count_documents({
         "$or": [
             {"start": {"$gte": today_start_timestamp}, "end": {"$lte": today_end_timestamp}},  # Alerts starting and ending today
             {"start": {"$lt": today_end_timestamp}, "end": {"$gt": today_start_timestamp}},  # Alerts spanning today
             {"start": {"$gte": today_end_timestamp}, "end": {"$lte": future_timestamp}}  # Future alerts within the future_days range
 
         ]
-        })
-        total_pages = (total_alerts + QUERY_LIMIT_BATCH - 1) // QUERY_LIMIT_BATCH # Calculate the total number of pages
-    elif not total_pages:
-      celery_logger.error("Error.  Total Pages not defined in subsequent page request")
-      return {'error': 'Total pages not defined'} # Error response
-
-    if skip >= QUERY_LIMIT:
-      celery_logger.info(f"Total alerts {len(alerts)} exceeds QUERY_LIMIT of {QUERY_LIMIT}.  Halting map data generation.")
-      map_data = {'map_js': "", 'alerts': alerts, 'total_pages': total_pages, 'page': page }  # Return the data
+    })
+    if total_alerts == 0:
+      celery_logger.info(f"Total alerts is 0. Halting map data generation.")
+      map_data = {'map_js': "", 'alerts': alerts, 'total_pages': 0, 'page': 0 }  # Return the data
       # Send the map data to the callback URL - this will trigger the socket.io broadcast.
-      callback_url = 'http://0.0.0.0:8080/map_data_callback'  # Replace with your server address in production.
-      redis_client = redis.Redis(host=redis_cloud_host, port=redis_cloud_port, password=redis_cloud_password,
-                                     db=redis_cloud_db)
+      redis_client = create_redis_client()
       redis_client.set('map_data_task_id', generate_map_data.request.id)  # Set the task ID
       celery_logger.info(f"Task ID {generate_map_data.request.id} saved to Redis.")
       try:
-         response = send_request_with_retry(callback_url, data={'map_data': map_data})
+         response = send_request_with_retry(MAP_DATA_CALLBACK_URL, data={'map_data': map_data})
          if response and response.status_code == 200:
             redis_client.setex('map_data', 14400, json.dumps(map_data))
             celery_logger.info("Map data update successful, sent via socketio.")
          else:
            celery_logger.error("Map data update failed via SocketIO.")
       except requests.exceptions.RequestException as e:
-          celery_logger.exception(f"Error sending request to : ")
+          celery_logger.exception(f"Error sending request to  :")
       return map_data
 
-    cursor = owa_collection.find({
-        "$or": [
-            {"start": {"$gte": today_start_timestamp}, "end": {"$lte": today_end_timestamp}},  # Alerts starting and ending today
-            {"start": {"$lt": today_end_timestamp}, "end": {"$gt": today_start_timestamp}},  # Alerts spanning today
-            {"start": {"$gte": today_end_timestamp}, "end": {"$lte": future_timestamp}}  # Future alerts within the future_days range
+    total_pages = (total_alerts + page_size - 1) // page_size
+    if page > total_pages:
+        celery_logger.info(f"Requested page is greater than the total number of pages. Halting map data generation.")
+        return {'map_js': "", 'alerts': [], 'total_pages': total_pages, 'page': page } # Exit early if page is out of range
 
-        ]
-    }).skip(skip).limit(QUERY_LIMIT_BATCH)
+    skip = (page - 1) * page_size
 
-    explanation = cursor.explain()
-    celery_logger.info(f"Query explanation:\n{json.dumps(explanation['executionStats'], indent=2)}")
+    cursor = owa_collection.aggregate([
+        {
+            "$match": {
+                "$or": [
+                    {"start": {"$gte": today_start_timestamp}, "end": {"$lte": today_end_timestamp}},
+                    {"start": {"$lt": today_end_timestamp}, "end": {"$gt": today_start_timestamp}},
+                    {"start": {"$gte": today_end_timestamp}, "end": {"$lte": future_timestamp}}
+                ]
+            }
+        },
+        {
+            "$addFields": {
+                "alert_key": {
+                    "$concat": [
+                        {"$toString": "$start"},
+                        {"$toString": "$end"}
+                    ]
+                }
+            }
+        },
+        {
+            "$group": {
+                "_id": "$alert_key",
+                "doc": {"$first": "$$ROOT"}
+            }
+        },
+        {
+            "$replaceRoot": {"newRoot": "$doc"}
+        },
+        {
+            "$skip": skip
+        },
+        {
+            "$limit": page_size
+        },
+        {
+            "$project": {
+                'alert': 1, 'msg_type': 1, 'categories': 1,
+                'urgency': 1, 'severity': 1, 'certainty': 1, 'start': 1, 'end': 1, 'sender': 1,
+                'description': 1, 'alert_key': 1
+            }
+        }
+    ])
 
+    # explanation = cursor.explain() # Remove this line
+    # celery_logger.info(f"Query explanation:\n{json.dumps(explanation['executionStats'], indent=2)}") #Remove this line
+
+    # seen_alerts = set()  # Remove this line
     for alert_data in cursor:
         try:
             alert = alert_data['alert']
+            center_lat, center_lon = calculate_center(alert['geometry'])
+            #  Remove all of this
+            # alert_key = (
+            #     f"{format_timestamp(alert_data['start'])}"
+            #     f"{format_timestamp(alert_data['end'])}"
+            # )
+            #
+            # if alert_key in seen_alerts:
+            #     celery_logger.info(f"Skipping duplicate alert with key: ")
+            #     celery_logger.info(f"Deleting duplicate alert with ID: {alert_data.get('_id')}")
+            #     owa_collection.delete_one({"_id": alert_data.get('_id')})
+            #     continue
+            # seen_alerts.add(alert_key)
             geometry = alert['geometry']
+            # rest of your loop
+
+            # Simplify the geometry using shapely
+            try:
+                original_shape = shape(geometry)
+
+                # Define the projections using the correct syntax
+                target_crs = f'epsg:326{int(1 + (center_lon + 180) / 6)}'
+                project_wgs_to_utm = partial(
+                    pyproj.Transformer.from_crs("epsg:4326", target_crs, always_xy=True).transform,
+                )
+
+                # Define inverse projection for transform back
+                project_utm_to_wgs = partial(
+                    pyproj.Transformer.from_crs(target_crs, "epsg:4326", always_xy=True).transform,
+                )
+
+                simplified_shape = transform(project_wgs_to_utm, original_shape).simplify(tolerance=20).buffer(0)
+                simplified_geometry = mapping(transform(project_utm_to_wgs, simplified_shape))
+                geometry = simplified_geometry
+            except Exception as e:
+                celery_logger.exception(f"Error simplifying geometry for alert id: {alert_data.get('_id')}")
+
             msg_type = alert_data['msg_type']
             categories = alert_data['categories']
             urgency = alert_data['urgency']
@@ -213,7 +288,7 @@ def generate_map_data(future_days=7, page=1, total_pages=None, existing_map_data
             event = description_data.get('event', 'N/A')
             headline = description_data.get('headline', 'N/A')
             instruction = description_data.get('instruction', 'N/A')
-            description = f"<b>Language:</b> {language}<br><b>Event:</b> {event}<br><b>Headline:</b> {headline}<br><b>Instruction:</b> {instruction}"
+            description = f"<b>Language:</b> {language}<br><b>Event:</b> {event} <br><b>Headline:</b> {headline}<br><b>Instruction:</b> {instruction}"
             center_lat, center_lon = calculate_center(geometry)
 
             severity_color = {
@@ -226,7 +301,7 @@ def generate_map_data(future_days=7, page=1, total_pages=None, existing_map_data
             color = severity_color.get(severity, '#313131')
 
             alerts.append({
-                'name': f"Alert ({datetime.fromtimestamp(start_timestamp).strftime('%Y-%m-%d %H:%M:%S UTC')} - {datetime.fromtimestamp(end_timestamp).strftime('%Y-%m-%d %H:%M:%S UTC')})",
+                'name': f"Alert ({format_timestamp(start_timestamp)} - {format_timestamp(end_timestamp)})",
                 'lat': center_lat,
                 'lon': center_lon,
                 'geometry': geometry,
@@ -239,7 +314,8 @@ def generate_map_data(future_days=7, page=1, total_pages=None, existing_map_data
                 'end': end_timestamp,
                 'sender': sender,
                 'description': description,
-                'color': color
+                'color': color,
+                'id': alert_data['alert_key']
             })
 
             folium.GeoJson(geometry, style_function=lambda x: {'fillColor': color, 'color': '#000000', 'weight': 1, 'dashArray': '', 'fillOpacity': 0.5}, name=f"Alert ").add_to(my_map)
@@ -261,26 +337,20 @@ def generate_map_data(future_days=7, page=1, total_pages=None, existing_map_data
     celery_logger.info(f"Celery task completed successfully: ")
 
     # Send the map data to the callback URL - this will trigger the socket.io broadcast.
-    callback_url = 'http://0.0.0.0:8080/map_data_callback'  # Replace with your server address in production.
-    redis_client = redis.Redis(host=redis_cloud_host, port=redis_cloud_port, password=redis_cloud_password,
-                                    db=redis_cloud_db)
+    redis_client = create_redis_client()
     redis_client.set('map_data_task_id', generate_map_data.request.id)  # Set the task ID
     celery_logger.info(f"Task ID {generate_map_data.request.id} saved to Redis.")
     try:
-        response = send_request_with_retry(callback_url, data={'map_data': map_data})
+        response = send_request_with_retry(MAP_DATA_CALLBACK_URL, data={'map_data': map_data})
         if response and response.status_code == 200:
-           redis_client.setex('map_data', 14400, json.dumps(map_data))
+           # Do not save the map_data on the first pass, as we may add to it later
+           if page == 1:
+                redis_client.setex('map_data', 14400, json.dumps(map_data)) #Save map data to cache
            celery_logger.info("Map data update successful, sent via socketio.")
         else:
            celery_logger.error("Map data update failed via SocketIO.")
     except requests.exceptions.RequestException as e:
        celery_logger.exception(f"Error sending request to : ")
-    # Check if we have more pages, but only if the number of alerts are less than the query limit.
-    if page < total_pages and len(alerts) < QUERY_LIMIT:
-       celery_logger.info(f"Triggering next page {page+1} of {total_pages}.")
-       generate_map_data.delay(future_days, page+1, total_pages, map_data, len(alerts))
-    else:
-       celery_logger.info("Map data generation completed. No more pages")
 
     return map_data
 
@@ -312,17 +382,17 @@ def send_email(recipient, subject, body, mail_server, mail_port, mail_username, 
     msg['From'] = mail_username
     msg['To'] = recipient
     msg.attach(MIMEText(body, 'plain'))
-    celery_logger.info(f"Attempting to send email to ")
+    celery_logger.info(f"Attempting to send email to {recipient}")
 
     try:
         with smtplib.SMTP(mail_server, mail_port) as server:  # Use SMTP for STARTTLS
             server.starttls()  # Upgrade to TLS
             server.login(mail_username, mail_password)
             server.sendmail(mail_username, recipient, msg.as_string())
-            celery_logger.info(f"Email sent successfully to ")  # Use celery_logger
+            celery_logger.info(f"Email sent successfully to {recipient}")  # Use celery_logger
         return True
     except Exception as e:
-        celery_logger.exception(f"Email sending failed: ")
+        celery_logger.exception(f"Email sending failed: {e}")
         return False
 
 
@@ -366,12 +436,12 @@ Center Longitude: {center_lon}
                 }
             )
             if success:
-                celery_logger.info(f"Alert zone creation email sent to  for alert ID: ")
+                celery_logger.info(f"Alert zone creation email sent to {recipient} for alert ID: {alert_id}")
             else:
-                celery_logger.error(f"Failed to send alert zone creation email to  for alert ID: ")
+                celery_logger.error(f"Failed to send alert zone creation email to {recipient} for alert ID: {alert_id}")
 
     except Exception as e:
-        celery_logger.exception(f"Error in send_alert_notification_zone_creation_email: ")
+        celery_logger.exception(f"Error in send_alert_notification_zone_creation_email: {e}")
 
 
 @app.task(name='send_weather_alert')
@@ -395,8 +465,8 @@ def send_weather_alert(user_email, owa_alert, wag_alert_id):
         send_email(user_email, subject, body, MAIL_SERVER, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD)
 
     except smtplib.SMTPException as e:
-        celery_logger.error(f"SMTP error sending weather alert email to : ")
+        celery_logger.error(f"SMTP error sending weather alert email to {user_email}: {e}")
     except pymongo.errors.PyMongoError as e:
-        celery_logger.error(f"Database error updating notification status: ")
+        celery_logger.error(f"Database error updating notification status: {e}")
     except Exception as e:
-        celery_logger.exception(f"Unexpected error sending weather alert email to : ")
+        celery_logger.exception(f"Unexpected error sending weather alert email to {user_email}: {e}")

@@ -110,61 +110,244 @@ $(document).ready(function() {
   console.log($('#createAlertModal').length); // Check if element exists
 
   var map = L.map('mapid').setView([51.4779, 0.0015], 5);
-    // Set maximum bounds (adjust these values as needed)
-    var southWest = L.latLng(-90, -180);
-    var northEast = L.latLng(90, 180);
-    map.setMaxBounds(L.latLngBounds(southWest, northEast));
+  // Set maximum bounds (adjust these values as needed)
+  var southWest = L.latLng(-90, -180);
+  var northEast = L.latLng(90, 180);
+  map.setMaxBounds(L.latLngBounds(southWest, northEast));
   const fillOpacity = 0.5;
   const maxWidth = 600;
 
   // Define both tile layers
   const voyagerLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-		attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-		subdomains: 'abcd',
-		maxZoom: 19
-	});
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 19
+  });
 
   const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png', {
-		attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-		subdomains: 'abcd',
-		maxZoom: 19
-	});
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 19
+  });
 
   // Add the Voyager layer initially
   voyagerLayer.addTo(map);
 
-  var alerts = {{ alerts|safe }}; // initial alerts but not updated
+var alerts = {{ alerts|safe }};
+displayAlerts(alerts);
 
-    // Function to process map data and handle alerts
-     function processMapData(data) {
-        if (data && data.map_data) {
-          // Use a flag to track if the map has been cleared to prevent duplicates.
-          let mapCleared = false;
-          //Update the alerts first
-            if(data.map_data.page === 1){
-                alerts = data.map_data.alerts;  //On the first page we will overwrite the data
-            } else {
-                alerts = alerts.concat(data.map_data.alerts)  //Otherwise we will add to the existing data
+
+  // Function to process map data and handle alerts
+    function processMapData(data) {
+     if (data && data.map_data) {
+     //Clear the map of incident alerts only
+       map.eachLayer(function (layer) {
+        if (layer instanceof L.GeoJSON && layer.options && layer.options.onEachFeature && !layer.alertZone) {
+         map.removeLayer(layer);
+         }
+       });
+
+       incidentAlerts = data.map_data.alerts; // Update the global alerts variable
+       displayAlerts(incidentAlerts); // Call displayAlerts *after* updating alerts
+       hideLoadingMessage();
+     } else {
+       console.error("Error: Invalid map data received.");
+       //displayError("Error: Invalid map data received.");
+     }
+    }
+
+      function addAlertToMap(alert) {
+      return new Promise((resolve, reject) => {
+        const geometry = alert.geometry || {};
+        const color = alert.color || 'lightblue';
+
+      if (geometry.type && geometry.coordinates && geometry.coordinates.length > 0) {
+          let leafletGeoJSON;
+          if (geometry.type === 'Polygon') {
+          leafletGeoJSON = L.polygon(geometry.coordinates[0].map(coord => [coord[1], coord[0]]), {
+            color: '#000',
+            weight: 2,
+            fillColor: color,
+            fillOpacity: 0.7
+          });
+          } else if (geometry.type === 'Point') {
+          leafletGeoJSON = L.marker([geometry.coordinates[1], geometry.coordinates[0]]);
+          } else {
+          console.warn("Unsupported geometry type:", geometry.type);
+          reject("Unsupported geometry type"); // Reject the promise if unsupported
+          return;
+          }
+
+          leafletGeoJSON.bindPopup(createAlertZonePopupContent(alert), { autoClose: false, maxWidth: maxWidth });
+          leafletGeoJSON.on({
+            mouseover: function(e) {
+              e.target.setStyle({fillOpacity: 0.9});
+            },
+            mouseout: function(e) {
+              e.target.setStyle({fillOpacity: 0.7});
             }
-
-           // Remove existing GeoJSON layers, but only if we have not already cleared them on this response.
-            map.eachLayer(function (layer) {
-                if (layer instanceof L.GeoJSON && layer.options && layer.options.onEachFeature) {
-                   if(!mapCleared){
-                    map.removeLayer(layer);
-                    }
-                }
             });
-             mapCleared = true; //Set the flag to true.
-
-
-          handleAlerts(); // Call handleAlerts *after* updating alerts
-          hideLoadingMessage();
+          leafletGeoJSON.addTo(drawnItems);
+          leafletGeoJSON.alertId = alert._id;
+          resolve(); // Resolve the promise after adding to the map
+          leafletGeoJSON.on('click', function(e) {
+            console.log("Shape Clicked at :", e.target.feature.geometry);
+            getAlertsForZone(e.target.feature); // Update this section.  Ensure the whole feature is passed
+          });
         } else {
-          console.error("Error: Invalid map data received.");
-          displayError("Error: Invalid map data received.");
+          console.warn("Invalid geometry data in alert:", alert);
+          reject("Invalid geometry data"); // Reject promise if invalid data
         }
+      });
       }
+
+ function getAlertsForZone(feature) { // Modified this line to accept 'feature'
+    const geometry = feature.geometry;
+    console.log("getAlertsForZone called with geometry: ", geometry);
+    $.ajax({
+      type: "GET",
+      url: "/get_alerts_for_zone",
+      data: {
+        geometry: JSON.stringify(geometry)
+      },
+      success: function(response) {
+        console.log("Alerts data received:", response);
+        if (response && response.alerts && response.alerts.length > 0) { // Check for both response.alerts and if its length is greater than 0
+          //Clear the existing alerts
+          map.eachLayer(function(layer) {
+            if (layer instanceof L.GeoJSON && layer.options && layer.options.onEachFeature) {
+              map.removeLayer(layer);
+            }
+          });
+          alerts = response.alerts; // Update the global alerts variable
+          let alertName = null
+          if (feature.alertData && feature.alertData.alert_name) {
+            alertName = feature.alertData.alert_name;
+          } else if (feature.alert_name) {
+            alertName = feature.alert_name;
+          }
+          displayAlerts(alerts, alertName) // Pass the alert name to the display function
+        } else {
+          displayError("No alerts found for this area.");
+        }
+      },
+      error: function(xhr, status, errorThrown) {
+        console.error("Error fetching alerts for zone:", status, errorThrown, xhr);
+        let errorMessage = "Error fetching alerts for zone.";
+        if (xhr.responseJSON && xhr.responseJSON.error) {
+          errorMessage = xhr.responseJSON.error;
+        }
+        displayError(errorMessage);
+      }
+    });
+  }
+function displayAlerts(incidentAlerts, alert_name) {
+      console.log("Displaying alerts:", incidentAlerts)
+      if (!incidentAlerts) {
+      console.warn("No alerts data to display.");
+      return;
+      }
+     if (incidentAlerts.length === 0){
+      console.log("No alerts to display for this area.");
+      $("#alertModalTitle").text(`No Active Alerts for ${alert_name ? alert_name : 'this zone'}`);
+      $("#alertModalBody").html('<p>No active alerts for this zone.</p>');
+      $("#alertModal").modal('show');
+      return;
+     }
+      // Clear existing GeoJSON layers from the map, *only incident alerts*
+      map.eachLayer(function (layer) {
+      if (layer instanceof L.GeoJSON && layer.options && layer.options.onEachFeature && !layer.alertZone) {
+      map.removeLayer(layer);
+      }
+    });
+
+      incidentAlerts.forEach(alert => handleIncidentAlert(alert)); //Pass the whole alert to the handleIncidentAlert function
+     let modalBodyContent = '<ul>';
+      incidentAlerts.forEach(alert => {
+        modalBodyContent += `<li>
+         <b>Alert: </b> ${alert.name}<br>
+         <b>Start:</b> ${new Date(alert.start * 1000).toLocaleString()} <br>
+         <b>End:</b> ${new Date(alert.end * 1000).toLocaleString()} <br>
+         <b>Severity:</b> ${alert.severity} <br>
+         <b>Description:</b> ${alert.description} <br>
+         </li>`
+      });
+        modalBodyContent += '</ul>';
+
+    $("#alertModalTitle").text(`Active Alerts for ${alert_name ? alert_name : 'this zone'}`);
+   $("#alertModalBody").html(modalBodyContent);
+    $("#alertModal").modal('show');
+    }
+
+
+function handleIncidentAlert(alert) {
+      if (!alert.alert || !alert.alert.geometry) {
+         console.warn("Alert missing geometry", alert);
+         return;
+        }
+        const geoJson = alert.alert.geometry;
+        const leafletLayer = L.geoJSON(geoJson, {
+          style: function() {
+                return {
+                 fillColor: 'red', //Default color
+                 color: '#000',
+                 weight: 1,
+                 dashArray: '',
+                 fillOpacity: fillOpacity
+                };
+            },
+            onEachFeature: function(feature, layer) {
+               layer.bindPopup(createAlertTooltipContent(alert, alert.description[0].text), {autoClose: false, maxWidth: maxWidth});
+               layer.on('click', function() {
+                  this.openPopup();
+                const severity = $(this._popup._content).find('.my-tooltip').data('severity');
+                  const popupWrapper = this._popup._wrapper;
+                  const severityColor = {
+                     Minor: "#00FF00",
+                     Moderate: "#FFA500",
+                    Severe: "#FF0000",
+                      Extreme: "#313131",
+                     Unknown: "#313131"
+                 }[severity] || "#FF0000";
+                   $(popupWrapper).find('.leaflet-popup-content-wrapper').addClass('severity-popup').css('background', severityColor + ' !important');
+               });
+                layer.on({
+                  mouseover: function() {
+                  this.setStyle({fillOpacity: 0.2});
+              },
+              mouseout: function() {
+                  this.setStyle({fillOpacity: fillOpacity});
+              }
+            });
+          },
+        }).addTo(map);
+       leafletLayer.alertZone = false; // Mark this as an incident alert layer
+    }
+
+	
+  function loadAlerts() {
+    $.ajax({
+     type: "GET",
+      url: "/get_user_alerts",
+     success: function(response) {
+      drawnItems.clearLayers();
+    if (response.alerts && response.alerts.length > 0) {
+       response.alerts.forEach(addAlertToMap);
+       map.fitBounds(drawnItems.getBounds());
+      } else {
+       displayError("No active alert zones found for this user.");
+      }
+    },
+    error: function(xhr, status, errorThrown) {
+     console.error("AJAX error:", status, errorThrown, xhr);
+      let errorMessage = "Error fetching active alert zones.";
+      if (xhr.responseJSON && xhr.responseJSON.error) {
+       errorMessage = xhr.responseJSON.error;
+     }
+     displayError(errorMessage);
+   }
+    });
+    }
 
   let drawnItems = new L.FeatureGroup();
   map.addLayer(drawnItems);
@@ -288,19 +471,14 @@ $(document).ready(function() {
     $('#loading-screen').addClass('hidden');
   }
 
-  function formatKeywords(text) {
-    // Define keywords
-    const keywords = ["Language", "Event", "Headline", "Instruction"];
-
-    // Loop through each keyword and replace it in the text
-    for(let keyword of keywords) {
-      // Use a regular expression to replace the keyword with itself wrapped in <b> tag followed by a colon and a line break
-      const reg = new RegExp(`($:)`, 'g');
-      text = text.replace(reg, '<br><b>' + '$1' + '</b>');
+    function formatKeywords(text) {
+        const keywords = ["Language", "Event", "Headline", "Instruction"];
+        for (let keyword of keywords) {
+            const reg = new RegExp(`(${keyword}:)`, 'g');
+            text = text.replace(reg, '<br><b>' + '$1' + '</b>');
+        }
+        return text;
     }
-
-    return text;
-  }
 
 
   const loading = {{ loading|tojson }};
@@ -380,14 +558,14 @@ $(document).ready(function() {
         console.log("GeoJSON data being sent:", geojson);
 
         if (geojson.features.length === 0) {
-            displayError("Please draw an alert zone on the map first.");
-            return;
+          displayError("Please draw an alert zone on the map first.");
+          return;
         }
 
         // Basic GeoJSON validation
         if (!geojson.features[0].geometry || !geojson.features[0].geometry.coordinates || geojson.features[0].geometry.coordinates.length === 0) {
-            displayError('Invalid GeoJSON data. Please try again.');
-            return;
+          displayError('Invalid GeoJSON data. Please try again.');
+          return;
         }
 
 
@@ -459,58 +637,81 @@ $(document).ready(function() {
       });
     }
 
-    function addAlertToMap(alert) {
-      return new Promise((resolve, reject) => {
-        const geometry = alert.geometry || {};
-        const color = alert.color || 'lightblue';
+function addAlertToMap(alert) {
+    return new Promise((resolve, reject) => {
+      const geometry = alert.geometry || {};
+      const color = alert.color || 'lightblue';
 
-        if (geometry.type && geometry.coordinates && geometry.coordinates.length > 0) {
-          let leafletGeoJSON;
-          if (geometry.type === 'Polygon') {
-            leafletGeoJSON = L.polygon(geometry.coordinates[0].map(coord => [coord[1], coord[0]]), {
-              color: '#000',
-              weight: 2,
-              fillColor: color,
-              fillOpacity: 0.7
-            });
-          } else if (geometry.type === 'Point') {
-            leafletGeoJSON = L.marker([geometry.coordinates[1], geometry.coordinates[0]]);
-          } else {
-            console.warn("Unsupported geometry type:", geometry.type);
-            reject("Unsupported geometry type"); // Reject the promise if unsupported
-            return;
-          }
+      if (geometry.type && geometry.coordinates && geometry.coordinates.length > 0) {
+       let leafletGeoJSON;
+        if (geometry.type === 'Polygon') {
+         leafletGeoJSON = L.polygon(geometry.coordinates[0].map(coord => [coord[1], coord[0]]), {
+          color: '#000',
+           weight: 2,
+            fillColor: color,
+          fillOpacity: 0.7
+         });
+        } else if (geometry.type === 'Point') {
+        leafletGeoJSON = L.marker([geometry.coordinates[1], geometry.coordinates[0]]);
+      } else {
+        console.warn("Unsupported geometry type:", geometry.type);
+        reject("Unsupported geometry type"); // Reject the promise if unsupported
+         return;
+       }
 
-          leafletGeoJSON.bindPopup(createAlertZonePopupContent(alert), { autoClose: false, maxWidth: maxWidth });
-          leafletGeoJSON.on({
-            mouseover: function(e) {
-              e.target.setStyle({fillOpacity: 0.9});
-            },
-            mouseout: function(e) {
-              e.target.setStyle({fillOpacity: 0.7});
-            }
-          });
-          leafletGeoJSON.addTo(drawnItems);
-          leafletGeoJSON.alertId = alert._id;
-          resolve(); // Resolve the promise after adding to the map
+     leafletGeoJSON.bindPopup(createAlertZonePopupContent(alert), { autoClose: false, maxWidth: maxWidth });
+     leafletGeoJSON.on({
+         mouseover: function(e) {
+          e.target.setStyle({fillOpacity: 0.9});
+         },
+         mouseout: function(e) {
+          e.target.setStyle({fillOpacity: 0.7});
+         }
+      });
+      leafletGeoJSON.addTo(drawnItems);
+      leafletGeoJSON.alertId = alert._id;
+      leafletGeoJSON.alertData = alert;
+      leafletGeoJSON.alertZone = true; // Mark this as an alert notification zone layer
+       resolve();
+       leafletGeoJSON.on('click', function(e) {
+        console.log("Shape Clicked at :", e.target.feature.geometry);
+         getAlertsForZone(e.target.alertData); //Pass the correct variable here
+      });
+    } else {
+       console.warn("Invalid geometry data in alert:", alert);
+       reject("Invalid geometry data");
+    }
+   });
+    }
+
+
+function createAlertZonePopupContent(alert) {
+    let retrieveButton = `<button class="btn btn-primary h-spaced-buttons retrieve-alert-button" data-alert-id="${alert._id}">Retrieve Alerts</button>`;
+    let deleteButton = `<button class="btn btn-danger h-spaced-buttons delete-alert-button" data-alert-id="${alert._id}">Delete Alert Notification Zone</button>`;
+      return `<div class="my-tooltip"><h3>${alert.alert_name}</h3><p>${alert.alert_description}</p></div>` + retrieveButton + deleteButton;
+  }
+  map.on('popupopen', function(e) {
+    const popup = e.popup;
+    const popupContent = popup.getElement();
+    const retrieveButton = popupContent.querySelector('.retrieve-alert-button');
+    const deleteButton = popupContent.querySelector('.delete-alert-button');
+    const layer = e.popup._source; // Get the layer from the popup event
+    const alertId = layer.alertId; // Access the alertId from the layer
+
+    console.log("Current alerts:", alerts); // ADDED THIS
+    
+    if (retrieveButton) {
+      retrieveButton.addEventListener('click', function() {
+        console.log("Retrieve Alerts Clicked at alert ID :", alertId);
+
+        if (layer.alertData && layer.alertData.geometry) {
+          getAlertsForZone(layer.alertData); // USE THE STORED ALERT DATA!
         } else {
-          console.warn("Invalid geometry data in alert:", alert);
-          reject("Invalid geometry data"); // Reject promise if invalid data
+          console.warn("Could not find geometry for alert ID:", alertId, "or alert data"); // UPDATED LOG
+          displayError("Could not find geometry for this alert.")
         }
       });
     }
-
-  function createAlertZonePopupContent(alert) {
-      let deleteButton = `<button class="btn btn-primary h-spaced-buttons delete-alert-button" data-alert-id="${alert._id}">Delete Alert Notification Zone</button>`;
-      return `<div class="my-tooltip"><h3>${alert.alert_name}</h3><p>${alert.alert_description}</p></div>` + deleteButton;
-    }
-
-  map.on('popupopen', function(e) {
-      const popup = e.popup;
-      const popupContent = popup.getElement();
-      const deleteButton = popupContent.querySelector('.delete-alert-button');
-      const layer = e.popup._source; // Get the layer from the popup event
-      const alertId = layer.alertId; // Access the alertId from the layer
 
       if (deleteButton) {
         deleteButton.addEventListener('click', function() {
@@ -519,12 +720,12 @@ $(document).ready(function() {
               type: "DELETE",
               url: `/delete_alert_zone/${alertId}`,
               success: function(response) {
-                  displaySuccess("Alert zone deleted successfully!");
-                  drawnItems.removeLayer(layer); // Remove the specific layer
-                  popup.remove();
+                displaySuccess("Alert zone deleted successfully!");
+                drawnItems.removeLayer(layer); // Remove the specific layer
+                popup.remove();
               },
               error: function(error) {
-                  displayError("Error deleting alert zone: " + error.responseText);
+                displayError("Error deleting alert zone: " + error.responseText);
                 console.error("Error:", error);
               }
             });
@@ -536,10 +737,10 @@ $(document).ready(function() {
   $('#deleteAllAlertsButton').click(function() {
       if (confirm("Are you sure you want to delete ALL your active alert zones?")) {
         $.ajax({
-            type: "DELETE",
-            url: "/delete_all_alert_zones",
+          type: "DELETE",
+          url: "/delete_all_alert_zones",
           success: function(response) {
-              displaySuccess(response.message);
+            displaySuccess(response.message);
             drawnItems.clearLayers(); // Only clear the user's drawn zones, not all alerts
             // Optionally, update alert count display if needed:
             $('#alert-count p').text(`There are ${response.deleted_count} active alerts.`); //Update count
@@ -601,68 +802,68 @@ $(document).ready(function() {
   });
 
   // --- Socket.IO ---
-   let socketUrl;
-   if (window.location.hostname === 'localhost' || window.location.hostname === '0.0.0.0') {
+    let socketUrl;
+    if (window.location.hostname === 'localhost' || window.location.hostname === '0.0.0.0') {
       socketUrl = 'http://localhost:8080';  // Or your local address and port
-   } else {
+    } else {
       socketUrl = 'https://weatheralerts.global';
-   }
+    }
 
-	const socket = io.connect(socketUrl, {
-		timeout: 10000
-	});
+    const socket = io.connect(socketUrl, {
+      timeout: 10000
+    });
   // Handle connection and request initial map data
   socket.on('connect', function() {
     console.log("Socket connected.");
     socket.emit('get_map_data');
     //displaySuccess("Connected to server via WebSockets!");
   });
-    socket.on('connect_error', (error) => {
-       console.error("Connection error", error);
-       //displayError("Error connecting to server via WebSockets!");
-       // Implement retry logic with exponential backoff
+   socket.on('connect_error', (error) => {
+        console.error("Connection error", error);
+        //displayError("Error connecting to server via WebSockets!");
+        // Implement retry logic with exponential backoff
         setTimeout(() => {
-          socket.connect();
+            socket.connect();
         }, 5000);
-       });
+    });
 
-  // Handle disconnection
-  socket.on('disconnect', function() {
-    console.log('Socket disconnected');
-    //displayError("Disconnected from server via WebSockets!");
-  });
+    // Handle disconnection
+    socket.on('disconnect', function() {
+        console.log('Socket disconnected');
+        //displayError("Disconnected from server via WebSockets!");
+    });
 
-  // Handle reconnection
-  socket.on('reconnect', function() {
-    console.log("Socket reconnected!");
-    //displaySuccess("Reconnected to server via WebSockets!");
-    socket.emit('get_map_data'); // Re-request data on reconnect
-  });
+    // Handle reconnection
+    socket.on('reconnect', function() {
+        console.log("Socket reconnected!");
+        //displaySuccess("Reconnected to server via WebSockets!");
+        socket.emit('get_map_data'); // Re-request data on reconnect
+    });
 
 
     // Handle incoming map data updates from server
     socket.on('map_data_update', function(data) {
-        console.log("Received map data update via SocketIO");
-        if(data && data.map_data) {
-            // Clear existing alerts
-            map.eachLayer(function (layer) {
-            if (layer instanceof L.GeoJSON && layer.options && layer.options.onEachFeature) {
-                map.removeLayer(layer);
-            }
-            });
-            //Update the local alerts variable
-            alerts = data.map_data.alerts;
-            handleAlerts();
-        } else {
-            console.error("Error: Invalid map data received.");
-            displayError("Error: Invalid map data received via WebSockets.");
-        }
-    });
+      console.log("Received map data update via SocketIO");
+      if(data && data.map_data) {
+        // Clear existing layers, only incident alerts
+        map.eachLayer(function (layer) {
+        if (layer instanceof L.GeoJSON && layer.options && layer.options.onEachFeature && !layer.alertZone) {
+          map.removeLayer(layer);
+         }
+        });
+    
+        incidentAlerts = data.map_data.alerts;
+        displayAlerts(incidentAlerts);
+    } else {
+        console.error("Error: Invalid map data received.");
+      displayError("Error: Invalid map data received via WebSockets.");
+      }
+      });
 
-   // --- Utility Functions ---
+    // --- Utility Functions ---
     function displayError(message) {
-        // Display an error message to the user
-        alert("Error: " + message);
+      // Display an error message to the user
+      alert("Error: " + message);
     }
 
     function displaySuccess(message) {

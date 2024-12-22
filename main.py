@@ -721,6 +721,52 @@ def get_user_alerts():
         app_logger.exception(f"Unexpected error in get_user_alerts: ")
         return jsonify({"error": "Server error"}), 500
 
+
+@app.route('/get_alerts_for_zone', methods=['GET'])
+@login_required
+def get_alerts_for_zone():
+    """Returns OWA alerts intersecting with a specified GeoJSON geometry."""
+    try:
+        geometry_str = request.args.get('geometry')
+        app_logger.info(f"get_alerts_for_zone called with geometry: ")
+        if not geometry_str:
+            return jsonify({"error": "Missing geometry parameter"}), 400
+
+        try:
+            geometry = json.loads(geometry_str)
+            geojson.loads(json.dumps(geometry))  # Verify valid geometry
+            if geometry['type'] not in ['Polygon', 'MultiPolygon', 'Point', 'LineString']:
+                return jsonify({'error': f"Invalid geometry type: {geometry['type']}"}), 400
+        except (json.JSONDecodeError, geojson.errors.GeoJSONError, KeyError) as e:
+            app_logger.info("Error parsing geometry")
+            return jsonify({"error": f"Invalid geometry data: {str(e)}"}), 400
+
+        # Generate a unique cache key based on the geometry
+        cache_key = f"alerts_for_zone_{hash(geometry_str)}"  # Hash the string to ensure a valid key.
+
+        # Try to fetch from the cache
+        cached_data = redis_client.get(cache_key)
+        if cached_data:
+            app_logger.info(f"Retrieved alert data from Redis with key: {cache_key}")
+            return jsonify({"alerts": json.loads(cached_data)})
+
+        # If no cached data, fetch from MongoDB
+        matching_alerts = find_matching_owa_alerts(geometry)
+
+        alerts_data = []
+        for alert in matching_alerts:
+            # Transform the objectid before returning
+            alert['_id'] = str(alert['_id'])
+            alerts_data.append(alert)
+
+        # Cache data before sending to the user.
+        redis_client.setex(cache_key, 3600, json.dumps(alerts_data))  # Store for 1 hour
+        app_logger.info(f"Returning {len(alerts_data)} alerts and saving with key: {cache_key}")
+        return jsonify({"alerts": alerts_data})
+    except Exception as e:
+        app_logger.exception("Error in get_alerts_for_zone: ")
+        return jsonify({"error": "Error fetching alerts for zone"}), 500
+
 def find_matching_owa_alerts(wag_zone_geometry):
     """Finds OWA alerts intersecting with a WAG alert zone.
 
@@ -737,14 +783,18 @@ def find_matching_owa_alerts(wag_zone_geometry):
             app_logger.info(f"Invalid geometry type in find_matching_owa_alerts: {wag_zone_geometry['type']}")
             return owa_collection.find({})  # Return empty cursor for invalid geometry
 
-        return owa_collection.find({
-            "geometry": {
-                "$geoIntersects": {"$geometry": wag_zone_geometry}
+        #Log the query that is being executed:
+        query = {
+           "alert.geometry": {  # <-- Updated to target the nested geometry
+              "$geoIntersects": {"$geometry": wag_zone_geometry}
             },
             "end": {"$gt": int(datetime.now(timezone.utc).timestamp())} #Only include active alerts
-        })
+        }
+        app_logger.info(f"Executing MongoDB query: {query}")
+
+        return owa_collection.find(query)
     except (KeyError, TypeError, geojson.errors.GeoJSONError) as e:
-        app_logger.info(f"Error validating or querying OWA alerts: ")
+        app_logger.info(f"Error validating or querying OWA alerts: {e}")
         return owa_collection.find({}) #Return an empty cursor
 
 
@@ -894,7 +944,7 @@ def scheduled_task():
     """Combined scheduled task. Only runs check_for_and_send_alerts and updates the map data every 4 hours."""
     try:
         keep_recent_entries_efficient()
-        populate_map_data_if_needed()
+        #populate_map_data_if_needed()
         app_logger.info("Scheduled task completed.")
     except Exception as e:
         app_logger.exception("Error in scheduled task:")
@@ -906,7 +956,7 @@ scheduler.add_job(alert_notification_timer, 'interval', seconds=60, max_instance
 scheduler_running = threading.Event()
 def start_scheduler():
     try:
-        populate_map_data_if_needed()
+        #populate_map_data_if_needed()
         keep_recent_entries_efficient()
         alert_notification_timer()
         scheduler.start()
