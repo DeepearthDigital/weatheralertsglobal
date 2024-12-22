@@ -747,7 +747,7 @@ def get_alerts_for_zone():
         # Try to fetch from the cache
         cached_data = redis_client.get(cache_key)
         if cached_data:
-            app_logger.info(f"Retrieved alert data from Redis with key: {cache_key}")
+            app_logger.info(f"Retrieved alert data from Redis with key: ")
             return jsonify({"alerts": json.loads(cached_data)})
 
         # If no cached data, fetch from MongoDB
@@ -755,47 +755,144 @@ def get_alerts_for_zone():
 
         alerts_data = []
         for alert in matching_alerts:
-            # Transform the objectid before returning
-            alert['_id'] = str(alert['_id'])
             alerts_data.append(alert)
 
         # Cache data before sending to the user.
         redis_client.setex(cache_key, 3600, json.dumps(alerts_data))  # Store for 1 hour
-        app_logger.info(f"Returning {len(alerts_data)} alerts and saving with key: {cache_key}")
+        app_logger.info(f"Returning {len(alerts_data)} alerts and saving with key: ")
         return jsonify({"alerts": alerts_data})
     except Exception as e:
         app_logger.exception("Error in get_alerts_for_zone: ")
         return jsonify({"error": "Error fetching alerts for zone"}), 500
 
-def find_matching_owa_alerts(wag_zone_geometry):
-    """Finds OWA alerts intersecting with a WAG alert zone.
+
+def find_matching_owa_alerts(wag_zone_geometry, future_days=14):
+    """Finds OWA alerts intersecting with a WAG alert zone using an aggregation pipeline.
 
     Args:
         wag_zone_geometry: The GeoJSON geometry of the WAG alert zone.
 
     Returns:
-        A pymongo cursor of matching OWA alerts.  Returns an empty cursor if none are found or if the input geometry is invalid.
+        A pymongo cursor of matching OWA alerts. Returns an empty cursor if none are found or if the input geometry is invalid.
     """
     try:
-        #Validate geometry before querying.  A more robust approach than in the original code.
+        # Validate geometry before querying. A more robust approach than in the original code.
         geojson.loads(json.dumps(wag_zone_geometry))
         if wag_zone_geometry['type'] not in ['Polygon', 'MultiPolygon', 'Point', 'LineString']:
             app_logger.info(f"Invalid geometry type in find_matching_owa_alerts: {wag_zone_geometry['type']}")
-            return owa_collection.find({})  # Return empty cursor for invalid geometry
+            return owa_collection.aggregate([])  # Return empty cursor for invalid geometry
 
-        #Log the query that is being executed:
-        query = {
-           "alert.geometry": {  # <-- Updated to target the nested geometry
-              "$geoIntersects": {"$geometry": wag_zone_geometry}
+        today_start_timestamp = int(
+            datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
+        today_end_timestamp = int(
+            datetime.now(timezone.utc).replace(hour=23, minute=59, second=59, microsecond=999999).timestamp())
+        future_timestamp = int((datetime.now(timezone.utc) + timedelta(days=future_days)).timestamp())
+
+        # Log the query that is being executed:
+        pipeline = [
+            {
+                "$match": {
+                    "alert.geometry": {
+                        "$geoIntersects": {"$geometry": wag_zone_geometry}
+                    },
+                    "$or": [
+                        {"start": {"$gte": today_start_timestamp}, "end": {"$lte": today_end_timestamp}},
+                        {"start": {"$lt": today_end_timestamp}, "end": {"$gt": today_start_timestamp}},
+                        {"start": {"$gte": today_end_timestamp}, "end": {"$lte": future_timestamp}}
+                    ]
+                }
             },
-            "end": {"$gt": int(datetime.now(timezone.utc).timestamp())} #Only include active alerts
-        }
-        app_logger.info(f"Executing MongoDB query: {query}")
+            {
+                "$addFields": {
+                    "alert_key": {
+                        "$concat": [
+                            {"$toString": "$start"},
+                            {"$toString": "$end"}
+                        ]
+                    }
+                }
+            },
+            {
+                "$group": {
+                    "_id": "$alert_key",
+                    "doc": {"$first": "$$ROOT"}
+                }
+            },
+            {
+                "$replaceRoot": {"newRoot": "$doc"}
+            },
+            {
+                "$project": {
+                    'alert': 1, 'msg_type': 1, 'categories': 1,
+                    'urgency': 1, 'severity': 1, 'certainty': 1, 'start': 1, 'end': 1, 'sender': 1,
+                    'description': 1, 'alert_key': 1
+                }
+            }
+        ]
+        app_logger.info(f"Executing MongoDB aggregation pipeline for find_matching_owa_alerts")
 
-        return owa_collection.find(query)
+        # Get the data and format it the same way as generate map data.
+        formatted_alerts = []
+        cursor = owa_collection.aggregate(pipeline)
+        for alert_data in cursor:
+            try:
+                # Extract information from the database
+                msg_type = alert_data['msg_type']
+                categories = alert_data['categories']
+                urgency = alert_data['urgency']
+                severity = alert_data['severity']
+                certainty = alert_data['certainty']
+                start_timestamp = alert_data['start']
+                end_timestamp = alert_data['end']
+                sender = alert_data['sender']
+                description_data = alert_data['description'][0]
+                language = description_data.get('language', 'N/A')
+                event = description_data.get('event', 'N/A')
+                headline = description_data.get('headline', 'N/A')
+                instruction = description_data.get('instruction', 'N/A')
+
+                # Format the Description
+                description = f"<b>Language:</b> {language}<br><b>Event:</b> {event} <br><b>Headline:</b> {headline}<br><b>Instruction:</b> {instruction}"
+
+                # Calculate colour based on severity
+                severity_color = {
+                    'Minor': '#00FF00',
+                    'Moderate': '#FFA500',
+                    'Severe': '#FF0000',
+                    'Extreme': '#313131',
+                    'Unknown': '#313131'
+                }
+                color = severity_color.get(severity, '#313131')
+
+                formatted_alerts.append({
+                    'msg_type': msg_type,
+                    'categories': categories,
+                    'urgency': urgency,
+                    'severity': severity,
+                    'certainty': certainty,
+                    'start': start_timestamp,
+                    'end': end_timestamp,
+                    'sender': sender,
+                    'description': description,
+                    'color': color,
+                    'id': alert_data['alert_key']
+                })
+            except (KeyError, TypeError, IndexError) as e:
+                app_logger.exception(f"Error processing alert data from MongoDB: ")
+                continue
+
+        # Return the cursor
+        class FakeCursor:
+            def __init__(self, data):
+                self.data = data
+
+            def __iter__(self):
+                return iter(self.data)
+
+        return FakeCursor(formatted_alerts)
     except (KeyError, TypeError, geojson.errors.GeoJSONError) as e:
-        app_logger.info(f"Error validating or querying OWA alerts: {e}")
-        return owa_collection.find({}) #Return an empty cursor
+        app_logger.info(f"Error validating or querying OWA alerts: ")
+        return owa_collection.aggregate([])  # Return an empty cursor
 
 
 def check_for_and_send_alerts():
@@ -944,21 +1041,21 @@ def scheduled_task():
     """Combined scheduled task. Only runs check_for_and_send_alerts and updates the map data every 4 hours."""
     try:
         keep_recent_entries_efficient()
-        #populate_map_data_if_needed()
+        populate_map_data_if_needed()
         app_logger.info("Scheduled task completed.")
     except Exception as e:
         app_logger.exception("Error in scheduled task:")
 
 scheduler = BackgroundScheduler()
 scheduler.add_job(scheduled_task, 'interval', seconds=7200)  # Run two hours
-scheduler.add_job(alert_notification_timer, 'interval', seconds=60, max_instances=500)
+#scheduler.add_job(alert_notification_timer, 'interval', seconds=60, max_instances=500)
 
 scheduler_running = threading.Event()
 def start_scheduler():
     try:
-        #populate_map_data_if_needed()
+        populate_map_data_if_needed()
         keep_recent_entries_efficient()
-        alert_notification_timer()
+        #alert_notification_timer()
         scheduler.start()
         scheduler_running.set()
         app_logger.info("Scheduler started.")

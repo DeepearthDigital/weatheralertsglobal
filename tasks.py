@@ -88,7 +88,7 @@ wag_collection = wag_db[WAG_USERS_COLLECTION_NAME]
 wag_user_alerts_notification_zone_collection = wag_db[WAG_USER_ALERTS_NOTIFICATION_ZONE_COLLECTION_NAME]
 
 
-MAP_DATA_CALLBACK_URL = 'https://weatheralerts.global/map_data_callback'
+MAP_DATA_CALLBACK_URL = 'http://0.0.0.0:8080/map_data_callback'
 # Define a function to format timestamps for alert names
 def format_timestamp(timestamp):
     return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S UTC')
@@ -141,7 +141,7 @@ def send_request_with_retry(url, data, max_retries=3, backoff_factor=1, status_f
 
 
 @app.task(name='generate_map_data_task')
-def generate_map_data(future_days=7,  page = 1, page_size = 100000, total_alerts=0):
+def generate_map_data(future_days=14,  page = 1, page_size = 100000, total_alerts=0):
     start_time = time.time()
     celery_logger.info(f"Generating map data... Celery task started. QUERY_LIMIT_BATCH: , QUERY_LIMIT: , Page: {page}, Page Size: {page_size}")
     my_map = folium.Map(location=[51.4779, 0.0015], zoom_start=5)
@@ -231,28 +231,11 @@ def generate_map_data(future_days=7,  page = 1, page_size = 100000, total_alerts
         }
     ])
 
-    # explanation = cursor.explain() # Remove this line
-    # celery_logger.info(f"Query explanation:\n{json.dumps(explanation['executionStats'], indent=2)}") #Remove this line
-
-    # seen_alerts = set()  # Remove this line
     for alert_data in cursor:
         try:
             alert = alert_data['alert']
             center_lat, center_lon = calculate_center(alert['geometry'])
-            #  Remove all of this
-            # alert_key = (
-            #     f"{format_timestamp(alert_data['start'])}"
-            #     f"{format_timestamp(alert_data['end'])}"
-            # )
-            #
-            # if alert_key in seen_alerts:
-            #     celery_logger.info(f"Skipping duplicate alert with key: ")
-            #     celery_logger.info(f"Deleting duplicate alert with ID: {alert_data.get('_id')}")
-            #     owa_collection.delete_one({"_id": alert_data.get('_id')})
-            #     continue
-            # seen_alerts.add(alert_key)
             geometry = alert['geometry']
-            # rest of your loop
 
             # Simplify the geometry using shapely
             try:

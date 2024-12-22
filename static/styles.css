@@ -1,38 +1,35 @@
 @charset "UTF-8";
 /* CSS Document */
-
 @import url('https://fonts.googleapis.com/css2?family=Parkinsans:wght@300..800&display=swap');
-
 #loading-screen {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-	background-image: url('../static/images/roaring-ocean.jpg');
-    background-size: cover; /* Or contain, depending on your image */
-    background-position: center; /* Center the image */
-    z-index: 9998;
-    pointer-events: none;
-	background-color: slategrey;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url('../static/images/roaring-ocean.jpg');
+  background-size: cover; /* Or contain, depending on your image */
+  background-position: center; /* Center the image */
+  z-index: 9998;
+  pointer-events: none;
+  background-color: slategrey;
 }
-        #loading-message {
-            position: absolute; /* Or fixed, depending on your layout */
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 2.5em; /* Big font size */
-            font-weight: bold;
-			z-index: 9999;
-			pointer-events: none;
+#loading-message {
+  position: absolute; /* Or fixed, depending on your layout */
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 2.5em; /* Big font size */
+  font-weight: bold;
+  z-index: 9999;
+  pointer-events: none;
 }
-        }
+}
 #loading-screen.shown, #loading-message.shown {
-    display: block;
+  display: block;
 }
-
 #loading-screen.hidden, #loading-message.hidden {
-    display: none;
+  display: none;
 }
 .wag-logo {
   position: absolute;
@@ -43,198 +40,164 @@
   height: 81px;
 }
 .form-group {
-    display: flex;
-    align-items: center;
-    margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
 }
-
 .form-group label {
-    width: 100px; /* Adjust width as needed */
-    margin-right: 10px;
+  width: 100px; /* Adjust width as needed */
+  margin-right: 10px;
 }
-
-.form-group input[type="text"],
-.form-group input[type="email"],
-.form-group input[type="password"] {
- flex-grow: 1;
+.form-group input[type="text"], .form-group input[type="email"], .form-group input[type="password"] {
+  flex-grow: 1;
 }
 .error-message {
-    color: red;
-    font-weight: bold;
-    margin-top: 5px;
- }
-    body {
-        display: flex;
-        min-height: 100vh;
-        margin: 0;
-      font-family: "Parkinsans", sans-serif;
-	  font-optical-sizing: auto;
-	  font-weight: 300;
-	  font-style: normal;
-		font-size: 14px;
-		color: #000000;
-    }
-
-
-    #mapid {
-        flex: 1;
-        position: relative; /* Make map a positioning context */
-		z-index: 1;
-    
+  color: red;
+  font-weight: bold;
+  margin-top: 5px;
+}
+body {
+  display: flex;
+  min-height: 100vh;
+  margin: 0;
+  font-family: "Parkinsans", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 300;
+  font-style: normal;
+  font-size: 14px;
+  color: #000000;
+}
+#mapid {
+  flex: 1;
+  position: relative; /* Make map a positioning context */
+  z-index: 1;
 }
 #login {
-    background-color: white;
-    border: 1px solid #000000;
-    padding: 25px;
-    border-radius: 10px;
-    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.25);
+  background-color: white;
+  border: 1px solid #000000;
+  padding: 25px;
+  border-radius: 10px;
+  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.25);
 }
 .container {
   position: relative; /* Needed for absolute positioning of the image */
-  display: flex;       /* Added to center both the logo and login box horizontally */
+  display: flex; /* Added to center both the logo and login box horizontally */
   flex-direction: column; /* Stack logo above login form */
   align-items: center; /* Center horizontally */
 }
-
 #top-right-panel {
-    position: absolute;
-    top: 20px;
-    right: 21px;
-    background-color: white;
-    border: 1px solid #000000;
-    padding: 25px;
-    border-radius: 10px;
-    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.25);
-    z-index: 1000;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    min-width: 200px;
-    max-width: 400px;
-    overflow-y: auto;  /* Enable vertical scrolling */
-    max-height: 95vh; /* Limit the panel's maximum height */
+  position: absolute;
+  top: 20px;
+  left: 21px;
+  background-color: white;
+  padding: 25px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 200px;
+  max-width: 400px;
+  overflow-y: auto; /* Enable vertical scrolling */
+  max-height: 95vh; /* Limit the panel's maximum height */
 }
-
-
-#top-right-panel .button-container{
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
+#top-right-panel .button-container {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
 }
-
 #top-right-panel .table-container {
-    overflow-x: auto; /* Enables horizontal scrolling */
-  }
-
+  overflow-x: auto; /* Enables horizontal scrolling */
+}
 #top-right-panel table {
   width: 100%; /* Makes sure that the table take sup the full width */
 }
-
-#top-right-panel th, #top-right-panel td{
-    padding: 8px;
-    font-size: 0.9em;
+#top-right-panel th, #top-right-panel td {
+  padding: 8px;
+  font-size: 0.9em;
 }
-
-@media (max-width: 480px) {
-
-  #top-right-panel .button-container {
-    flex-direction: column; /* Stack buttons on small screens */
-  }
-  #top-right-panel .table-container {
-      overflow-x: scroll; /* Allow scrolling for the table on small screens */
-  }
-
-    #top-right-panel th, #top-right-panel td{
-        font-size: 0.8em;
-    }
-
+#app-title {}
+#severity-key {
+  border-collapse: collapse; /* Improves table appearance */
+  text-align: centre;
+  width: 80%;
 }
-
-    #app-title {
-
-    }
-
-    #severity-key {
-        border-collapse: collapse; /* Improves table appearance */
-		text-align: centre;
-		width: 80%;
-    }
-
-    #severity-key th,
-    #severity-key td {
-        padding: 5px;
-        text-align: centre;
-    }
-
-	.square {
-
-	  display: flex;
-	  justify-content: center;
-	  align-items: center;
-	  width: 60px;
-	  height: 60px;
+#severity-key th, #severity-key td {
+  padding: 5px;
+  text-align: centre;
 }
-	.text-severe-extreme {
-	  color: #FFFFFF;
-}		
-	.my-tooltip {
-	  width: auto;
-	  min-width: 500px;
-	  max-width: 500px;
-	  white-space: pre-wrap;
-	  background-color: #fff;
-	  border: 15px solid #898989;
-	  padding: 15px;
-      border-radius: 10px;
-      box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.25);
-      z-index: 1002; 
-	  text-align: left;
-	  font-family: "Parkinsans", sans-serif;
-	  font-optical-sizing: auto;
-	  font-weight: 300;
-	  font-style: normal;
-	  font-size: 14px;
-	  color: #000000;	
-	  line-height: 1.5;
-	  box-sizing: border-box; /* This is the key change */
-	}
-		
-	.my-tooltip.minor { border-color: #00FF00; }
-	.my-tooltip.moderate { border-color: #FFA500; }
-	.my-tooltip.severe { border-color: #FF0000; }
-	.my-tooltip.extreme { border-color: #313131; }
-	.my-tooltip.unknown { border-color: #313131; }
-
-	.leaflet-popup-content-wrapper.severity-popup {
-		background: inherit !important; /* default white background */
-		background-color: inherit !important; /* default white background */
-	}
-
-	.leaflet-popup-content-wrapper {
-		background: none;
-		background-color: white;
-	}
-	.underline {
-	  text-decoration: underline;
-	  text-decoration-thickness: 3px; /* Adjust underline thickness */
-	  font-weight: bold;
-	  display: flex;
-	  justify-content: center;
+.square {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 60px;
+  height: 60px;
 }
-
+.text-severe-extreme {
+  color: #FFFFFF;
+}
+.my-tooltip {
+  width: auto;
+  min-width: 500px;
+  max-width: 500px;
+  white-space: pre-wrap;
+  background-color: #fff;
+  border: 15px solid #898989;
+  padding: 15px;
+  border-radius: 10px;
+  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.25);
+  z-index: 1002;
+  text-align: left;
+  font-family: "Parkinsans", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 300;
+  font-style: normal;
+  font-size: 14px;
+  color: #000000;
+  line-height: 1.5;
+  box-sizing: border-box; /* This is the key change */
+}
+.my-tooltip.minor {
+  border-color: #00FF00;
+}
+.my-tooltip.moderate {
+  border-color: #FFA500;
+}
+.my-tooltip.severe {
+  border-color: #FF0000;
+}
+.my-tooltip.extreme {
+  border-color: #313131;
+}
+.my-tooltip.unknown {
+  border-color: #313131;
+}
+.leaflet-popup-content-wrapper.severity-popup {
+  background: inherit !important; /* default white background */
+  background-color: inherit !important; /* default white background */
+}
+.leaflet-popup-content-wrapper {
+  background: none;
+  background-color: white;
+}
+.underline {
+  text-decoration: underline;
+  text-decoration-thickness: 3px; /* Adjust underline thickness */
+  font-weight: bold;
+  display: flex;
+  justify-content: center;
+}
 .h-spaced-buttons {
   margin-right: 20px; /* Adjust as needed */
   margin-top: 10px; /* Adjust as needed */
-  margin-bottom: 10px; /* Adjust as needed */	
+  margin-bottom: 10px; /* Adjust as needed */
 }
 h1 {
-  font-size: 2.25em;  /* Size of the heading (em is relative to parent font size) */
+  font-size: 2.25em; /* Size of the heading (em is relative to parent font size) */
   font-weight: bold; /* Font weight (bold, normal, etc.) */
   text-align: center; /* Alignment of the text */
   margin-bottom: 0.5em; /* Spacing below the heading */
   margin-top: 0.5em;
 }
-
 h2 {
   font-size: 1.85em;
   font-weight: normal; /* Example of different style for h2 */
@@ -253,7 +216,46 @@ h4 {
   margin-bottom: 0.5em;
   margin-top: 0.5em;
 }
-
-
-
-
+.hamburger-button {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  font-size: 2rem;
+  background: #FFFFFF;
+  border: none;
+  cursor: pointer;
+  z-index: 1000;
+}
+.mobile-nav {
+  position: fixed;
+  top: 0;
+  right: -400px; /* Changed from left to right */
+  width: 400px;
+  height: 100vh;
+  background: #FFFFFF;
+  border: 1px solid #000000;
+  border-radius: 10px;
+  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.25);
+  padding-top: 60px;
+  transition: right 0.3s ease; /* Changed transition direction */
+  z-index: 999;
+}
+.mobile-nav.open {
+  right: 0; /* Changed from left to right */
+}
+.mobile-nav ul {
+  list-style: none;
+    padding: 0;
+}
+.mobile-nav li {
+  padding: 10px 20px;
+}
+.mobile-nav a {
+  display: block;
+  padding: 15px;
+  color: white;
+  text-decoration: none;
+}
+.mobile-nav a:hover {
+  background-color: #555;
+}

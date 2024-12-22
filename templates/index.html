@@ -2,77 +2,79 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Welcome to Weather Alerts Global</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/switchery/0.8.2/switchery.min.css">
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <link rel="stylesheet" href="../static/styles.css">
-  <style>
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Welcome to Weather Alerts Global</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/switchery/0.8.2/switchery.min.css">
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+<link rel="stylesheet" href="../static/styles.css">
+<style></style>
 </head>
 <body>
-<div id="loading-bar-container" class="hidden"><div id="loading-bar"></div></div>
+<div id="loading-bar-container" class="hidden">
+  <div id="loading-bar"></div>
+</div>
 <div id="mapid"></div>
 <div id="loading-screen"></div>
-<div id="loading-message"><div id="login"><h3>Gathering Alert Data...</h3><p>Please be patient</p></div></div>
-	
-	
-	
-<div id="top-right-panel">
-  <div id="login-welcome">
-    <div id="app-title">
-      <h1>Weather Alerts Global</h1>
-    </div>
-    <h2>Welcome, {{ current_user.first_name }}!</h2>
-	  <div id="alert-count"><p>There are <b>{{ alert_count }}</b> live alerts in place covering the period <b>{{ date_range }}</b></p><div id="date-range"></div></div>
-    <div class="button-container">
-      <a href="{{ url_for('logout') }}" class="btn btn-primary h-spaced-buttons">Logout</a>
-      <a href="{{ url_for('change_password') }}" class="btn btn-primary h-spaced-buttons">Change Password</a>
-    </div>
-    <div class="button-container">
+<div id="loading-message">
+  <div id="login">
+    <h3>Gathering Alert Data...</h3>
+    <p>Please be patient</p>
+  </div>
+</div>
+<button class="hamburger-button">☰</button>
+<nav class="mobile-nav">
+  <div id="top-right-panel">
+    <div id="login-welcome">
+      <div id="app-title">
+        <h1>Weather Alerts Global</h1>
+      </div>
+      <h2>Welcome, {{ current_user.first_name }}!</h2>
+      <div id="alert-count">
+        <p>There are <b>{{ alert_count }}</b> live alerts in place covering the period <b>{{ date_range }}</b></p>
+        <div id="date-range"></div>
+      </div>
+      <div class="table-container">
+        <table id="severity-key">
+          <thead>
+          </thead>
+          <tbody>
+            <tr>
+              <th align="center" valign="middle" bgcolor="#E8E8E8" class="square"><h3 class="square">{{ alert_count }}</h3></th>
+              <th align="left" valign="middle" class="severity-text"><h3>Live Alerts</h3></th>
+            </tr>
+            <tr>
+              <td align="center" valign="middle" class="square" style="background-color: #00FF00;"><h3 class="square">{{ alert_counts.Minor|default(0) }}</h3></td>
+              <td align="left" valign="middle" class="severity-text"><h3>Minor</h3></td>
+            </tr>
+            <tr>
+              <td align="center" valign="middle" class="square" style="background-color: #FFA500;"><h3>{{ alert_counts.Moderate|default(0) }}</h3></td>
+              <td align="left" valign="middle" class="severity-text"><h3>Moderate</h3></td>
+            </tr>
+            <tr>
+              <td align="center" valign="middle" class="square" style="background-color: #FF0000;"><h3 class="text-severe-extreme">{{ alert_counts.Severe|default(0) }}</h3></td>
+              <td align="left" valign="middle" class="severity-text"><h3>Severe</h3></td>
+            </tr>
+            <tr>
+              <td align="center" valign="middle" class="square" style="background-color: #313131;" ><h3 class="text-severe-extreme">{{ alert_counts.Extreme|default(0) }}</h3></td>
+              <td align="left" valign="middle" class="severity-text"><h3>Extreme</h3></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="button-container">
         <button id="createAlertButton" class="btn btn-primary h-spaced-buttons">Create Alert Zone Notification</button>
         <button id="showAlertsButton" class="btn btn-primary h-spaced-buttons">Show Active Alert Notifications Zone</button>
         <button id="deleteAllAlertsButton" class="btn btn-danger h-spaced-buttons">Delete All Active Alert Zones</button>
-      </div>
+        <a href="{{ url_for('logout') }}" class="btn btn-primary h-spaced-buttons">Logout</a> <a href="{{ url_for('change_password') }}" class="btn btn-primary h-spaced-buttons">Change Password</a> </div>
+    </div>
+    <!--  <p>Light/Dark Mode
+    <input type="checkbox" class="lightdark-switch" />
+  </p>--> 
   </div>
-  
-  
-	
-  <div class="table-container">
-    <table id="severity-key">
-      <thead></thead>
-      <tbody>
-        <tr>
-          <th align="center" valign="middle" bgcolor="#E8E8E8" class="square"><h3 class="square">{{ alert_count }}</h3></th>
-          <th align="left" valign="middle" class="severity-text"><h3>Live Alerts</h3></th>
-        </tr>
-        <tr>
-          <td align="center" valign="middle" class="square" style="background-color: #00FF00;"><h3 class="square">{{ alert_counts.Minor|default(0) }}</h3></td>
-          <td align="left" valign="middle" class="severity-text"><h3>Minor</h3></td>
-        </tr>
-        <tr>
-          <td align="center" valign="middle" class="square" style="background-color: #FFA500;"><h3>{{ alert_counts.Moderate|default(0) }}</h3></td>
-          <td align="left" valign="middle" class="severity-text"><h3>Moderate</h3></td>
-        </tr>
-        <tr>
-          <td align="center" valign="middle" class="square" style="background-color: #FF0000;"><h3 class="text-severe-extreme">{{ alert_counts.Severe|default(0) }}</h3></td>
-          <td align="left" valign="middle" class="severity-text"><h3>Severe</h3></td>
-        </tr>
-        <tr>
-          <td align="center" valign="middle" class="square" style="background-color: #313131;" ><h3 class="text-severe-extreme">{{ alert_counts.Extreme|default(0) }}</h3></td>
-          <td align="left" valign="middle" class="severity-text"><h3>Extreme</h3></td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-  <div id="alert-counts-container"></div>
-  <br>
-  <p>Light/Dark Mode <input type="checkbox" class="lightdark-switch" /></p>
-</div>
-	
+</nav>
 <div id="createAlertModal" class="modal fade" role="dialog">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -81,35 +83,48 @@
         <button type="button" class="close" data-dismiss="modal">&times;</button>
       </div>
       <div class="modal-body">
-        <input type="text" id="alertName" placeholder="Alert Name" class="form-control mb-2"><br>
-        <textarea id="alertDescription" placeholder="Describe your alert" class="form-control mb-2"></textarea><br>
-        <div id="alertZonePreview">
-          <!-- GeoJSON preview will go here -->
+        <input type="text" id="alertName" placeholder="Alert Name" class="form-control mb-2">
+        <br>
+        <textarea id="alertDescription" placeholder="Describe your alert" class="form-control mb-2"></textarea>
+        <br>
+        <div id="alertZonePreview"> 
+          <!-- GeoJSON preview will go here --> 
         </div>
       </div>
       <div class="modal-footer">
+        <p>Enable e-mail alerts <input type="checkbox" class="email-alerts"/></p>
         <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
         <button type="button" id="createAlertSubmit" class="btn btn-primary">Create</button>
       </div>
     </div>
   </div>
 </div>
-  
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/switchery/0.8.2/switchery.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script> 
+<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script> 
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script> 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/switchery/0.8.2/switchery.min.js"></script> 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script> 
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script> 
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script> 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script> 
 <script>
+const hamburgerButton = document.querySelector('.hamburger-button');
+const mobileNav = document.querySelector('.mobile-nav');
+
+hamburgerButton.addEventListener('click', () => {
+	mobileNav.classList.toggle('open');
+});
+	
+
 $(document).ready(function() {
+  var map = L.map('mapid').setView([51.4779, 0.0015], 5);
+  let alertLayers = new L.FeatureGroup(); //Create the layer group at the top level
+  map.addLayer(alertLayers); // Add it to the map
   console.log("Alerts:", alerts);
   console.log("Document ready");
   console.log($('#createAlertModal').length); // Check if element exists
 
-  var map = L.map('mapid').setView([51.4779, 0.0015], 5);
+
   // Set maximum bounds (adjust these values as needed)
   var southWest = L.latLng(-90, -180);
   var northEast = L.latLng(90, 180);
@@ -156,173 +171,219 @@ displayAlerts(alerts);
      }
     }
 
-      function addAlertToMap(alert) {
-      return new Promise((resolve, reject) => {
+function addAlertToMap(alert) {
+    return new Promise((resolve, reject) => {
         const geometry = alert.geometry || {};
         const color = alert.color || 'lightblue';
 
-      if (geometry.type && geometry.coordinates && geometry.coordinates.length > 0) {
-          let leafletGeoJSON;
-          if (geometry.type === 'Polygon') {
-          leafletGeoJSON = L.polygon(geometry.coordinates[0].map(coord => [coord[1], coord[0]]), {
-            color: '#000',
-            weight: 2,
-            fillColor: color,
-            fillOpacity: 0.7
-          });
-          } else if (geometry.type === 'Point') {
-          leafletGeoJSON = L.marker([geometry.coordinates[1], geometry.coordinates[0]]);
-          } else {
-          console.warn("Unsupported geometry type:", geometry.type);
-          reject("Unsupported geometry type"); // Reject the promise if unsupported
-          return;
-          }
-
-          leafletGeoJSON.bindPopup(createAlertZonePopupContent(alert), { autoClose: false, maxWidth: maxWidth });
-          leafletGeoJSON.on({
-            mouseover: function(e) {
-              e.target.setStyle({fillOpacity: 0.9});
-            },
-            mouseout: function(e) {
-              e.target.setStyle({fillOpacity: 0.7});
+        if (geometry.type && geometry.coordinates && geometry.coordinates.length > 0) {
+            let leafletGeoJSON;
+            if (geometry.type === 'Polygon') {
+                leafletGeoJSON = L.polygon(geometry.coordinates[0].map(coord => [coord[1], coord[0]]), {
+                    color: '#000',
+                    weight: 2,
+                    fillColor: color,
+                    fillOpacity: 0.7
+                });
+            } else if (geometry.type === 'Point') {
+                leafletGeoJSON = L.marker([geometry.coordinates[1], geometry.coordinates[0]]);
+            } else {
+                console.warn("Unsupported geometry type:", geometry.type);
+                reject("Unsupported geometry type");
+                return;
             }
-            });
-          leafletGeoJSON.addTo(drawnItems);
-          leafletGeoJSON.alertId = alert._id;
-          resolve(); // Resolve the promise after adding to the map
-          leafletGeoJSON.on('click', function(e) {
-            console.log("Shape Clicked at :", e.target.feature.geometry);
-            getAlertsForZone(e.target.feature); // Update this section.  Ensure the whole feature is passed
-          });
-        } else {
-          console.warn("Invalid geometry data in alert:", alert);
-          reject("Invalid geometry data"); // Reject promise if invalid data
-        }
-      });
-      }
 
- function getAlertsForZone(feature) { // Modified this line to accept 'feature'
-    const geometry = feature.geometry;
+            leafletGeoJSON.bindPopup(createAlertZonePopupContent(alert), { autoClose: false, maxWidth: maxWidth });
+            leafletGeoJSON.on({
+                mouseover: function(e) {
+                    e.target.setStyle({fillOpacity: 0.9});
+                },
+                mouseout: function(e) {
+                    e.target.setStyle({fillOpacity: 0.7});
+                }
+            });
+            leafletGeoJSON.addTo(drawnItems);
+            leafletGeoJSON.alertId = alert._id;
+            leafletGeoJSON.alertData = alert;
+            leafletGeoJSON.alertZone = true; 
+            resolve();
+            leafletGeoJSON.on('click', function(e) {
+              console.log("Shape Clicked at :", e.target.feature.geometry);
+              getAlertsForZone(e.target.alertData);
+            });
+        } else {
+            console.warn("Invalid geometry data in alert:", alert);
+            reject("Invalid geometry data");
+        }
+    });
+}
+
+function getAlertsForZone(alertData) {
+    const geometry = alertData.geometry;
     console.log("getAlertsForZone called with geometry: ", geometry);
     $.ajax({
-      type: "GET",
-      url: "/get_alerts_for_zone",
-      data: {
-        geometry: JSON.stringify(geometry)
-      },
-      success: function(response) {
-        console.log("Alerts data received:", response);
-        if (response && response.alerts && response.alerts.length > 0) { // Check for both response.alerts and if its length is greater than 0
-          //Clear the existing alerts
-          map.eachLayer(function(layer) {
-            if (layer instanceof L.GeoJSON && layer.options && layer.options.onEachFeature) {
-              map.removeLayer(layer);
+        type: "GET",
+        url: "/get_alerts_for_zone",
+        data: {
+            geometry: JSON.stringify(geometry)
+        },
+        success: function(response) {
+            console.log("Alerts data received:", response);
+            if (response && response.alerts && response.alerts.length > 0) {
+
+                const transformedAlerts = response.alerts.map(alert => ({
+                  ...alert,
+                  geometry: alert.geometry || alertData.geometry,
+                  color: alert.color, // Include color if it's in the response
+                }));
+              let alertName = null
+                if (alertData && alertData.alert_name) {
+                  alertName = alertData.alert_name;
+                } else if (alertData.alert_name) {
+                  alertName = alertData.alert_name;
+                }
+                displayAlerts(transformedAlerts, alertName);
+            } else {
+                displayError("No alerts found for this area.");
             }
-          });
-          alerts = response.alerts; // Update the global alerts variable
-          let alertName = null
-          if (feature.alertData && feature.alertData.alert_name) {
-            alertName = feature.alertData.alert_name;
-          } else if (feature.alert_name) {
-            alertName = feature.alert_name;
-          }
-          displayAlerts(alerts, alertName) // Pass the alert name to the display function
-        } else {
-          displayError("No alerts found for this area.");
+        },
+        error: function(xhr, status, errorThrown) {
+            console.error("Error fetching alerts for zone:", status, errorThrown, xhr);
+            let errorMessage = "Error fetching alerts for zone.";
+            if (xhr.responseJSON && xhr.responseJSON.error) {
+                errorMessage = xhr.responseJSON.error;
+            }
+            displayError(errorMessage);
         }
-      },
-      error: function(xhr, status, errorThrown) {
-        console.error("Error fetching alerts for zone:", status, errorThrown, xhr);
-        let errorMessage = "Error fetching alerts for zone.";
-        if (xhr.responseJSON && xhr.responseJSON.error) {
-          errorMessage = xhr.responseJSON.error;
-        }
-        displayError(errorMessage);
-      }
     });
-  }
+}
+
 function displayAlerts(incidentAlerts, alert_name) {
-      console.log("Displaying alerts:", incidentAlerts)
-      if (!incidentAlerts) {
-      console.warn("No alerts data to display.");
-      return;
-      }
-     if (incidentAlerts.length === 0){
-      console.log("No alerts to display for this area.");
-      $("#alertModalTitle").text(`No Active Alerts for ${alert_name ? alert_name : 'this zone'}`);
-      $("#alertModalBody").html('<p>No active alerts for this zone.</p>');
-      $("#alertModal").modal('show');
-      return;
-     }
-      // Clear existing GeoJSON layers from the map, *only incident alerts*
-      map.eachLayer(function (layer) {
-      if (layer instanceof L.GeoJSON && layer.options && layer.options.onEachFeature && !layer.alertZone) {
-      map.removeLayer(layer);
-      }
-    });
-
-      incidentAlerts.forEach(alert => handleIncidentAlert(alert)); //Pass the whole alert to the handleIncidentAlert function
-     let modalBodyContent = '<ul>';
-      incidentAlerts.forEach(alert => {
-        modalBodyContent += `<li>
-         <b>Alert: </b> ${alert.name}<br>
-         <b>Start:</b> ${new Date(alert.start * 1000).toLocaleString()} <br>
-         <b>End:</b> ${new Date(alert.end * 1000).toLocaleString()} <br>
-         <b>Severity:</b> ${alert.severity} <br>
-         <b>Description:</b> ${alert.description} <br>
-         </li>`
-      });
-        modalBodyContent += '</ul>';
-
-    $("#alertModalTitle").text(`Active Alerts for ${alert_name ? alert_name : 'this zone'}`);
-   $("#alertModalBody").html(modalBodyContent);
-    $("#alertModal").modal('show');
+    console.log("Displaying alerts:", incidentAlerts);
+    if (!incidentAlerts) {
+        console.warn("No alerts data to display.");
+        return;
     }
+    if (incidentAlerts.length === 0) {
+        console.log("No alerts to display for this area.");
+        $("#alertModalTitle").text(`No Active Alerts for ${alert_name ? alert_name : 'this zone'}`);
+        $("#alertModalBody").html('<p>No active alerts for this zone.</p>');
+        $("#alertModal").modal('show');
+        return;
+    }
+    // Clear existing GeoJSON layers from the map, *only incident alerts*
+    alertLayers.clearLayers(); // Only clear incident alert layers
+
+    let modalBodyContent = '<ul>';
+
+    incidentAlerts.forEach(alert => {
+        modalBodyContent += `<li>
+            <b>Start:</b> ${new Date(alert.start * 1000).toLocaleString()} <br>
+            <b>End:</b> ${new Date(alert.end * 1000).toLocaleString()} <br>
+            <b>Severity:</b> ${alert.severity} <br>
+            <b>Description:</b> ${alert.description} <br>
+          </li>`;
+
+          let geoJsonGeometry = alert.geometry;
+
+          if (geoJsonGeometry && geoJsonGeometry.type === 'Polygon' && geoJsonGeometry.coordinates && Array.isArray(geoJsonGeometry.coordinates)) {
+             //Reverse all co-ordinates
+            geoJsonGeometry.coordinates = geoJsonGeometry.coordinates.map(ring => {
+                return ring.map(coord => [coord[0], coord[1]]); //Reverse single ring
+              });
+          }
 
 
-function handleIncidentAlert(alert) {
-      if (!alert.alert || !alert.alert.geometry) {
-         console.warn("Alert missing geometry", alert);
-         return;
-        }
-        const geoJson = alert.alert.geometry;
-        const leafletLayer = L.geoJSON(geoJson, {
-          style: function() {
+         // Wrap geometry in a GeoJSON Feature
+         const geoJsonFeature = {
+            type: "Feature",
+            geometry: geoJsonGeometry,
+             properties: alert // Keep any properties
+           };
+
+        L.geoJSON(geoJsonFeature, {
+            style: function () {
                 return {
-                 fillColor: 'red', //Default color
-                 color: '#000',
-                 weight: 1,
-                 dashArray: '',
-                 fillOpacity: fillOpacity
+                    fillColor: alert.color,
+                    color: '#000',
+                    weight: 1,
+                    dashArray: '',
+                    fillOpacity: fillOpacity
                 };
             },
-            onEachFeature: function(feature, layer) {
-               layer.bindPopup(createAlertTooltipContent(alert, alert.description[0].text), {autoClose: false, maxWidth: maxWidth});
-               layer.on('click', function() {
-                  this.openPopup();
-                const severity = $(this._popup._content).find('.my-tooltip').data('severity');
-                  const popupWrapper = this._popup._wrapper;
-                  const severityColor = {
-                     Minor: "#00FF00",
-                     Moderate: "#FFA500",
-                    Severe: "#FF0000",
-                      Extreme: "#313131",
-                     Unknown: "#313131"
-                 }[severity] || "#FF0000";
-                   $(popupWrapper).find('.leaflet-popup-content-wrapper').addClass('severity-popup').css('background', severityColor + ' !important');
-               });
+            onEachFeature: function (feature, layer) {
+                layer.bindPopup(createAlertTooltipContent(alert), { autoClose: false, maxWidth: maxWidth });
+                layer.on('click', function () {
+                    this.openPopup();
+                    const severity = $(this._popup._content).find('.my-tooltip').data('severity');
+                    const popupWrapper = this._popup._wrapper;
+                    const severityColor = {
+                        Minor: "#00FF00",
+                        Moderate: "#FFA500",
+                        Severe: "#FF0000",
+                        Extreme: "#313131",
+                        Unknown: "#313131"
+                    }[severity] || "#FF0000";
+                    $(popupWrapper).find('.leaflet-popup-content-wrapper').addClass('severity-popup').css('background', severityColor + ' !important');
+                });
                 layer.on({
-                  mouseover: function() {
-                  this.setStyle({fillOpacity: 0.2});
-              },
-              mouseout: function() {
-                  this.setStyle({fillOpacity: fillOpacity});
-              }
-            });
-          },
-        }).addTo(map);
-       leafletLayer.alertZone = false; // Mark this as an incident alert layer
-    }
+                    mouseover: function () {
+                        this.setStyle({ fillOpacity: 0.2 });
+                    },
+                    mouseout: function () {
+                        this.setStyle({ fillOpacity: fillOpacity });
+                    }
+                });
+            }
+        }).addTo(alertLayers);
+    });
+    modalBodyContent += '</ul>';
+
+    $("#alertModalTitle").text(`Active Alerts for ${alert_name ? alert_name : 'this zone'}`);
+    $("#alertModalBody").html(modalBodyContent);
+    $("#alertModal").modal('show');
+}
+
+
+
+function handleAlert(alert) {
+L.geoJSON(alert.geometry, {
+ style: function() {
+   return {
+     fillColor: alert.color,
+     color: '#000',
+     weight: 1,
+     dashArray: '',
+     fillOpacity: fillOpacity
+   };
+ },
+ onEachFeature: function(feature, layer) {
+   layer.bindPopup(createAlertTooltipContent(alert), {autoClose: false, maxWidth: maxWidth});
+   layer.on('click', function() {
+     this.openPopup();
+     const severity = $(this._popup._content).find('.my-tooltip').data('severity');
+     const popupWrapper = this._popup._wrapper;
+     const severityColor = {
+       Minor: "#00FF00",
+       Moderate: "#FFA500",
+       Severe: "#FF0000",
+       Extreme: "#313131",
+       Unknown: "#313131"
+     }[severity] || "#FF0000";
+     $(popupWrapper).find('.leaflet-popup-content-wrapper').addClass('severity-popup').css('background', severityColor + ' !important');
+   });
+   layer.on({
+     mouseover: function() {
+       this.setStyle({fillOpacity: 0.2});
+     },
+     mouseout: function() {
+       this.setStyle({fillOpacity: fillOpacity});
+     }
+   });
+ }
+}).addTo(alertLayers); // add the new layer to the new alert layer group
+}
+
 
 	
   function loadAlerts() {
@@ -418,7 +479,7 @@ function handleIncidentAlert(alert) {
       setTimeout(() => {
         if (alerts.length === 0) {
           console.error("Alerts data not loaded.");
-          displayError('Error loading alert data.');
+          //displayError('Error loading alert data.');
           $('#loading-message').text('Error loading alert data.').removeClass('hidden');
         } else {
           alerts.forEach(handleAlert);
@@ -490,7 +551,6 @@ function handleIncidentAlert(alert) {
     loadingMessage.addClass('shown');
   }
 
-  handleAlerts();
   loadingScreen.addClass('hidden');
   loadingMessage.addClass('hidden');
 
@@ -577,6 +637,7 @@ function handleIncidentAlert(alert) {
           success: function(response) {
             displaySuccess(`Alert '${alertName}' created successfully! (ID: ${response.alert_id})`);
             drawingLayer.clearLayers(); // Clear the drawing layer
+			drawnItems.clearLayers(); // Clear the drawnItems layer
             $('#createAlertModal').modal('hide');
             $('#alertName').val('');
             $('#alertDescription').val('');
@@ -673,10 +734,10 @@ function addAlertToMap(alert) {
       leafletGeoJSON.alertData = alert;
       leafletGeoJSON.alertZone = true; // Mark this as an alert notification zone layer
        resolve();
-       leafletGeoJSON.on('click', function(e) {
-        console.log("Shape Clicked at :", e.target.feature.geometry);
-         getAlertsForZone(e.target.alertData); //Pass the correct variable here
-      });
+     leafletGeoJSON.on('click', function(e) {
+       console.log("Shape Clicked at :", e.target.feature.geometry);
+       getAlertsForZone(e.target.alertData);
+     });
     } else {
        console.warn("Invalid geometry data in alert:", alert);
        reject("Invalid geometry data");
@@ -690,28 +751,28 @@ function createAlertZonePopupContent(alert) {
     let deleteButton = `<button class="btn btn-danger h-spaced-buttons delete-alert-button" data-alert-id="${alert._id}">Delete Alert Notification Zone</button>`;
       return `<div class="my-tooltip"><h3>${alert.alert_name}</h3><p>${alert.alert_description}</p></div>` + retrieveButton + deleteButton;
   }
-  map.on('popupopen', function(e) {
-    const popup = e.popup;
-    const popupContent = popup.getElement();
-    const retrieveButton = popupContent.querySelector('.retrieve-alert-button');
-    const deleteButton = popupContent.querySelector('.delete-alert-button');
-    const layer = e.popup._source; // Get the layer from the popup event
-    const alertId = layer.alertId; // Access the alertId from the layer
-
-    console.log("Current alerts:", alerts); // ADDED THIS
+    map.on('popupopen', function(e) {
+        const popup = e.popup;
+        const popupContent = popup.getElement();
+        const retrieveButton = popupContent.querySelector('.retrieve-alert-button');
+        const deleteButton = popupContent.querySelector('.delete-alert-button');
+        const layer = e.popup._source; // Get the layer from the popup event
+        const alertId = layer.alertId; // Access the alertId from the layer
     
-    if (retrieveButton) {
-      retrieveButton.addEventListener('click', function() {
-        console.log("Retrieve Alerts Clicked at alert ID :", alertId);
+        console.log("Current alerts:", alerts); // ADDED THIS
+        
+        if (retrieveButton) {
+            retrieveButton.addEventListener('click', function() {
+                console.log("Retrieve Alerts Clicked at alert ID :", alertId);
 
-        if (layer.alertData && layer.alertData.geometry) {
-          getAlertsForZone(layer.alertData); // USE THE STORED ALERT DATA!
-        } else {
-          console.warn("Could not find geometry for alert ID:", alertId, "or alert data"); // UPDATED LOG
-          displayError("Could not find geometry for this alert.")
+                if (layer.alertData) {
+                  getAlertsForZone(layer.alertData); // USE THE STORED ALERT DATA!
+                } else {
+                  console.warn("Could not find geometry for alert ID:", alertId, "or alert data"); // UPDATED LOG
+                  displayError("Could not find geometry for this alert.")
+                }
+            });
         }
-      });
-    }
 
       if (deleteButton) {
         deleteButton.addEventListener('click', function() {
@@ -800,6 +861,12 @@ function createAlertZonePopupContent(alert) {
   elems.forEach(function(html) {
     var switchery = new Switchery(html);
   });
+	
+  var elems = Array.prototype.slice.call(document.querySelectorAll('.email-alerts'));
+  elems.forEach(function(html) {
+    var switchery = new Switchery(html);
+  });
+
 
   // --- Socket.IO ---
     let socketUrl;
@@ -874,6 +941,5 @@ function createAlertZonePopupContent(alert) {
 </body>
 </html>
 {% else %}
-  <h1>Please log in</h1>
-  <a href="{{ url_for('login') }}">Login</a>
-{% endif %}
+<h1>Please log in</h1>
+<a href="{{ url_for('login') }}">Login</a>{% endif %}
