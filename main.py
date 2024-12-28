@@ -36,7 +36,7 @@ app.secret_key = os.environ.get('SECRET_KEY')
 s = URLSafeTimedSerializer(os.environ.get('SERIALIZER_SECRET'))
 
 # Initialize SocketIO
-socketio = SocketIO(app, cors_allowed_origins="*")  # Allow cross-origin for local development
+socketio = SocketIO(app, cors_allowed_origins="weatheralerts.global")  # Allow cross-origin for local development
 
 # Create a logger for Celery tasks
 app_logger = logging.getLogger('app')
@@ -449,7 +449,7 @@ def logout():
 
 
 # Trim the database
-def keep_recent_entries_efficient(days_to_keep=0):
+def keep_recent_entries_efficient(days_to_keep=1):
     try:
         today_utc = datetime.now(timezone.utc)
         retention_cutoff_utc = today_utc - timedelta(days=days_to_keep)
@@ -495,7 +495,7 @@ def index():
                      else:
                          app_logger.info("Redis data not found after a successful task.")
                          loading = True # Indicate we need to reload
-                         task = celery_app.send_task('generate_map_data_task') # Generate the map data
+                         populate_map_data_if_needed()
                          redis_client.set('map_data_task_id', task.id)
                          app_logger.info(f"Triggered map data generation, task id: {task.id}")
                 else:
@@ -506,7 +506,7 @@ def index():
             else:
                 app_logger.info("Map data not found in Redis. Generating...")
                 loading = True
-                task = celery_app.send_task('generate_map_data_task') # Start the task initially.
+                populate_map_data_if_needed()
                 redis_client.set('map_data_task_id', task.id)
                 app_logger.info(f"Starting map data generation task id: {task.id}")
 
@@ -555,7 +555,7 @@ def translate_text(text, target_language='en'):
 
     headers = {'Content-Type': 'application/json'}
 
-    key = os.getenv('GOOGLE_API_KEY')  # Replace with your own API key
+    key = os.getenv('GOOGLE_TRANSLATE_API_KEY')  # Replace with your own API key
     payload = {"q": text, "target": target_language}
 
     response = requests.post(translate_url, headers=headers, params={'key': key}, data=json.dumps(payload))
@@ -731,7 +731,6 @@ def get_alerts_for_zone():
         app_logger.info(f"get_alerts_for_zone called with geometry: ")
         if not geometry_str:
             return jsonify({"error": "Missing geometry parameter"}), 400
-
         try:
             geometry = json.loads(geometry_str)
             geojson.loads(json.dumps(geometry))  # Verify valid geometry
@@ -740,10 +739,8 @@ def get_alerts_for_zone():
         except (json.JSONDecodeError, geojson.errors.GeoJSONError, KeyError) as e:
             app_logger.info("Error parsing geometry")
             return jsonify({"error": f"Invalid geometry data: {str(e)}"}), 400
-
         # Generate a unique cache key based on the geometry
         cache_key = f"alerts_for_zone_{hash(geometry_str)}"  # Hash the string to ensure a valid key.
-
         # Try to fetch from the cache
         cached_data = redis_client.get(cache_key)
         if cached_data:
@@ -751,7 +748,8 @@ def get_alerts_for_zone():
             return jsonify({"alerts": json.loads(cached_data)})
 
         # If no cached data, fetch from MongoDB
-        matching_alerts = find_matching_owa_alerts(geometry)
+        task = celery_app.send_task('find_matching_owa_alerts_task', args=[geometry])
+        matching_alerts = task.get()
 
         alerts_data = []
         for alert in matching_alerts:
@@ -764,167 +762,6 @@ def get_alerts_for_zone():
     except Exception as e:
         app_logger.exception("Error in get_alerts_for_zone: ")
         return jsonify({"error": "Error fetching alerts for zone"}), 500
-
-
-def find_matching_owa_alerts(wag_zone_geometry, future_days=14):
-    """Finds OWA alerts intersecting with a WAG alert zone using an aggregation pipeline.
-
-    Args:
-        wag_zone_geometry: The GeoJSON geometry of the WAG alert zone.
-
-    Returns:
-        A pymongo cursor of matching OWA alerts. Returns an empty cursor if none are found or if the input geometry is invalid.
-    """
-    try:
-        # Validate geometry before querying. A more robust approach than in the original code.
-        geojson.loads(json.dumps(wag_zone_geometry))
-        if wag_zone_geometry['type'] not in ['Polygon', 'MultiPolygon', 'Point', 'LineString']:
-            app_logger.info(f"Invalid geometry type in find_matching_owa_alerts: {wag_zone_geometry['type']}")
-            return owa_collection.aggregate([])  # Return empty cursor for invalid geometry
-
-        today_start_timestamp = int(
-            datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
-        today_end_timestamp = int(
-            datetime.now(timezone.utc).replace(hour=23, minute=59, second=59, microsecond=999999).timestamp())
-        future_timestamp = int((datetime.now(timezone.utc) + timedelta(days=future_days)).timestamp())
-
-        # Log the query that is being executed:
-        pipeline = [
-            {
-                "$match": {
-                    "alert.geometry": {
-                        "$geoIntersects": {"$geometry": wag_zone_geometry}
-                    },
-                    "$or": [
-                        {"start": {"$gte": today_start_timestamp}, "end": {"$lte": today_end_timestamp}},
-                        {"start": {"$lt": today_end_timestamp}, "end": {"$gt": today_start_timestamp}},
-                        {"start": {"$gte": today_end_timestamp}, "end": {"$lte": future_timestamp}}
-                    ]
-                }
-            },
-            {
-                "$addFields": {
-                    "alert_key": {
-                        "$concat": [
-                            {"$toString": "$start"},
-                            {"$toString": "$end"}
-                        ]
-                    }
-                }
-            },
-            {
-                "$group": {
-                    "_id": "$alert_key",
-                    "doc": {"$first": "$$ROOT"}
-                }
-            },
-            {
-                "$replaceRoot": {"newRoot": "$doc"}
-            },
-            {
-                "$project": {
-                    'alert': 1, 'msg_type': 1, 'categories': 1,
-                    'urgency': 1, 'severity': 1, 'certainty': 1, 'start': 1, 'end': 1, 'sender': 1,
-                    'description': 1, 'alert_key': 1
-                }
-            }
-        ]
-        app_logger.info(f"Executing MongoDB aggregation pipeline for find_matching_owa_alerts")
-
-        # Get the data and format it the same way as generate map data.
-        formatted_alerts = []
-        cursor = owa_collection.aggregate(pipeline)
-        for alert_data in cursor:
-            try:
-                # Extract information from the database
-                msg_type = alert_data['msg_type']
-                categories = alert_data['categories']
-                urgency = alert_data['urgency']
-                severity = alert_data['severity']
-                certainty = alert_data['certainty']
-                start_timestamp = alert_data['start']
-                end_timestamp = alert_data['end']
-                sender = alert_data['sender']
-                description_data = alert_data['description'][0]
-                language = description_data.get('language', 'N/A')
-                event = description_data.get('event', 'N/A')
-                headline = description_data.get('headline', 'N/A')
-                instruction = description_data.get('instruction', 'N/A')
-
-                # Format the Description
-                description = f"<b>Language:</b> {language}<br><b>Event:</b> {event} <br><b>Headline:</b> {headline}<br><b>Instruction:</b> {instruction}"
-
-                # Calculate colour based on severity
-                severity_color = {
-                    'Minor': '#00FF00',
-                    'Moderate': '#FFA500',
-                    'Severe': '#FF0000',
-                    'Extreme': '#313131',
-                    'Unknown': '#313131'
-                }
-                color = severity_color.get(severity, '#313131')
-
-                formatted_alerts.append({
-                    'msg_type': msg_type,
-                    'categories': categories,
-                    'urgency': urgency,
-                    'severity': severity,
-                    'certainty': certainty,
-                    'start': start_timestamp,
-                    'end': end_timestamp,
-                    'sender': sender,
-                    'description': description,
-                    'color': color,
-                    'id': alert_data['alert_key']
-                })
-            except (KeyError, TypeError, IndexError) as e:
-                app_logger.exception(f"Error processing alert data from MongoDB: ")
-                continue
-
-        # Return the cursor
-        class FakeCursor:
-            def __init__(self, data):
-                self.data = data
-
-            def __iter__(self):
-                return iter(self.data)
-
-        return FakeCursor(formatted_alerts)
-    except (KeyError, TypeError, geojson.errors.GeoJSONError) as e:
-        app_logger.info(f"Error validating or querying OWA alerts: ")
-        return owa_collection.aggregate([])  # Return an empty cursor
-
-
-def check_for_and_send_alerts():
-    """Checks for new OWA alerts and sends emails to affected users."""
-    try:
-        users = wag_user_alerts_notification_zone_collection.find({}, {"_id": 1, "user_id": 1, "email": 1, "geometry": 1, "notifications": 1}).limit(100)
-        app_logger.info(f"Number of users found: {len(list(users))}")
-
-        for user in users:
-            user_id = user["user_id"]
-            user_email = user["email"]
-            wag_zone_geometry = user.get("geometry", None)
-            app_logger.debug(f"Processing user: , User ID: , Geometry: ")
-
-            if wag_zone_geometry:
-                matching_alerts = find_matching_owa_alerts(wag_zone_geometry)
-                num_alerts = matching_alerts.count()
-                app_logger.info(f"Number of matching alerts for user : ")
-                if num_alerts > 0:
-                    #Log a sample of the alerts, not all of them
-                    sample_alerts = list(matching_alerts.limit(min(num_alerts, 5))) # Limit to 5 for logging
-                    app_logger.info(f"Sample of matching alerts for user : ")
-                    for owa_alert in matching_alerts:
-                        app_logger.info(f"Sending alert for User: , Alert ID: {user['_id']}, OWA Alert: ")
-                        send_weather_alert.delay(user_email, owa_alert, user["_id"])
-                else:
-                    app_logger.info(f"No matching alerts found for user ")
-            else:
-                app_logger.warning(f"User  has no valid geometry defined")
-
-    except Exception as e:  # Colon added here
-        app_logger.exception("Error in check_for_and_send_alerts:")
 
 def populate_map_data_if_needed():
     """Populates map data in Redis only if it doesn't exist or is expired or a task is not in process."""
@@ -1029,13 +866,96 @@ def map_data_callback():
         app_logger.exception("Error in map_data_callback")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-
-def alert_notification_timer():
+@app.route('/get_user_email_alert_state', methods=['GET'])
+@login_required
+def get_user_email_alert_state():
     try:
-        check_for_and_send_alerts()
-        app_logger.info("alert_notification_timer Scheduled task completed.")
+        user_id = request.args.get('user_id')
+        if not user_id:
+            return jsonify({"error": "Missing user_id parameter"}), 400
+        user_data = wag_user_alerts_notification_zone_collection.find_one({"_id": ObjectId(user_id)})
+        if user_data:
+            email_alerts_enabled = user_data.get('email_alerts_enabled', False)  # Default to False if not set
+            return jsonify({"email_alerts_enabled": email_alerts_enabled}), 200
+        else:
+           return jsonify({'error': "User not found"}), 404
+
+    except pymongo_errors.PyMongoError as e:
+        app_logger.error(f"Database error fetching user email alert state: ")
+        return jsonify({"error": "Database error"}), 500
     except Exception as e:
-        app_logger.exception("Error in alert_notification_timer: ")
+        app_logger.exception(f"Unexpected error fetching user email alert state: ")
+        return jsonify({"error": "Server error"}), 500
+
+@app.route('/update_user_email_alert_state', methods=['POST'])
+@login_required
+def update_user_email_alert_state():
+    try:
+        data = request.get_json()
+        if not data or 'user_id' not in data or 'email_alerts_enabled' not in data:
+            return jsonify({"error": "Invalid data format"}), 400
+        user_id = data['user_id']
+        email_alerts_enabled = data['email_alerts_enabled']
+
+        # Update the user's email_alerts_enabled setting in MongoDB
+        with MongoClient(MONGODB_URI, tlsCAFile=certifi.where()) as client:
+            db = client[WAG_DATABASE_NAME]
+            collection = db[WAG_USER_ALERTS_NOTIFICATION_ZONE_COLLECTION_NAME]
+            result = collection.update_one({"_id": ObjectId(user_id)}, {"$set": {"email_alerts_enabled": email_alerts_enabled}})
+            if result.modified_count == 1:
+                # Check if email alerts is enabled, and if so trigger a scan and send.
+                if email_alerts_enabled:
+                    app_logger.info(f"Email alerts enabled for user . Starting send alerts.")
+                    task = celery_app.send_task('check_for_and_send_alerts') # Call the function via Celery, and get a task id.
+                    return jsonify({"message": "User email alert state updated successfully", "task_id": task.id}), 200
+                return jsonify({"message": "User email alert state updated successfully"}), 200
+            else:
+                return jsonify({"error": "User not found or state not updated"}), 404
+    except pymongo_errors.PyMongoError as e:
+        app_logger.error(f"Database error updating user email alert state: {e}")
+        return jsonify({"error": "Database error"}), 500
+    except Exception as e:
+        app_logger.exception(f"Unexpected error updating user email alert state: {e}")
+        return jsonify({"error": "Server error"}), 500
+
+@app.route('/send_alert_snapshots', methods=['POST'])
+@login_required
+def send_alert_snapshots():
+    """Sends current OWA alerts within user's alert zones to the user via email."""
+    try:
+        app_logger.info(f"Manual alert snapshot requested by user: {current_user.email}")
+        alert_id = request.form.get('alert_id')
+        # Fetch the specific alert zone, not all of the users zones
+        zone = wag_user_alerts_notification_zone_collection.find_one({"_id": ObjectId(alert_id)},
+                                                                         {"_id": 1, "user_id": 1, "email": 1,
+                                                                          "geometry": 1, "notifications": 1})
+        if not zone:
+            return jsonify({"error": f"Error: Alert zone ID not found: {alert_id}"}), 404
+
+        num_alerts_sent = 0
+        user_id = zone["user_id"]
+        user_email = zone["email"]
+        wag_zone_geometry = zone.get("geometry", None)
+
+        if wag_zone_geometry:
+            task = celery_app.send_task('find_matching_owa_alerts_task', args=[wag_zone_geometry])
+            matching_alerts = task.get()  # get the results of the task
+            num_alerts = 0
+            for owa_alert in matching_alerts:
+                num_alerts += 1
+                app_logger.info(
+                    f"send alert snapshot is sending alert for User {user_email} : , Alert ID: {zone['_id']}, OWA Alert: {owa_alert} ")
+                celery_app.send_task('send_weather_alert', args=[user_email, owa_alert, str(zone["_id"])])
+
+            num_alerts_sent += num_alerts
+            app_logger.info(f"Number of alerts sent {num_alerts_sent} for {user_email}.")
+        else:
+            app_logger.info(f"User  has no valid geometry defined")
+        app_logger.info(f"Manual alert snapshot process completed. Total alerts sent: {num_alerts_sent}")
+        return jsonify({"message": f"Alert snapshots sent for {num_alerts_sent} alerts."}), 200
+    except Exception as e:
+        app_logger.exception("Error in send_alert_snapshots:")
+        return jsonify({"error": f"Error sending alert snapshots: {str(e)}"}), 500
 
 def scheduled_task():
     """Combined scheduled task. Only runs check_for_and_send_alerts and updates the map data every 4 hours."""
@@ -1048,14 +968,12 @@ def scheduled_task():
 
 scheduler = BackgroundScheduler()
 scheduler.add_job(scheduled_task, 'interval', seconds=7200)  # Run two hours
-#scheduler.add_job(alert_notification_timer, 'interval', seconds=60, max_instances=500)
 
 scheduler_running = threading.Event()
 def start_scheduler():
     try:
         populate_map_data_if_needed()
         keep_recent_entries_efficient()
-        #alert_notification_timer()
         scheduler.start()
         scheduler_running.set()
         app_logger.info("Scheduler started.")

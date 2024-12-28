@@ -28,6 +28,7 @@ Go to the "Variables" tab, where you can set environment variables that will be 
 
 Celery terminal run:
 celery -A tasks worker --loglevel=info
+celery -A tasks beat --loglevel=INFO
 
 
 For production, need to set the following
@@ -38,8 +39,12 @@ For production, need to set the following
 
                 redis_client.setex('map_data', 7200, json.dumps(map_data))    # Run every two hours
 
-                callback_url = 'http://0.0.0.0:8080/map_data_callback'  # Replace with your server address in production.
-                callback_url = 'https://deepearthweatheralertsglobal-193736185683.europe-north1.run.app/map_data_callback'
+                MAP_DATA_CALLBACK_URL = 'http://0.0.0.0:8080/map_data_callback' # Replace with your server address in production.
+                MAP_DATA_CALLBACK_URL = 'https://weatheralerts.global/map_data_callback'
+
+                socketio = SocketIO(app, cors_allowed_origins="*")  # Allow cross-origin for local development
+                socketio = SocketIO(app, cors_allowed_origins="weatheralerts.global")
+
 
                 Then in Docker image run;
 

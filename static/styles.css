@@ -154,7 +154,7 @@ body {
   font-size: 14px;
   color: #000000;
   line-height: 1.5;
-  box-sizing: border-box; /* This is the key change */
+  box-sizing: border-box;
 }
 .my-tooltip.minor {
   border-color: #00FF00;
