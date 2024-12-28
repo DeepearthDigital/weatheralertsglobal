@@ -34,7 +34,7 @@ body {
                 {% endif %}
             {% endwith %}
             <form id="registerForm" method="POST">
-                <p>Registration is limited to the following domains: {{ allowed_domains | join(', ') }}</p>
+                <p>Registration is limited to the specific domains.</p>
 				                {% if error_message %}
                     <div id="error-message-container"> </div>
                 {% endif %}

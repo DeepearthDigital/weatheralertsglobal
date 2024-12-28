@@ -59,7 +59,7 @@
             </tr>
             <tr>
               <td align="center" valign="middle" class="square" style="background-color: #313131;" ><h3 class="text-severe-extreme">{{ alert_counts.Extreme|default(0) }}</h3></td>
-              <td align="left" valign="middle" class="severity-text"><h3>Extreme</h3></td>
+              <td align="left" valign="middle" class="severity-text"><h3>Extreme/Unknown</h3></td>
             </tr>
           </tbody>
         </table>
@@ -91,8 +91,8 @@
           <!-- GeoJSON preview will go here --> 
         </div>
       </div>
-      <div class="modal-footer">
-        <p>Enable e-mail alerts <input type="checkbox" class="email-alerts"/></p>
+   <div class="modal-footer">
+        <p>Enable e-mail alerts <input type="checkbox" class="email-alerts" data-alert-id="{{current_user.id}}"/></p>
         <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
         <button type="button" id="createAlertSubmit" class="btn btn-primary">Create</button>
       </div>
@@ -207,10 +207,10 @@ function addAlertToMap(alert) {
             leafletGeoJSON.alertData = alert;
             leafletGeoJSON.alertZone = true; 
             resolve();
-            leafletGeoJSON.on('click', function(e) {
-              console.log("Shape Clicked at :", e.target.feature.geometry);
-              getAlertsForZone(e.target.alertData);
-            });
+			leafletGeoJSON.on('click', function(e) {
+			  console.log("Shape Clicked at :", leafletGeoJSON.alertData.geometry);
+			  getAlertsForZone(leafletGeoJSON.alertData);
+			});
         } else {
             console.warn("Invalid geometry data in alert:", alert);
             reject("Invalid geometry data");
@@ -629,22 +629,24 @@ L.geoJSON(alert.geometry, {
         }
 
 
-        $.ajax({
-          type: "POST",
-          url: "/create_alert_zone",
-          contentType: "application/json",
-          data: JSON.stringify({geojson: geojson, alert_description: description, alert_name: alertName}),
-          success: function(response) {
-            displaySuccess(`Alert '${alertName}' created successfully! (ID: ${response.alert_id})`);
-            drawingLayer.clearLayers(); // Clear the drawing layer
-			drawnItems.clearLayers(); // Clear the drawnItems layer
-            $('#createAlertModal').modal('hide');
-            $('#alertName').val('');
-            $('#alertDescription').val('');
-            $('#alertZonePreview').empty();
-            // Optionally, re-fetch and redraw alerts here
-            showAlertsButton.click();
-          },
+  $.ajax({
+      type: "POST",
+      url: "/create_alert_zone",
+      contentType: "application/json",
+      data: JSON.stringify({geojson: geojson, alert_description: description, alert_name: alertName}),
+      success: function(response) {
+        displaySuccess(`Alert '${alertName}' created successfully! (ID: ${response.alert_id})`);
+        drawingLayer.clearLayers(); // Clear the drawing layer
+        drawnItems.clearLayers(); // Clear the drawnItems layer
+        $('#createAlertModal').modal('hide');
+        $('#alertName').val('');
+        $('#alertDescription').val('');
+        $('#alertZonePreview').empty();
+        // Optionally, re-fetch and redraw alerts here
+        //Optionally set the initial state:
+        setEmailAlertState(response.alert_id);
+        showAlertsButton.click();
+      },
           error: function(xhr, status, errorThrown) {
             console.error("Error creating alert:", status, errorThrown, xhr.responseText, xhr);
             let errorMessage = "Error creating alert.";
@@ -747,53 +749,95 @@ function addAlertToMap(alert) {
 
 
 function createAlertZonePopupContent(alert) {
-    let retrieveButton = `<button class="btn btn-primary h-spaced-buttons retrieve-alert-button" data-alert-id="${alert._id}">Retrieve Alerts</button>`;
+    let uniqueId = 'email-alerts-' + alert._id.replace(/[^a-zA-Z0-9]/g, '');  // Ensure a valid ID
+    let retrieveButton = `<button class="btn btn-primary h-spaced-buttons retrieve-alert-button" data-alert-id="${alert._id}">Send Alert Snapshots</button>`;
     let deleteButton = `<button class="btn btn-danger h-spaced-buttons delete-alert-button" data-alert-id="${alert._id}">Delete Alert Notification Zone</button>`;
-      return `<div class="my-tooltip"><h3>${alert.alert_name}</h3><p>${alert.alert_description}</p></div>` + retrieveButton + deleteButton;
-  }
+    let emailAlertToggle = `<p>Enable e-mail alerts <input type="checkbox" class="email-alerts-popup" id="${uniqueId}" data-alert-id="${alert._id}"/></p>`;
+
+    return `<div class="my-tooltip"><h3>${alert.alert_name}</h3><p>${alert.alert_description}</p></div>` + emailAlertToggle + retrieveButton + deleteButton;
+}
     map.on('popupopen', function(e) {
-        const popup = e.popup;
-        const popupContent = popup.getElement();
-        const retrieveButton = popupContent.querySelector('.retrieve-alert-button');
-        const deleteButton = popupContent.querySelector('.delete-alert-button');
-        const layer = e.popup._source; // Get the layer from the popup event
-        const alertId = layer.alertId; // Access the alertId from the layer
-    
-        console.log("Current alerts:", alerts); // ADDED THIS
-        
-        if (retrieveButton) {
-            retrieveButton.addEventListener('click', function() {
-                console.log("Retrieve Alerts Clicked at alert ID :", alertId);
+    const popup = e.popup;
+    const popupContent = popup.getElement();
+    const retrieveButton = popupContent.querySelector('.retrieve-alert-button');
+    const deleteButton = popupContent.querySelector('.delete-alert-button');
+    const layer = e.popup._source;
+    const alertId = layer.alertId;
 
-                if (layer.alertData) {
-                  getAlertsForZone(layer.alertData); // USE THE STORED ALERT DATA!
-                } else {
-                  console.warn("Could not find geometry for alert ID:", alertId, "or alert data"); // UPDATED LOG
-                  displayError("Could not find geometry for this alert.")
-                }
-            });
-        }
+    console.log("Current alerts:", alerts);
 
-      if (deleteButton) {
-        deleteButton.addEventListener('click', function() {
+    //Initialize switchery for any new popups
+     let elems = Array.prototype.slice.call(popupContent.querySelectorAll('.email-alerts-popup'));
+     elems.forEach(function(html) {
+       var switchery = new Switchery(html);
+     });
+
+
+     // Get and Set Email alert state.
+    const emailAlertSwitch = popupContent.querySelector('.email-alerts-popup');
+        $.ajax({
+         type: "GET",
+          url: "/get_user_email_alert_state",
+          data: { user_id: alertId },
+          success: function (response) {
+            if (response.email_alerts_enabled === true) {
+               emailAlertSwitch.checked = true;
+                emailAlertSwitch.nextElementSibling.querySelector('small').style.left = '16px';
+              emailAlertSwitch.nextElementSibling.querySelector('small').style.transition = 'all 0.1s ease';
+            } else {
+                emailAlertSwitch.checked = false;
+                emailAlertSwitch.nextElementSibling.querySelector('small').style.left = '0px';
+                emailAlertSwitch.nextElementSibling.querySelector('small').style.transition = 'all 0.1s ease';
+            }
+          },
+          error: function (xhr, status, errorThrown) {
+             console.error("Error fetching email alert state:", status, errorThrown, xhr);
+          }
+       });
+
+
+	if (retrieveButton) {
+		retrieveButton.addEventListener('click', function() {
+			console.log("Send Alert Snapshots Clicked at alert ID :", alertId);
+			$.ajax({
+				type: "POST",
+				url: "/send_alert_snapshots",
+				data: { alert_id: alertId },  // <--- Add alert_id to data
+				success: function(response) {
+					displaySuccess(response.message);
+				},
+				error: function(xhr, status, errorThrown) {
+					console.error("Error sending alert snapshots:", status, errorThrown, xhr);
+					let errorMessage = "Error sending alert snapshots.";
+					if (xhr.responseJSON && xhr.responseJSON.error) {
+						errorMessage = xhr.responseJSON.error;
+					}
+					displayError(errorMessage);
+				}
+			});
+		});
+	}
+
+    if (deleteButton) {
+      deleteButton.addEventListener('click', function() {
           if (confirm(`Are you sure you want to delete alert zone with ID: ${alertId}?`)) {
-            $.ajax({
-              type: "DELETE",
-              url: `/delete_alert_zone/${alertId}`,
-              success: function(response) {
-                displaySuccess("Alert zone deleted successfully!");
-                drawnItems.removeLayer(layer); // Remove the specific layer
-                popup.remove();
-              },
-              error: function(error) {
-                displayError("Error deleting alert zone: " + error.responseText);
-                console.error("Error:", error);
-              }
-            });
+              $.ajax({
+                type: "DELETE",
+                url: `/delete_alert_zone/${alertId}`,
+                success: function(response) {
+                    displaySuccess("Alert zone deleted successfully!");
+                    drawnItems.removeLayer(layer);
+                    popup.remove();
+                },
+                error: function(error) {
+                    displayError("Error deleting alert zone: " + error.responseText);
+                    console.error("Error:", error);
+                }
+              });
           }
         });
-      }
-    });
+    }
+});
 
   $('#deleteAllAlertsButton').click(function() {
       if (confirm("Are you sure you want to delete ALL your active alert zones?")) {
@@ -937,6 +981,63 @@ function createAlertZonePopupContent(alert) {
       alert("Success: " + message)
     }
 });
+$('#createAlertModal').on('show.bs.modal', function (e) {
+  const emailAlertSwitch = $(this).find('.email-alerts');
+  const alertId = emailAlertSwitch.data('alert-id');
+  //Get the current users saved switch state if it exists.
+   $.ajax({
+    type: "GET",
+     url: "/get_user_email_alert_state",
+     data: { user_id: alertId },
+    success: function (response) {
+      if (response.email_alerts_enabled === true) {
+        emailAlertSwitch.prop('checked', true);
+         emailAlertSwitch.next('.switchery').find('small').css('left', '16px');
+         emailAlertSwitch.next('.switchery').find('small').css('transition', 'all 0.1s ease');
+      } else {
+        emailAlertSwitch.prop('checked', false);
+          emailAlertSwitch.next('.switchery').find('small').css('left', '0px');
+           emailAlertSwitch.next('.switchery').find('small').css('transition', 'all 0.1s ease');
+      }
+    },
+    error: function (xhr, status, errorThrown) {
+      console.error("Error fetching email alert state:", status, errorThrown, xhr);
+    }
+  });
+ });
+$(document).on('change', '.email-alerts-popup', function() {
+    const isChecked = $(this).prop('checked');
+    const alertId = $(this).data('alert-id');
+    $.ajax({
+    type: "POST",
+    url: "/update_user_email_alert_state",
+    contentType: "application/json",
+    data: JSON.stringify({ user_id: alertId, email_alerts_enabled: isChecked }),
+      success: function (response) {
+        console.log("User email alert state updated:", response);
+       },
+      error: function (xhr, status, errorThrown) {
+        console.error("Error updating email alert state:", status, errorThrown, xhr);
+       }
+  });
+ });
+  function setEmailAlertState(alertId) {
+    const emailAlertSwitch =  $('#createAlertModal').find('.email-alerts');
+     const isChecked = emailAlertSwitch.prop('checked');
+    console.log("setEmailAlertState, checked:" + isChecked, alertId);
+      $.ajax({
+            type: "POST",
+            url: "/update_user_email_alert_state",
+            contentType: "application/json",
+            data: JSON.stringify({ user_id: alertId, email_alerts_enabled: isChecked }),
+          success: function (response) {
+            console.log("User email alert state updated (initial):", response);
+           },
+          error: function (xhr, status, errorThrown) {
+            console.error("Error updating email alert state (initial):", status, errorThrown, xhr);
+           }
+         });
+   }
 </script>
 </body>
 </html>
