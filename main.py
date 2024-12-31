@@ -489,17 +489,17 @@ def index():
                     app_logger.info("Map Data task is running, setting loading screen")
                     loading = True
                 elif async_result.state == 'SUCCESS':
-                     map_data_json = redis_client.get('map_data')
-                     if map_data_json:
+                    map_data_json = redis_client.get('map_data')
+                    if map_data_json:
                         map_data = json.loads(map_data_json)
                         app_logger.info("Retrieved map_data from Redis after successful task completion")
                         loading = False
-                     else:
-                         app_logger.info("Redis data not found after a successful task.")
-                         loading = True # Indicate we need to reload
-                         populate_map_data_if_needed()
-                         redis_client.set('map_data_task_id', task.id)
-                         app_logger.info(f"Triggered map data generation, task id: {task.id}")
+                    else:
+                        app_logger.info("Redis data not found after a successful task.")
+                        loading = True  # Indicate we need to reload
+                        populate_map_data_if_needed()
+                        redis_client.set('map_data_task_id', task.id)
+                        app_logger.info(f"Triggered map data generation, task id: {task.id}")
                 else:
                     app_logger.warning(
                         "Previous task failed.")  # Handle task failure (e.g., retry or display an error)
@@ -512,24 +512,6 @@ def index():
                 redis_client.set('map_data_task_id', task.id)
                 app_logger.info(f"Starting map data generation task id: {task.id}")
 
-            # Handle the response - this section is now ALWAYS executed
-            alerts = map_data.get('alerts', [])
-            map_js = map_data.get('map_js', '')
-
-            active_alerts_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            current_date = datetime.now().strftime('%Y-%m-%d')
-            alert_count, date_range = get_alert_stats(alerts)
-            alert_counts = {}
-            for alert in alerts:
-                severity = alert.get('severity', 'Unknown')  # Handle potential missing keys
-                alert_counts[severity] = alert_counts.get(severity, 0) + 1
-
-            #app_logger.info(f"Alerts sent to template: ")  # Debugging
-            return render_template('index.html', map_js=map_js, alerts=alerts,
-                                   active_alerts_time=active_alerts_time, current_date=current_date,
-                                   alert_count=alert_count, date_range=date_range,
-                                   alert_counts=alert_counts, loading=loading, task_id=task_id)
-
         except ConnectionError as e:
             app_logger.error(f"Redis connection error: ")
             flash("A temporary error occurred. Please try again later.")  # More user-friendly message
@@ -538,6 +520,26 @@ def index():
             app_logger.exception("Unhandled error in index route:")
             flash("An unexpected error occurred.")
             return render_template('error.html')
+
+        # Handle the response - this section is now ALWAYS executed
+        alerts = map_data.get('alerts', [])
+        map_js = map_data.get('map_js', '')
+
+        active_alerts_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        current_date = datetime.now().strftime('%Y-%m-%d')
+        alert_count, date_range = get_alert_stats(alerts)
+        alert_counts = {}
+        for alert in alerts:
+            severity = alert.get('severity', 'Unknown')  # Handle potential missing keys
+            alert_counts[severity] = alert_counts.get(severity, 0) + 1
+
+        # app_logger.info(f"Alerts sent to template: ")  # Debugging
+        return render_template('index.html', map_js=map_js, alerts=alerts,
+                               active_alerts_time=active_alerts_time, current_date=current_date,
+                               alert_count=alert_count, date_range=date_range,
+                               alert_counts=alert_counts, loading=loading, task_id=task_id)
+    else:  # If not authenticated
+        return redirect(url_for('login'))
 
 
 def get_alert_stats(alerts):
