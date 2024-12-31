@@ -119,7 +119,7 @@ wag_db = mongo_client[WAG_DATABASE_NAME]
 wag_collection = wag_db[WAG_USERS_COLLECTION_NAME]
 wag_user_alerts_notification_zone_collection = wag_db[WAG_USER_ALERTS_NOTIFICATION_ZONE_COLLECTION_NAME]
 
-MAP_DATA_CALLBACK_URL = 'https://weatheralerts.global/map_data_callback'
+MAP_DATA_CALLBACK_URL = os.getenv('MAP_DATA_CALLBACK_URL')
 
 def get_mongo_client():
     client = MongoClient(MONGODB_URI)
@@ -439,7 +439,7 @@ def find_matching_owa_alerts(wag_zone_geometry, future_days=14):
 
         with MongoClient(MONGODB_URI, tlsCAFile=certifi.where()) as client:
             db = client[WAG_DATABASE_NAME]
-            owa_collection = db[WAG_OWA_COLLECTION_NAME]
+            owa_collection = db[OWA_COLLECTION_NAME]
             cursor = owa_collection.aggregate([
                 {
                     "$match": {

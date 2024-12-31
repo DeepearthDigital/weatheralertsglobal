@@ -26,54 +26,15 @@ Click on the edit button
 Go to the "Variables" tab, where you can set environment variables that will be available to your application.
 
 
-Celery terminal run:
+Terminal run for Celery and Main (Pycharm or GCP):
 celery -A tasks worker --loglevel=info
 celery -A tasks beat --loglevel=INFO
 
 
-For production, need to set the following
-
-         in tasks.py
-
-                QUERY_LIMIT = 100000
-
-                redis_client.setex('map_data', 7200, json.dumps(map_data))    # Run every two hours
-
-                MAP_DATA_CALLBACK_URL = 'http://0.0.0.0:8080/map_data_callback' # Replace with your server address in production.
-                MAP_DATA_CALLBACK_URL = 'https://weatheralerts.global/map_data_callback'
-
-                socketio = SocketIO(app, cors_allowed_origins="*")  # Allow cross-origin for local development
-                socketio = SocketIO(app, cors_allowed_origins="weatheralerts.global")
-
-
-                Then in Docker image run;
-
-
-
-
-Or from PyCharm/GCP
-
-            gunicorn -b :8080 main:app --worker-class gevent
-            gunicorn -b :8080 main:app --worker-class gevent -w 4 --log-level debug
+gunicorn -b :8080 main:app --worker-class gevent
 
 if you need to stop processs locally then
 
             lsof -i :8080
             kill
             lsof -i :8080 | awk 'NR!=1 {print $2}' | xargs kill
-
-
-
-         in main.py
-                scheduler.add_job(scheduled_task, 'interval', seconds=7200)  # Run every two hours
-
-
-
-Also,
-
-        if __name__ == '__main__':
-            #socketio.run(app, debug=False) # or app.run(debug=False, host='0.0.0.0', port=5000)
-            # Make sure to run Deployment using Gunicorn (Recommended for Production)
-            socketio.run(app, debug=False, allow_unsafe_werkzeug=True) # or app.run(debug=False, host='0.0.0.0', port=5000)
-
-

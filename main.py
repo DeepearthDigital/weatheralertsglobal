@@ -36,7 +36,9 @@ app.secret_key = os.environ.get('SECRET_KEY')
 s = URLSafeTimedSerializer(os.environ.get('SERIALIZER_SECRET'))
 
 # Initialize SocketIO
-socketio = SocketIO(app, cors_allowed_origins="weatheralerts.global")  # Allow cross-origin for local development
+print('Request from: ', os.getenv('CORS_ALLOWED_ORIGINS')) # test call.
+cors_origins = os.getenv('CORS_ALLOWED_ORIGINS')
+socketio = SocketIO(app, cors_allowed_origins=cors_origins)
 
 # Create a logger for Celery tasks
 app_logger = logging.getLogger('app')
