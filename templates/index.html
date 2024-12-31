@@ -117,36 +117,52 @@ hamburgerButton.addEventListener('click', () => {
 	
 
 $(document).ready(function() {
-  var map = L.map('mapid').setView([51.4779, 0.0015], 5);
+    var map = L.map('mapid', {
+    worldCopyJump: true
+  }).setView([51.4779, 0.0015], 5);
   let alertLayers = new L.FeatureGroup(); //Create the layer group at the top level
   map.addLayer(alertLayers); // Add it to the map
   console.log("Alerts:", alerts);
   console.log("Document ready");
   console.log($('#createAlertModal').length); // Check if element exists
 
-
-  // Set maximum bounds (adjust these values as needed)
-  var southWest = L.latLng(-90, -180);
-  var northEast = L.latLng(90, 180);
-  map.setMaxBounds(L.latLngBounds(southWest, northEast));
   const fillOpacity = 0.5;
   const maxWidth = 600;
 
-  // Define both tile layers
-  const voyagerLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    subdomains: 'abcd',
-    maxZoom: 19
-  });
 
-  const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    subdomains: 'abcd',
-    maxZoom: 19
-  });
+    const voyagerLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+        noWrap: true
+    });
 
-  // Add the Voyager layer initially
-  voyagerLayer.addTo(map);
+    const darkLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+       maxZoom: 19,
+       noWrap: true
+    });
+    voyagerLayer.addTo(map);
+	
+	// Set the initial map bounds
+	const southWest = L.latLng(-90, -180);
+	const northEast = L.latLng(90, 180);
+	const bounds = L.latLngBounds(southWest, northEast);
+	map.setMaxBounds(bounds);
+
+	let isPanning = false; // flag
+
+	map.on('moveend', function() {
+		if (isPanning) return; // If we are already panning, do nothing
+		if (!bounds.contains(map.getBounds())) {
+			isPanning = true; // set flag
+			map.panInsideBounds(bounds, { animate: true, duration: 1 });
+
+			// reset flag after animation
+			map.once('moveend', () => {
+				isPanning = false;
+			});
+		}
+	});
 
 var alerts = {{ alerts|safe }};
 displayAlerts(alerts);
@@ -736,10 +752,10 @@ function addAlertToMap(alert) {
       leafletGeoJSON.alertData = alert;
       leafletGeoJSON.alertZone = true; // Mark this as an alert notification zone layer
        resolve();
-     leafletGeoJSON.on('click', function(e) {
-       console.log("Shape Clicked at :", e.target.feature.geometry);
-       getAlertsForZone(e.target.alertData);
-     });
+	  leafletGeoJSON.on('click', function(e) {
+		console.log("Shape Clicked at :", leafletGeoJSON.alertData.geometry); // Access the geometry from leafletGeoJSON.alertData
+		getAlertsForZone(leafletGeoJSON.alertData);
+	  });
     } else {
        console.warn("Invalid geometry data in alert:", alert);
        reject("Invalid geometry data");

@@ -71,6 +71,22 @@ body {
   flex: 1;
   position: relative; /* Make map a positioning context */
   z-index: 1;
+  background-image: url('../static/images/roaring-ocean.jpg');
+  background-size: cover; /* Or 'contain' depending on what you prefer*/
+  background-repeat: no-repeat;
+  background-position: center; /* Or top, bottom, left, right or any other position you want*/
+  background-attachment: fixed;
+  background-blend-mode: multiply;
+}
+#mapid::before {
+   content: "";
+   position: absolute;
+   top: 0;
+   left: 0;
+   right: 0;
+   bottom: 0;
+   background-color: rgba(0, 0, 0, 0.2); /*Black with opacity*/
+   z-index: 1; /* Ensure overlay is above the image but below the map tiles*/
 }
 #login {
   background-color: white;
