@@ -36,8 +36,8 @@ app.secret_key = os.environ.get('SECRET_KEY')
 s = URLSafeTimedSerializer(os.environ.get('SERIALIZER_SECRET'))
 
 # Initialize SocketIO
-print('Request from: ', os.getenv('CORS_ALLOWED_ORIGINS')) # test call.
-cors_origins = os.getenv('CORS_ALLOWED_ORIGINS')
+print('Request from: ', os.environ.get('CORS_ALLOWED_ORIGINS')) # test call.
+cors_origins = os.environ.get('CORS_ALLOWED_ORIGINS')
 socketio = SocketIO(app, cors_allowed_origins=cors_origins)
 
 # Create a logger for Celery tasks

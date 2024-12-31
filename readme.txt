@@ -17,7 +17,6 @@ Or installation
 pip install -r requirements.txt
 
 
-
 Google Cloud Environment Variables
 
 Go to Cloud Run page in your Console
