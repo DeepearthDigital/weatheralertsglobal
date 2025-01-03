@@ -952,6 +952,37 @@ def send_alert_snapshots():
         app_logger.exception("Error in send_alert_snapshots:")
         return jsonify({"error": f"Error sending alert snapshots: {str(e)}"}), 500
 
+def start_change_stream():
+    try:
+        app_logger.info("Starting MongoDB Change Stream")
+        # Create a new thread, this is required because you cannot execute the change_stream in the main thread.
+        change_stream_thread = threading.Thread(target=watch_for_owa_changes, daemon=True)
+        change_stream_thread.start()
+        app_logger.info("MongoDB Change Stream Started.")
+    except pymongo_errors.PyMongoError as e:
+         app_logger.error(f"MongoDB error starting change stream:")
+    except Exception as e:
+         app_logger.exception(f"Error starting MongoDB change stream: ")
+
+def watch_for_owa_changes():
+ try:
+     with MongoClient(MONGODB_URI, tlsCAFile=certifi.where()) as client:
+         db = client[OWA_DATABASE_NAME]
+         collection = db[OWA_COLLECTION_NAME]
+         change_stream = collection.watch(full_document="updateLookup")  # Initialize change stream
+         for change in change_stream:
+             if change['operationType'] in ['insert', 'update']:
+                     celery_app.send_task('generate_partial_map_data_task', args=[change['fullDocument']]) # Changed to new partial task
+                     # Add this line to trigger alerts after an alert is updated.
+                     celery_app.send_task('check_for_and_send_alerts')
+
+ except pymongo_errors.PyMongoError as e:
+      app_logger.error(f"MongoDB error in change stream: ")
+ except Exception as e:
+      app_logger.exception(f"Error in MongoDB change stream: ")
+
+start_change_stream()
+
 def scheduled_task():
     try:
         keep_recent_entries_efficient()
@@ -994,11 +1025,12 @@ def close_mongo_connection():
 
 atexit.register(close_mongo_connection)
 atexit.register(shutdown_scheduler)
-Thread(target=start_scheduler, daemon=True).start() #Daemon thread so it doesn't block app shutdown.
+#Thread(target=start_scheduler, daemon=True).start() #Daemon thread so it doesn't block app shutdown.
 
 if __name__ == '__main__':
     #socketio.run(app, debug=False) # or app.run(debug=False, host='0.0.0.0', port=5000)
     #socketio.run(app, debug=False, allow_unsafe_werkzeug=True, host='0.0.0.0', port=8080)
     # Make sure to run Deployment using Gunicorn (Recommended for Production)
     #socketio.run(app, debug=False, allow_unsafe_werkzeug=True) # or app.run(debug=False, host='0.0.0.0', port=5000)
+    Thread(target=start_scheduler, daemon=True).start() # Start the scheduled tasks.
     pass
