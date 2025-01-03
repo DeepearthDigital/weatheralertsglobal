@@ -25,7 +25,6 @@ import pyproj
 from functools import partial
 import geojson
 import math
-from celery.schedules import crontab
 from celery.result import AsyncResult
 
 load_dotenv()
@@ -68,14 +67,6 @@ except ValueError:
 app = Celery('tasks',
              broker=f'redis://:{redis_cloud_password}@{redis_cloud_host}:{redis_cloud_port}/{redis_cloud_db}',
              backend=f'redis://:{redis_cloud_password}@{redis_cloud_host}:{redis_cloud_port}/{redis_cloud_db}')
-
-# In your celery config:
-beat_schedule = {
-   'check_for_new_alerts': {
-        'task': 'check_for_and_send_alerts',  # Must match the task name
-        'schedule': crontab(minute='*/5')  # Run every 5 minutes
-    },
-}
 
 # Create a logger for Celery tasks
 celery_app_logger = logging.getLogger('celery_app')
@@ -374,6 +365,110 @@ def generate_map_data(future_days=14,  page = 1, page_size = 100000, total_alert
        celery_app_logger.exception(f"Error sending request to : ")
 
     return map_data
+
+@app.task(name='generate_partial_map_data_task')
+def generate_partial_map_data_task(owa_alert):
+    try:
+        celery_app_logger.info(f"generate_partial_map_data_task task... Celery task started. OWA Alert ID: ")
+        alerts = []
+        # Extract variables from the alert document:
+        try:
+            alert = owa_alert['alert']
+            center_lat, center_lon = calculate_center(alert['geometry'])
+            geometry = alert['geometry']
+
+             # Simplify the geometry using shapely
+            try:
+                original_shape = shape(geometry)
+
+                # Define the projections using the correct syntax
+                target_crs = f'epsg:326{int(1 + (center_lon + 180) / 6)}'
+                project_wgs_to_utm = partial(
+                    pyproj.Transformer.from_crs("epsg:4326", target_crs, always_xy=True).transform,
+                )
+
+                # Define inverse projection for transform back
+                project_utm_to_wgs = partial(
+                    pyproj.Transformer.from_crs(target_crs, "epsg:4326", always_xy=True).transform,
+                )
+
+                simplified_shape = transform(project_wgs_to_utm, original_shape).simplify(tolerance=20).buffer(0)
+                simplified_geometry = mapping(transform(project_utm_to_wgs, simplified_shape))
+                geometry = simplified_geometry
+            except Exception as e:
+                celery_app_logger.exception(f"Error simplifying geometry for alert id: {owa_alert.get('_id')}")
+
+            msg_type = owa_alert['msg_type']
+            categories = owa_alert['categories']
+            urgency = owa_alert['urgency']
+            severity = owa_alert['severity']
+            certainty = owa_alert['certainty']
+            start_timestamp = owa_alert['start']
+            end_timestamp = owa_alert['end']
+            sender = owa_alert['sender']
+            description_data = owa_alert['description'][0]
+            language = description_data.get('language', 'N/A')
+            event = description_data.get('event', 'N/A')
+            headline = description_data.get('headline', 'N/A')
+            instruction = description_data.get('instruction', 'N/A')
+            description = f"<b>Language:</b> {language}<br><b>Event:</b> {event} <br><b>Headline:</b> {headline}<br><b>Instruction:</b> {instruction}"
+            center_lat, center_lon = calculate_center(geometry)
+
+            severity_color = {
+                'Minor': '#00FF00',
+                'Moderate': '#FFA500',
+                'Severe': '#FF0000',
+                'Extreme': '#313131',
+                'Unknown': '#313131'
+            }
+            color = severity_color.get(severity, '#313131')
+
+            alerts.append({
+                'name': f"Alert ({format_timestamp(start_timestamp)} - {format_timestamp(end_timestamp)})",
+                'lat': center_lat,
+                'lon': center_lon,
+                'geometry': geometry,
+                'msg_type': msg_type,
+                'categories': categories,
+                'urgency': urgency,
+                'severity': severity,
+                'certainty': certainty,
+                'start': start_timestamp,
+                'end': end_timestamp,
+                'sender': sender,
+                'description': description,
+                'language': language,
+                'event': event,
+                'headline': headline,
+                'instruction': instruction,
+                'color': color,
+                'id': owa_alert['alert_key']
+            })
+
+        except Exception as e:
+           celery_app_logger.exception("Critical error generating map data:")
+           return None  # Indicate failure
+        except (KeyError, TypeError, IndexError) as e:
+            celery_app_logger.exception(f"Error processing alert data from MongoDB: ")
+        map_data = {'map_js': "", 'alerts': alerts, 'total_pages': 1, 'page': 1} # Only add data from a single item.
+        celery_app_logger.info(f"Celery task completed successfully:  ")
+
+        # Send the map data to the callback URL - this will trigger the socket.io broadcast.
+        try:
+            response = send_request_with_retry(MAP_DATA_CALLBACK_URL, data={'map_data': map_data})
+            if response and response.status_code == 200:
+                 celery_app_logger.info("Map data update successful, sent via socketio.")
+            else:
+                celery_app_logger.error("Map data update failed via SocketIO.")
+        except requests.exceptions.RequestException as e:
+            celery_app_logger.exception(f"Error sending request to : ")
+
+        return map_data
+    except Exception as e:
+        celery_app_logger.exception("Error in generate_partial_map_data_task:")
+
+
+
 @app.task(name='find_matching_owa_alerts_task')
 def find_matching_owa_alerts(wag_zone_geometry, future_days=14):
     """
