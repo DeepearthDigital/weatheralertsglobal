@@ -64,18 +64,13 @@ try:
 except ValueError:
     raise ValueError("redis_cloud_db must be an integer.")
 
+redis_client = redis.Redis(host=redis_cloud_host, port=redis_cloud_port, password=redis_cloud_password,
+                           db=redis_cloud_db)
+
 # Celery configuration
 app = Celery('tasks',
              broker=f'redis://:{redis_cloud_password}@{redis_cloud_host}:{redis_cloud_port}/{redis_cloud_db}',
              backend=f'redis://:{redis_cloud_password}@{redis_cloud_host}:{redis_cloud_port}/{redis_cloud_db}')
-
-# In your celery config:
-beat_schedule = {
-   'check_for_new_alerts': {
-        'task': 'check_for_and_send_alerts',  # Must match the task name
-        'schedule': crontab(minute='*/5')  # Run every 5 minutes
-    },
-}
 
 # Create a logger for Celery tasks
 celery_app_logger = logging.getLogger('celery_app')
@@ -265,6 +260,7 @@ def generate_map_data(future_days=14,  page = 1, page_size = 100000, total_alert
         }
     ])
 
+
     for alert_data in cursor:
         try:
             alert = alert_data['alert']
@@ -374,6 +370,54 @@ def generate_map_data(future_days=14,  page = 1, page_size = 100000, total_alert
        celery_app_logger.exception(f"Error sending request to : ")
 
     return map_data
+
+@app.task(name='populate_map_data_if_needed')
+def populate_map_data_if_needed():
+    """Populates map data in Redis only if it doesn't exist or is expired or a task is not in process."""
+    try:
+        map_data_json = redis_client.get('map_data')  # Returns none if not found
+        cached_task_id = redis_client.get('map_data_task_id')  # Returns None if not found
+        if not map_data_json or not cached_task_id:
+            celery_app_logger.info("Map data not found in Redis or Task ID is missing, Generating...")
+            generate_and_cache_map_data_task()
+            return
+        celery_app_logger.info(f"Task ID {cached_task_id} retrieved from Redis.")
+        task = app.AsyncResult(cached_task_id.decode('utf-8'))
+        if task.status in ['PENDING', 'STARTED', 'RETRY']:
+            celery_app_logger.info(f"Map data found in Redis and last task with id: {cached_task_id.decode('utf-8')} is still running.")
+            return  # Task is still running so don't regenerate.
+        else:
+             # If no task is running and we have map data, lets check expiry.
+             expiry_time = redis_client.ttl('map_data')
+             if expiry_time == -2:  # Key not found (should not happen in this section)
+                 celery_app_logger.info("Map data not found in Redis. Generating...")
+                 generate_and_cache_map_data_task()
+                 redis_client.delete('map_data_task_id')  # Only clear the task ID if map data was cleared.
+                 logger.info(f"Data with key 'map_data_task_id' deleted from Redis")
+                 return
+             elif expiry_time == -1:  # No expiry, which means the data is valid.
+                celery_app_logger.info(f"Map data found in Redis and it has not expired.")
+                return
+             elif expiry_time <= 0:  # If expiry is less than or equal to 0, the data is expired.
+                 celery_app_logger.info("Map data in Redis is expired. Regenerating...")
+                 redis_client.delete('map_data')  # delete the expired data
+                 logger.info(f"Data with key 'map_data' deleted from Redis")
+                 redis_client.delete('map_data_task_id')  # Only clear the task ID if map data was cleared.
+                 logger.info(f"Data with key 'map_data_task_id' deleted from Redis")
+                 generate_and_cache_map_data_task()
+                 return
+    except ConnectionError as e:
+        celery_app_logger.error(f"Redis connection error: ")
+    except Exception as e:
+        celery_app_logger.exception("Error checking or populating map data:")
+
+def generate_and_cache_map_data_task():
+    """Triggers Celery task to generate map data, and then emit the data to clients."""
+    task = app.send_task('generate_map_data_task')
+    redis_client.set('map_data_task_id', task.id)  #Cache the task ID
+    celery_app_logger.info(f"Map data generation task triggered, task id: {task.id}")
+    celery_app_logger.info(f"Task ID {task.id} saved to Redis.")
+
 @app.task(name='find_matching_owa_alerts_task')
 def find_matching_owa_alerts(wag_zone_geometry, future_days=14):
     """
@@ -433,7 +477,7 @@ def find_matching_owa_alerts(wag_zone_geometry, future_days=14):
                         continue
                 return formatted_alerts
             except json.JSONDecodeError:
-                app_logger.error("Error decoding cached map data from Redis.")
+                celery_app_logger.error("Error decoding cached map data from Redis.")
                 # Fallback to database query if we cannot use cached data.
 
         with MongoClient(MONGODB_URI, tlsCAFile=certifi.where()) as client:

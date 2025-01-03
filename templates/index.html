@@ -36,38 +36,48 @@
         <p>There are <b>{{ alert_count }}</b> live alerts in place covering the period <b>{{ date_range }}</b></p>
         <div id="date-range"></div>
       </div>
-<div class="severity-key-container">
-  <div class="severity-row">
-      <div class="severity-square" style="background-color: #E8E8E8;">
-        <h3 class="square">{{ alert_count }}</h3>
+      <div class="severity-key-container">
+        <div class="severity-row">
+          <div class="severity-square" style="background-color: #E8E8E8;">
+            <h3 class="square">{{ alert_count }}</h3>
+          </div>
+          <div class="severity-text">
+            <h3>Live Alerts</h3>
+          </div>
+        </div>
+        <div class="severity-row">
+          <div class="severity-square" style="background-color: #00FF00;">
+            <h3 class="square">{{ alert_counts.Minor|default(0) }}</h3>
+          </div>
+          <div class="severity-text">
+            <h3>Minor</h3>
+          </div>
+        </div>
+        <div class="severity-row">
+          <div class="severity-square" style="background-color: #FFA500;">
+            <h3>{{ alert_counts.Moderate|default(0) }}</h3>
+          </div>
+          <div class="severity-text">
+            <h3>Moderate</h3>
+          </div>
+        </div>
+        <div class="severity-row">
+          <div class="severity-square" style="background-color: #FF0000;">
+            <h3 class="text-severe-extreme">{{ alert_counts.Severe|default(0) }}</h3>
+          </div>
+          <div class="severity-text">
+            <h3>Severe</h3>
+          </div>
+        </div>
+        <div class="severity-row">
+          <div class="severity-square" style="background-color: #313131;">
+            <h3 class="text-severe-extreme">{{ alert_counts.Extreme|default(0) }}</h3>
+          </div>
+          <div class="severity-text">
+            <h3>Extreme/Unknown</h3>
+          </div>
+        </div>
       </div>
-      <div class="severity-text"><h3>Live Alerts</h3></div>
-  </div>
-  <div class="severity-row">
-      <div class="severity-square" style="background-color: #00FF00;">
-          <h3 class="square">{{ alert_counts.Minor|default(0) }}</h3>
-      </div>
-      <div class="severity-text"><h3>Minor</h3></div>
-  </div>
-  <div class="severity-row">
-      <div class="severity-square" style="background-color: #FFA500;">
-          <h3>{{ alert_counts.Moderate|default(0) }}</h3>
-      </div>
-      <div class="severity-text"><h3>Moderate</h3></div>
-  </div>
-  <div class="severity-row">
-      <div class="severity-square" style="background-color: #FF0000;">
-          <h3 class="text-severe-extreme">{{ alert_counts.Severe|default(0) }}</h3>
-      </div>
-      <div class="severity-text"><h3>Severe</h3></div>
-  </div>
-  <div class="severity-row">
-      <div class="severity-square" style="background-color: #313131;">
-          <h3 class="text-severe-extreme">{{ alert_counts.Extreme|default(0) }}</h3>
-      </div>
-      <div class="severity-text"><h3>Extreme/Unknown</h3></div>
-  </div>
-</div>
       <div class="button-container">
         <button id="createAlertButton" class="btn btn-primary h-spaced-buttons">Create Alert Zone Notification</button>
         <button id="showAlertsButton" class="btn btn-primary h-spaced-buttons">Show Active Alert Notifications Zone</button>
@@ -122,8 +132,207 @@ hamburgerButton.addEventListener('click', () => {
 });
 	
 
+	
+function sendMapData(mapData) {
+    fetch('/map_data_callback', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ map_data: mapData })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json(); // or response.text(), if the server returns a text response
+    })
+    .then(data => {
+        console.log('Data sent successfully', data);
+    })
+    .catch(error => {
+        console.error('There was a problem with the fetch operation:', error);
+    });
+}
+
+		
+  let map;
+	const fillOpacity = 0.5;
+	let alertLayers = new L.FeatureGroup();
+	
+// --- Socket.IO ---
+  let socketUrl;
+  if (window.location.hostname === 'localhost' || window.location.hostname === '0.0.0.0') {
+    socketUrl = 'http://localhost:8080'; // Or your local address and port
+  } else {
+    socketUrl = 'https://weatheralerts.global';
+  }
+
+  const socket = io.connect(socketUrl, {
+    timeout: 10000
+  });
+
+	
+  // Handle connection and request initial map data
+  function connectSocket(){
+    socket.on('connect', function() {
+    console.log("Socket connected.");
+    socket.emit('map_data');  // Request map data on connect
+    //displaySuccess("Connected to server via WebSockets!");
+    });
+
+    socket.on('connect_error', (error) => {
+     console.error("Connection error", error);
+    //displayError("Error connecting to server via WebSockets!");
+     // Implement retry logic with exponential backoff
+     setTimeout(() => {
+     connectSocket()
+     }, 5000);
+    });
+    // Handle disconnection
+  socket.on('disconnect', function() {
+      console.log('Socket disconnected');
+    //displayError("Disconnected from server via WebSockets!");
+    });
+    // Handle reconnection
+    socket.on('reconnect', function() {
+      console.log("Socket reconnected!");
+    //displaySuccess("Reconnected to server via WebSockets!");
+      socket.emit('map_data'); // Re-request data on reconnect
+    });
+    
+   // Handle incoming map data updates from server
+    socket.on('map_data_update', function(data) {
+      console.log("Received map data update via SocketIO:", data); // Added detailed log
+      if(data && data.map_data) {
+      // Clear existing layers, only incident alerts
+      map.eachLayer(function (layer) {
+      if (layer instanceof L.GeoJSON && layer.options && layer.options.onEachFeature && !layer.alertZone) {
+        map.removeLayer(layer);
+        }
+      });
+      console.log("Map data is:", data); // Add this log
+      incidentAlerts = data.map_data.alerts;
+      displayAlerts(incidentAlerts);
+      } else {
+      console.error("Error: Invalid map data received.");
+      displayError("Error: Invalid map data received via WebSockets.");
+      }
+    });
+  }
+  connectSocket();
+
+  function createAlertTooltipContent(alert) {
+    const severityColor = {
+      Minor: "#00FF00",
+      Moderate: "#FFA500",
+      Severe: "#FF0000",
+      Extreme: "#313131",
+      Unknown: "#313131"
+    }[alert.severity] || "#FF0000";
+    return `<div class="my-tooltip" data-severity="${alert.severity}" style="border-color: ${severityColor};">` +
+      `<div class="underline"><h3>Alert Details</h3></div>` +
+      `<b>Message Type:</b> ${alert.msg_type}<br>` +
+      `<b>Categories:</b> ${alert.categories.join(', ')}<br>` +
+      `<b>Urgency:</b> ${alert.urgency}<br>` +
+      `<b>Severity:</b> ${alert.severity}<br>` +
+      `<b>Certainty:</b> ${alert.certainty}<br>` +
+      `<b>Start:</b> ${moment.unix(alert.start).format('YYYY-MM-DD HH:mm:ss UTC')}<br>` +
+      `<b>End:</b> ${moment.unix(alert.end).format('YYYY-MM-DD HH:mm:ss UTC')}<br>` +
+      `<b>Sender:</b> ${alert.sender}<br>` +
+`<div class="underline"><h3>Description</h3></div><span class='description-text'>${alert.description}</span>` +
+  (alert.language !== 'en-GB' && alert.language !== 'en-US' && alert.language !== 'en-JM' ?
+    `<br><button type="submit" class="btn btn-primary h-spaced-buttons translate">Translate to EN</button>` : "") +
+`</div>`;
+  }
+
+function displayAlerts(incidentAlerts, alert_name) {
+	const maxWidth = 600;
+    console.log("Displaying alerts:", incidentAlerts);
+    if (!incidentAlerts) {
+        console.warn("No alerts data to display.");
+        return;
+    }
+    if (incidentAlerts.length === 0) {
+        console.log("No alerts to display for this area.");
+        $("#alertModalTitle").text(`No Active Alerts for ${alert_name ? alert_name : 'this zone'}`);
+        $("#alertModalBody").html('<p>No active alerts for this zone.</p>');
+        $("#alertModal").modal('show');
+        return;
+    }
+
+    let modalBodyContent = '<ul>';
+
+    incidentAlerts.forEach(alert => {
+        modalBodyContent += `<li>
+            <b>Start:</b> ${new Date(alert.start * 1000).toLocaleString()} <br>
+            <b>End:</b> ${new Date(alert.end * 1000).toLocaleString()} <br>
+            <b>Severity:</b> ${alert.severity} <br>
+            <b>Description:</b> ${alert.description} <br>
+          </li>`;
+
+          let geoJsonGeometry = alert.geometry;
+
+          if (geoJsonGeometry && geoJsonGeometry.type === 'Polygon' && geoJsonGeometry.coordinates && Array.isArray(geoJsonGeometry.coordinates)) {
+             //Reverse all co-ordinates
+            geoJsonGeometry.coordinates = geoJsonGeometry.coordinates.map(ring => {
+                return ring.map(coord => [coord[0], coord[1]]); //Reverse single ring
+              });
+          }
+
+
+         // Wrap geometry in a GeoJSON Feature
+         const geoJsonFeature = {
+            type: "Feature",
+            geometry: geoJsonGeometry,
+             properties: alert // Keep any properties
+           };
+
+        L.geoJSON(geoJsonFeature, {
+            style: function () {
+                return {
+                    fillColor: alert.color,
+                    color: '#000',
+                    weight: 1,
+                    dashArray: '',
+                    fillOpacity: fillOpacity
+                };
+            },
+            onEachFeature: function (feature, layer) {
+                layer.bindPopup(createAlertTooltipContent(alert), { autoClose: false, maxWidth: maxWidth });
+                layer.on('click', function () {
+                    this.openPopup();
+                    const severity = $(this._popup._content).find('.my-tooltip').data('severity');
+                    const popupWrapper = this._popup._wrapper;
+                    const severityColor = {
+                        Minor: "#00FF00",
+                        Moderate: "#FFA500",
+                        Severe: "#FF0000",
+                        Extreme: "#313131",
+                        Unknown: "#313131"
+                    }[severity] || "#FF0000";
+                    $(popupWrapper).find('.leaflet-popup-content-wrapper').addClass('severity-popup').css('background', severityColor + ' !important');
+                });
+                layer.on({
+                    mouseover: function () {
+                        this.setStyle({ fillOpacity: 0.2 });
+                    },
+                    mouseout: function () {
+                        this.setStyle({ fillOpacity: fillOpacity });
+                    }
+                });
+            }
+        }).addTo(alertLayers);
+    });
+    modalBodyContent += '</ul>';
+
+    $("#alertModalTitle").text(`Active Alerts for ${alert_name ? alert_name : 'this zone'}`);
+    $("#alertModalBody").html(modalBodyContent);
+    $("#alertModal").modal('show');
+}
+	
 $(document).ready(function() {
-    var map = L.map('mapid', {
+  map = L.map('mapid', { // Assign it here, with out the var keyword.
     worldCopyJump: true
   }).setView([51.4779, 0.0015], 5);
   let alertLayers = new L.FeatureGroup(); //Create the layer group at the top level
@@ -280,89 +489,7 @@ function getAlertsForZone(alertData) {
   });
 }
 
-function displayAlerts(incidentAlerts, alert_name) {
-    console.log("Displaying alerts:", incidentAlerts);
-    if (!incidentAlerts) {
-        console.warn("No alerts data to display.");
-        return;
-    }
-    if (incidentAlerts.length === 0) {
-        console.log("No alerts to display for this area.");
-        $("#alertModalTitle").text(`No Active Alerts for ${alert_name ? alert_name : 'this zone'}`);
-        $("#alertModalBody").html('<p>No active alerts for this zone.</p>');
-        $("#alertModal").modal('show');
-        return;
-    }
 
-    let modalBodyContent = '<ul>';
-
-    incidentAlerts.forEach(alert => {
-        modalBodyContent += `<li>
-            <b>Start:</b> ${new Date(alert.start * 1000).toLocaleString()} <br>
-            <b>End:</b> ${new Date(alert.end * 1000).toLocaleString()} <br>
-            <b>Severity:</b> ${alert.severity} <br>
-            <b>Description:</b> ${alert.description} <br>
-          </li>`;
-
-          let geoJsonGeometry = alert.geometry;
-
-          if (geoJsonGeometry && geoJsonGeometry.type === 'Polygon' && geoJsonGeometry.coordinates && Array.isArray(geoJsonGeometry.coordinates)) {
-             //Reverse all co-ordinates
-            geoJsonGeometry.coordinates = geoJsonGeometry.coordinates.map(ring => {
-                return ring.map(coord => [coord[0], coord[1]]); //Reverse single ring
-              });
-          }
-
-
-         // Wrap geometry in a GeoJSON Feature
-         const geoJsonFeature = {
-            type: "Feature",
-            geometry: geoJsonGeometry,
-             properties: alert // Keep any properties
-           };
-
-        L.geoJSON(geoJsonFeature, {
-            style: function () {
-                return {
-                    fillColor: alert.color,
-                    color: '#000',
-                    weight: 1,
-                    dashArray: '',
-                    fillOpacity: fillOpacity
-                };
-            },
-            onEachFeature: function (feature, layer) {
-                layer.bindPopup(createAlertTooltipContent(alert), { autoClose: false, maxWidth: maxWidth });
-                layer.on('click', function () {
-                    this.openPopup();
-                    const severity = $(this._popup._content).find('.my-tooltip').data('severity');
-                    const popupWrapper = this._popup._wrapper;
-                    const severityColor = {
-                        Minor: "#00FF00",
-                        Moderate: "#FFA500",
-                        Severe: "#FF0000",
-                        Extreme: "#313131",
-                        Unknown: "#313131"
-                    }[severity] || "#FF0000";
-                    $(popupWrapper).find('.leaflet-popup-content-wrapper').addClass('severity-popup').css('background', severityColor + ' !important');
-                });
-                layer.on({
-                    mouseover: function () {
-                        this.setStyle({ fillOpacity: 0.2 });
-                    },
-                    mouseout: function () {
-                        this.setStyle({ fillOpacity: fillOpacity });
-                    }
-                });
-            }
-        }).addTo(alertLayers);
-    });
-    modalBodyContent += '</ul>';
-
-    $("#alertModalTitle").text(`Active Alerts for ${alert_name ? alert_name : 'this zone'}`);
-    $("#alertModalBody").html(modalBodyContent);
-    $("#alertModal").modal('show');
-}
 
 
 
@@ -406,29 +533,33 @@ L.geoJSON(alert.geometry, {
 
 
 	
-  function loadAlerts() {
+function loadAlerts() {
     $.ajax({
-     type: "GET",
-      url: "/get_user_alerts",
-     success: function(response) {
-      drawnItems.clearLayers();
-    if (response.alerts && response.alerts.length > 0) {
-       response.alerts.forEach(addAlertToMap);
-       map.fitBounds(drawnItems.getBounds());
-      } else {
-       displayError("No active alert zones found for this user.");
-      }
-    },
-    error: function(xhr, status, errorThrown) {
-     console.error("AJAX error:", status, errorThrown, xhr);
-      let errorMessage = "Error fetching active alert zones.";
-      if (xhr.responseJSON && xhr.responseJSON.error) {
-       errorMessage = xhr.responseJSON.error;
-     }
-     displayError(errorMessage);
-   }
+        type: "GET",
+        url: "/get_user_alerts",
+        success: function(response) {
+			     console.log("About to send map data:", {page: 1, total_pages: 1, alerts: response.alerts}) //Add this log
+     sendMapData({page: 1, total_pages: 1, alerts: response.alerts});
+            drawnItems.clearLayers();
+            if (response.alerts && response.alerts.length > 0) {
+              //send the data to the server
+               sendMapData({page: 1, total_pages: 1, alerts: response.alerts})
+               response.alerts.forEach(addAlertToMap);
+               map.fitBounds(drawnItems.getBounds());
+            } else {
+                displayError("No active alert zones found for this user.");
+            }
+        },
+        error: function(xhr, status, errorThrown) {
+            console.error("AJAX error:", status, errorThrown, xhr);
+            let errorMessage = "Error fetching active alert zones.";
+            if (xhr.responseJSON && xhr.responseJSON.error) {
+                errorMessage = xhr.responseJSON.error;
+            }
+            displayError(errorMessage);
+        }
     });
-    }
+}
 
   let drawnItems = new L.FeatureGroup();
   let drawingLayer = new L.FeatureGroup();
@@ -469,50 +600,28 @@ L.geoJSON(alert.geometry, {
     $('#createAlertModal').modal('show');
   });
 
-  function createAlertTooltipContent(alert) {
-    const severityColor = {
-      Minor: "#00FF00",
-      Moderate: "#FFA500",
-      Severe: "#FF0000",
-      Extreme: "#313131",
-      Unknown: "#313131"
-    }[alert.severity] || "#FF0000";
-    return `<div class="my-tooltip" data-severity="${alert.severity}" style="border-color: ${severityColor};">` +
-      `<div class="underline"><h3>Alert Details</h3></div>` +
-      `<b>Message Type:</b> ${alert.msg_type}<br>` +
-      `<b>Categories:</b> ${alert.categories.join(', ')}<br>` +
-      `<b>Urgency:</b> ${alert.urgency}<br>` +
-      `<b>Severity:</b> ${alert.severity}<br>` +
-      `<b>Certainty:</b> ${alert.certainty}<br>` +
-      `<b>Start:</b> ${moment.unix(alert.start).format('YYYY-MM-DD HH:mm:ss UTC')}<br>` +
-      `<b>End:</b> ${moment.unix(alert.end).format('YYYY-MM-DD HH:mm:ss UTC')}<br>` +
-      `<b>Sender:</b> ${alert.sender}<br>` +
-`<div class="underline"><h3>Description</h3></div><span class='description-text'>${alert.description}</span>` +
-  (alert.language !== 'en-GB' && alert.language !== 'en-US' && alert.language !== 'en-JM' ?
-    `<br><button type="submit" class="btn btn-primary h-spaced-buttons translate">Translate to EN</button>` : "") +
-`</div>`;
-  }
 
-  function handleAlerts() {
-    if (alerts.length > 0) {
-      setTimeout(() => {
-        alerts.forEach(handleAlert);
-        hideLoadingMessage();
-      }, 2000);
-    } else {
-      setTimeout(() => {
-        if (alerts.length === 0) {
-          console.error("Alerts data not loaded.");
-          //displayError('Error loading alert data.');
-          $('#loading-message').text('Error loading alert data.').removeClass('hidden');
-        } else {
-          alerts.forEach(handleAlert);
-        }
-        hideLoadingMessage();
-      }, 2000);
-    }
-  }
 
+	function handleAlerts() {
+	 // if (alerts.length > 0) { // Remove this entire if
+   //  sendMapData({page: 1, total_pages: 1, alerts: alerts})
+   //  setTimeout(() => {
+   //  alerts.forEach(handleAlert);
+   //  hideLoadingMessage();
+   // }, 2000);
+	 // } else {
+		 //setTimeout(() => {
+		  //if (alerts.length === 0) { // Remove this if
+		  // console.error("Alerts data not loaded.");
+		  //displayError('Error loading alert data.');
+		 // $('#loading-message').text('Error loading alert data.').removeClass('hidden'); // Remove this line as well
+		  //} else { //Remove this else
+		  // alerts.forEach(handleAlert); //Remove this line
+		 // }
+		 //hideLoadingMessage();
+		 //}, 2000);
+	 //} //Remove the closing brace
+	}
   function handleAlert(alert) {
     L.geoJSON(alert.geometry, {
       style: function() {
@@ -973,75 +1082,19 @@ function createAlertZonePopupContent(alert) {
   });
 
 
-  // --- Socket.IO ---
-    let socketUrl;
-    if (window.location.hostname === 'localhost' || window.location.hostname === '0.0.0.0') {
-      socketUrl = 'http://localhost:8080';  // Or your local address and port
-    } else {
-      socketUrl = 'https://weatheralerts.global';
-    }
+ // --- Utility Functions ---
+  function displayError(message) {
+    console.error("Error: " + message); //Added this log
+    alert("Error: " + message);
+  }
 
-    const socket = io.connect(socketUrl, {
-      timeout: 10000
-    });
-  // Handle connection and request initial map data
-  socket.on('connect', function() {
-    console.log("Socket connected.");
-    socket.emit('get_map_data');
-    //displaySuccess("Connected to server via WebSockets!");
-  });
-   socket.on('connect_error', (error) => {
-        console.error("Connection error", error);
-        //displayError("Error connecting to server via WebSockets!");
-        // Implement retry logic with exponential backoff
-        setTimeout(() => {
-            socket.connect();
-        }, 5000);
-    });
-
-    // Handle disconnection
-    socket.on('disconnect', function() {
-        console.log('Socket disconnected');
-        //displayError("Disconnected from server via WebSockets!");
-    });
-
-    // Handle reconnection
-    socket.on('reconnect', function() {
-        console.log("Socket reconnected!");
-        //displaySuccess("Reconnected to server via WebSockets!");
-        socket.emit('get_map_data'); // Re-request data on reconnect
-    });
-
-
-    // Handle incoming map data updates from server
-    socket.on('map_data_update', function(data) {
-      console.log("Received map data update via SocketIO");
-      if(data && data.map_data) {
-        // Clear existing layers, only incident alerts
-        map.eachLayer(function (layer) {
-        if (layer instanceof L.GeoJSON && layer.options && layer.options.onEachFeature && !layer.alertZone) {
-          map.removeLayer(layer);
-         }
-        });
-    
-        incidentAlerts = data.map_data.alerts;
-        displayAlerts(incidentAlerts);
-    } else {
-        console.error("Error: Invalid map data received.");
-      displayError("Error: Invalid map data received via WebSockets.");
-      }
-      });
-
-    // --- Utility Functions ---
-    function displayError(message) {
-      // Display an error message to the user
-      alert("Error: " + message);
-    }
-
-    function displaySuccess(message) {
-      alert("Success: " + message)
-    }
+  function displaySuccess(message) {
+    console.log("Success: " + message); //Added this log
+    alert("Success: " + message)
+  }
 });
+
+	
 $('#createAlertModal').on('show.bs.modal', function (e) {
   const emailAlertSwitch = $(this).find('.email-alerts');
   const alertId = emailAlertSwitch.data('alert-id');

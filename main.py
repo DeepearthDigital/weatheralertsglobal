@@ -30,6 +30,9 @@ from flask_socketio import SocketIO, emit, send
 import gevent
 
 load_dotenv()
+# Patch gevent *before* Flask and SocketIO
+from gevent import monkey
+monkey.patch_all()
 app = Flask(__name__)
 mail = Mail(app)
 app.secret_key = os.environ.get('SECRET_KEY')
@@ -38,7 +41,10 @@ s = URLSafeTimedSerializer(os.environ.get('SERIALIZER_SECRET'))
 # Initialize SocketIO
 print('Request from: ', os.environ.get('CORS_ALLOWED_ORIGINS')) # test call.
 cors_origins = os.environ.get('CORS_ALLOWED_ORIGINS')
-socketio = SocketIO(app, cors_allowed_origins=cors_origins)
+if cors_origins == '*':
+    socketio = SocketIO(app, cors_allowed_origins='*')
+else:
+    socketio = SocketIO(app, cors_allowed_origins=cors_origins)
 
 # Create a logger for Celery tasks
 app_logger = logging.getLogger('app')
@@ -497,9 +503,9 @@ def index():
                     else:
                         app_logger.info("Redis data not found after a successful task.")
                         loading = True  # Indicate we need to reload
-                        async_result = populate_map_data_if_needed.delay()
-                        redis_client.set('map_data_task_id', str(async_result.id))
-                        app_logger.info(f"Triggered map data generation, task id: {async_result.id}")
+                        task = celery_app.send_task('populate_map_data_if_needed')
+                        redis_client.set('map_data_task_id', task.id)
+                        app_logger.info(f"Triggered map data generation, task id: {task.id}")
                 else:
                     app_logger.warning(
                         "Previous task failed.")  # Handle task failure (e.g., retry or display an error)
@@ -508,7 +514,7 @@ def index():
             else:
                 app_logger.info("Map data not found in Redis. Generating...")
                 loading = True
-                populate_map_data_if_needed()
+                task = celery_app.send_task('populate_map_data_if_needed')
                 redis_client.set('map_data_task_id', task.id)
                 app_logger.info(f"Starting map data generation task id: {task.id}")
 
@@ -767,86 +773,70 @@ def get_alerts_for_zone():
         app_logger.exception("Error in get_alerts_for_zone: ")
         return jsonify({"error": "Error fetching alerts for zone"}), 500
 
-def populate_map_data_if_needed():
-    """Populates map data in Redis only if it doesn't exist or is expired or a task is not in process."""
+
+@socketio.on('map_data')
+def handle_map_data():
+    """ Emits the map data to a specific client """
+    app_logger.info(f'Initial map data requested via SocketIO')
     try:
-        map_data_json = redis_client.get('map_data')  # Returns none if not found
-        cached_task_id = redis_client.get('map_data_task_id')  # Returns None if not found
-        if not map_data_json or not cached_task_id:
-            app_logger.info("Map data not found in Redis or Task ID is missing, Generating...")
-            generate_and_cache_map_data_task()
-            return
-        app_logger.info(f"Task ID {cached_task_id} retrieved from Redis.")
-        task = celery_app.AsyncResult(cached_task_id.decode('utf-8'))
-        if task.status in ['PENDING', 'STARTED', 'RETRY']:
-            app_logger.info(f"Map data found in Redis and last task with id: {cached_task_id.decode('utf-8')} is still running.")
-            return  # Task is still running so don't regenerate.
-        else:
-             # If no task is running and we have map data, lets check expiry.
-             expiry_time = redis_client.ttl('map_data')
-             if expiry_time == -2:  # Key not found (should not happen in this section)
-                 app_logger.info("Map data not found in Redis. Generating...")
-                 generate_and_cache_map_data_task()
-                 redis_client.delete('map_data_task_id')  # Only clear the task ID if map data was cleared.
-                 logger.info(f"Data with key 'map_data_task_id' deleted from Redis")
-                 return
-             elif expiry_time == -1:  # No expiry, which means the data is valid.
-                app_logger.info(f"Map data found in Redis and it has not expired.")
-                return
-             elif expiry_time <= 0:  # If expiry is less than or equal to 0, the data is expired.
-                 app_logger.info("Map data in Redis is expired. Regenerating...")
-                 redis_client.delete('map_data')  # delete the expired data
-                 logger.info(f"Data with key 'map_data' deleted from Redis")
-                 redis_client.delete('map_data_task_id')  # Only clear the task ID if map data was cleared.
-                 logger.info(f"Data with key 'map_data_task_id' deleted from Redis")
-                 generate_and_cache_map_data_task()
-                 return
+            app_logger.info("Attempting to retrieve map_data from Redis...")
+            map_data_json = redis_client.get('map_data')
+            cached_task_id = redis_client.get('map_data_task_id')  # Returns None if not found
+
+            if map_data_json:
+                map_data = json.loads(map_data_json)
+                app_logger.info("Retrieved map_data from Redis.")
+                socketio.emit('map_data_update', {'map_data': map_data}) # Ensure this line is executed
+            elif cached_task_id:
+                app_logger.info("Task ID found in Redis, checking if running...")
+                async_result = AsyncResult(cached_task_id.decode('utf-8'), app=celery_app)
+                if async_result.state in ['PENDING', 'STARTED', 'RETRY']:
+                    app_logger.info("Map Data task is running, setting loading screen")
+                    #Do nothing, wait for task to complete
+                elif async_result.state == 'SUCCESS':
+                    map_data_json = redis_client.get('map_data')
+                    if map_data_json:
+                        map_data = json.loads(map_data_json)
+                        app_logger.info("Retrieved map_data from Redis after successful task completion")
+                        socketio.emit('map_data_update', {'map_data': map_data}) # Ensure this line is executed
+                    else:
+                        app_logger.info("Redis data not found after a successful task.")
+                        task = celery_app.send_task('populate_map_data_if_needed')
+                        redis_client.set('map_data_task_id', task.id)
+                        app_logger.info(f"Triggered map data generation, task id: {task.id}")
+                else:
+                    app_logger.warning(
+                        "Previous task failed.")  # Handle task failure (e.g., retry or display an error)
+            else:
+                app_logger.info("Map data not found in Redis. Generating...")
+                task = celery_app.send_task('populate_map_data_if_needed')
+                redis_client.set('map_data_task_id', task.id)
+                app_logger.info(f"Starting map data generation task id: {task.id}")
+
     except ConnectionError as e:
         app_logger.error(f"Redis connection error: ")
     except Exception as e:
-        app_logger.exception("Error checking or populating map data:")
-
-def generate_and_cache_map_data_task():
-    """Triggers Celery task to generate map data, and then emit the data to clients."""
-    task = celery_app.send_task('generate_map_data_task')
-    redis_client.set('map_data_task_id', task.id)  #Cache the task ID
-    app_logger.info(f"Map data generation task triggered, task id: {task.id}")
-    app_logger.info(f"Task ID {task.id} saved to Redis.")
-
+        app_logger.exception("Unhandled error in index route:")
 
 # Socket.IO event handler for receiving map data
 @socketio.on('connect')
 def handle_connect():
     app_logger.info('Client connected via SocketIO')
-    #handle_get_map_data() # Call get_map_data on connection
-
-# Socket.IO event handler for receiving map data
-@socketio.on('get_map_data')
-def handle_get_map_data():
-    try:
-        map_data_json = redis_client.get('map_data')
-        if map_data_json:
-            map_data = json.loads(map_data_json)
-            emit('map_data_update', {'map_data': map_data})
-            app_logger.info(f'Map data sent to client via SocketIO')
-        else:
-            app_logger.info(f'No map data found in redis, nothing sent')
-    except Exception as e:
-        app_logger.exception("Error handling get_map_data via SocketIO")
+    emit('map_data')
 
 # main with Websockets.py
 @app.route('/map_data_callback', methods=['POST'])  # Changed to POST method
 def map_data_callback():
+    data = request.get_json()
+    app_logger.info("map_data_callback request.get_json():", data)
     """ Callback endpoint to retrieve map data from Redis and send it via SocketIO. """
     try:
-        print("map_data_callback() route has been called...")
         app_logger.info("map_data_callback() route has been called...")
 
         data = request.get_json()  # Get the json data
         if data and 'map_data' in data:
             map_data = data['map_data']
-            print(f"map_data received: ")
-            app_logger.info(f"map_data received: ")
+            app_logger.info(f"map_data received: {map_data}")
             # Retrieve existing map data from redis.
             existing_map_data_json = redis_client.get('map_data')
             if existing_map_data_json:
@@ -869,6 +859,7 @@ def map_data_callback():
     except Exception as e:
         app_logger.exception("Error in map_data_callback")
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
 
 @app.route('/get_user_email_alert_state', methods=['GET'])
 @login_required
@@ -964,7 +955,7 @@ def send_alert_snapshots():
 def scheduled_task():
     try:
         keep_recent_entries_efficient()
-        populate_map_data_if_needed()
+        celery_app.send_task('populate_map_data_if_needed')
         celery_app.send_task('check_for_and_send_alerts')
         app_logger.info("Scheduled task completed.")
     except Exception as e:
@@ -973,7 +964,7 @@ def scheduled_task():
 def start_scheduler():
     try:
         keep_recent_entries_efficient()
-        populate_map_data_if_needed()
+        celery_app.send_task('populate_map_data_if_needed')
         celery_app.send_task('check_for_and_send_alerts')
         scheduler.start()
         scheduler_running.set()
