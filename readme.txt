@@ -33,6 +33,9 @@ celery -A tasks beat --loglevel=INFO
 gunicorn -b :8080 main:app --worker-class gevent
 gunicorn -b 0.0.0.0:8080 main:app --worker-class gevent -w 5
 
+THIS ONE!
+gunicorn -k geventwebsocket.gunicorn.workers.GeventWebSocketWorker -w 1 main:app -b 0.0.0.0:8080
+
 gunicorn -b 0.0.0.0:8080 main:app --worker-class gevent
 
 if you need to stop processs locally then

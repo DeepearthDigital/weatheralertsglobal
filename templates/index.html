@@ -133,32 +133,16 @@ hamburgerButton.addEventListener('click', () => {
 	
 
 	
-function sendMapData(mapData) {
-    fetch('/map_data_callback', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ map_data: mapData })
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
-        }
-        return response.json(); // or response.text(), if the server returns a text response
-    })
-    .then(data => {
-        console.log('Data sent successfully', data);
-    })
-    .catch(error => {
-        console.error('There was a problem with the fetch operation:', error);
-    });
-}
 
 		
-  let map;
-	const fillOpacity = 0.5;
-	let alertLayers = new L.FeatureGroup();
+ let map; // Declare the variable here
+    const fillOpacity = 0.5;
+    let alertLayers = new L.FeatureGroup(); //Create the layer group at the top level
+     map = L.map('mapid', { // Assign it here, with out the var keyword.
+    worldCopyJump: true
+  }).setView([51.4779, 0.0015], 5);
+  map.addLayer(alertLayers); // Add it to the map
+
 	
 // --- Socket.IO ---
   let socketUrl;
@@ -202,8 +186,8 @@ function sendMapData(mapData) {
     });
     
    // Handle incoming map data updates from server
-    socket.on('map_data_update', function(data) {
-      console.log("Received map data update via SocketIO:", data); // Added detailed log
+ socket.on('map_data_update', function(data) {
+      console.log("Received map data update via SocketIO:", data);
       if(data && data.map_data) {
       // Clear existing layers, only incident alerts
       map.eachLayer(function (layer) {
@@ -211,13 +195,11 @@ function sendMapData(mapData) {
         map.removeLayer(layer);
         }
       });
-      console.log("Map data is:", data); // Add this log
-      incidentAlerts = data.map_data.alerts;
-      displayAlerts(incidentAlerts);
-      } else {
-      console.error("Error: Invalid map data received.");
-      displayError("Error: Invalid map data received via WebSockets.");
-      }
+      displayAlerts(data.map_data.alerts);
+       } else {
+        console.error("Error: Invalid map data received.");
+        displayError("Error: Invalid map data received via WebSockets.");
+       }
     });
   }
   connectSocket();
@@ -332,11 +314,7 @@ function displayAlerts(incidentAlerts, alert_name) {
 }
 	
 $(document).ready(function() {
-  map = L.map('mapid', { // Assign it here, with out the var keyword.
-    worldCopyJump: true
-  }).setView([51.4779, 0.0015], 5);
-  let alertLayers = new L.FeatureGroup(); //Create the layer group at the top level
-  map.addLayer(alertLayers); // Add it to the map
+
   console.log("Alerts:", alerts);
   console.log("Document ready");
   console.log($('#createAlertModal').length); // Check if element exists
@@ -533,17 +511,13 @@ L.geoJSON(alert.geometry, {
 
 
 	
-function loadAlerts() {
-    $.ajax({
+    function loadAlerts() {
+      $.ajax({
         type: "GET",
         url: "/get_user_alerts",
         success: function(response) {
-			     console.log("About to send map data:", {page: 1, total_pages: 1, alerts: response.alerts}) //Add this log
-     sendMapData({page: 1, total_pages: 1, alerts: response.alerts});
             drawnItems.clearLayers();
             if (response.alerts && response.alerts.length > 0) {
-              //send the data to the server
-               sendMapData({page: 1, total_pages: 1, alerts: response.alerts})
                response.alerts.forEach(addAlertToMap);
                map.fitBounds(drawnItems.getBounds());
             } else {
@@ -602,26 +576,6 @@ function loadAlerts() {
 
 
 
-	function handleAlerts() {
-	 // if (alerts.length > 0) { // Remove this entire if
-   //  sendMapData({page: 1, total_pages: 1, alerts: alerts})
-   //  setTimeout(() => {
-   //  alerts.forEach(handleAlert);
-   //  hideLoadingMessage();
-   // }, 2000);
-	 // } else {
-		 //setTimeout(() => {
-		  //if (alerts.length === 0) { // Remove this if
-		  // console.error("Alerts data not loaded.");
-		  //displayError('Error loading alert data.');
-		 // $('#loading-message').text('Error loading alert data.').removeClass('hidden'); // Remove this line as well
-		  //} else { //Remove this else
-		  // alerts.forEach(handleAlert); //Remove this line
-		 // }
-		 //hideLoadingMessage();
-		 //}, 2000);
-	 //} //Remove the closing brace
-	}
   function handleAlert(alert) {
     L.geoJSON(alert.geometry, {
       style: function() {
