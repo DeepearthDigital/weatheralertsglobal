@@ -982,6 +982,8 @@ def watch_for_owa_changes():
          for change in change_stream:
              if change['operationType'] in ['insert', 'update']:
                      celery_app.send_task('generate_partial_map_data_task', args=[change['fullDocument']]) # Changed to new partial task
+                     # Add this line to trigger alerts after an alert is updated.
+                     celery_app.send_task('check_for_and_send_alerts')
 
  except pymongo_errors.PyMongoError as e:
       app_logger.error(f"MongoDB error in change stream: ")
