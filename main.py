@@ -36,8 +36,9 @@ app.secret_key = os.environ.get('SECRET_KEY')
 s = URLSafeTimedSerializer(os.environ.get('SERIALIZER_SECRET'))
 
 # Initialize SocketIO
-#socketio = SocketIO(app, cors_allowed_origins="*")  # Allow cross-origin for local development
-socketio = SocketIO(app, cors_allowed_origins="weatheralerts.global")  # Allow cross-origin for local development
+print('Request from: ', os.environ.get('CORS_ALLOWED_ORIGINS')) # test call.
+cors_origins = os.environ.get('CORS_ALLOWED_ORIGINS')
+socketio = SocketIO(app, cors_allowed_origins=cors_origins)
 
 # Create a logger for Celery tasks
 app_logger = logging.getLogger('app')
@@ -496,9 +497,9 @@ def index():
                     else:
                         app_logger.info("Redis data not found after a successful task.")
                         loading = True  # Indicate we need to reload
-                        populate_map_data_if_needed()
-                        redis_client.set('map_data_task_id', task.id)
-                        app_logger.info(f"Triggered map data generation, task id: {task.id}")
+                        async_result = populate_map_data_if_needed.delay()
+                        redis_client.set('map_data_task_id', str(async_result.id))
+                        app_logger.info(f"Triggered map data generation, task id: {async_result.id}")
                 else:
                     app_logger.warning(
                         "Previous task failed.")  # Handle task failure (e.g., retry or display an error)
@@ -961,28 +962,30 @@ def send_alert_snapshots():
         return jsonify({"error": f"Error sending alert snapshots: {str(e)}"}), 500
 
 def scheduled_task():
-    """Combined scheduled task. Only runs check_for_and_send_alerts and updates the map data every 4 hours."""
     try:
         keep_recent_entries_efficient()
         populate_map_data_if_needed()
+        celery_app.send_task('check_for_and_send_alerts')
         app_logger.info("Scheduled task completed.")
     except Exception as e:
         app_logger.exception("Error in scheduled task:")
 
-scheduler = BackgroundScheduler()
-scheduler.add_job(scheduled_task, 'interval', seconds=7200)  # Run two hours
-
-scheduler_running = threading.Event()
 def start_scheduler():
     try:
-        populate_map_data_if_needed()
         keep_recent_entries_efficient()
+        populate_map_data_if_needed()
+        celery_app.send_task('check_for_and_send_alerts')
         scheduler.start()
         scheduler_running.set()
         app_logger.info("Scheduler started.")
     except Exception as e:
         app_logger.exception("Error starting scheduler:")
         scheduler_running.clear()
+
+scheduler_running = threading.Event()
+scheduler = BackgroundScheduler()
+scheduler.add_job(scheduled_task, 'interval', seconds=7200)  # Run two hours
+
 def shutdown_scheduler():
     try:
         scheduler_running.wait() #Wait for the scheduler to start

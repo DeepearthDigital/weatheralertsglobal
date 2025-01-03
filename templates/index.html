@@ -36,34 +36,38 @@
         <p>There are <b>{{ alert_count }}</b> live alerts in place covering the period <b>{{ date_range }}</b></p>
         <div id="date-range"></div>
       </div>
-      <div class="table-container">
-        <table id="severity-key">
-          <thead>
-          </thead>
-          <tbody>
-            <tr>
-              <th align="center" valign="middle" bgcolor="#E8E8E8" class="square"><h3 class="square">{{ alert_count }}</h3></th>
-              <th align="left" valign="middle" class="severity-text"><h3>Live Alerts</h3></th>
-            </tr>
-            <tr>
-              <td align="center" valign="middle" class="square" style="background-color: #00FF00;"><h3 class="square">{{ alert_counts.Minor|default(0) }}</h3></td>
-              <td align="left" valign="middle" class="severity-text"><h3>Minor</h3></td>
-            </tr>
-            <tr>
-              <td align="center" valign="middle" class="square" style="background-color: #FFA500;"><h3>{{ alert_counts.Moderate|default(0) }}</h3></td>
-              <td align="left" valign="middle" class="severity-text"><h3>Moderate</h3></td>
-            </tr>
-            <tr>
-              <td align="center" valign="middle" class="square" style="background-color: #FF0000;"><h3 class="text-severe-extreme">{{ alert_counts.Severe|default(0) }}</h3></td>
-              <td align="left" valign="middle" class="severity-text"><h3>Severe</h3></td>
-            </tr>
-            <tr>
-              <td align="center" valign="middle" class="square" style="background-color: #313131;" ><h3 class="text-severe-extreme">{{ alert_counts.Extreme|default(0) }}</h3></td>
-              <td align="left" valign="middle" class="severity-text"><h3>Extreme/Unknown</h3></td>
-            </tr>
-          </tbody>
-        </table>
+<div class="severity-key-container">
+  <div class="severity-row">
+      <div class="severity-square" style="background-color: #E8E8E8;">
+        <h3 class="square">{{ alert_count }}</h3>
       </div>
+      <div class="severity-text"><h3>Live Alerts</h3></div>
+  </div>
+  <div class="severity-row">
+      <div class="severity-square" style="background-color: #00FF00;">
+          <h3 class="square">{{ alert_counts.Minor|default(0) }}</h3>
+      </div>
+      <div class="severity-text"><h3>Minor</h3></div>
+  </div>
+  <div class="severity-row">
+      <div class="severity-square" style="background-color: #FFA500;">
+          <h3>{{ alert_counts.Moderate|default(0) }}</h3>
+      </div>
+      <div class="severity-text"><h3>Moderate</h3></div>
+  </div>
+  <div class="severity-row">
+      <div class="severity-square" style="background-color: #FF0000;">
+          <h3 class="text-severe-extreme">{{ alert_counts.Severe|default(0) }}</h3>
+      </div>
+      <div class="severity-text"><h3>Severe</h3></div>
+  </div>
+  <div class="severity-row">
+      <div class="severity-square" style="background-color: #313131;">
+          <h3 class="text-severe-extreme">{{ alert_counts.Extreme|default(0) }}</h3>
+      </div>
+      <div class="severity-text"><h3>Extreme/Unknown</h3></div>
+  </div>
+</div>
       <div class="button-container">
         <button id="createAlertButton" class="btn btn-primary h-spaced-buttons">Create Alert Zone Notification</button>
         <button id="showAlertsButton" class="btn btn-primary h-spaced-buttons">Show Active Alert Notifications Zone</button>
@@ -91,8 +95,10 @@
           <!-- GeoJSON preview will go here --> 
         </div>
       </div>
-   <div class="modal-footer">
-        <p>Enable e-mail alerts <input type="checkbox" class="email-alerts" data-alert-id="{{current_user.id}}"/></p>
+      <div class="modal-footer">
+        <p>Enable e-mail alerts
+          <input type="checkbox" class="email-alerts" data-alert-id="{{current_user.id}}"/>
+        </p>
         <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
         <button type="button" id="createAlertSubmit" class="btn btn-primary">Create</button>
       </div>
@@ -223,10 +229,10 @@ function addAlertToMap(alert) {
             leafletGeoJSON.alertData = alert;
             leafletGeoJSON.alertZone = true; 
             resolve();
-			leafletGeoJSON.on('click', function(e) {
-			  console.log("Shape Clicked at :", leafletGeoJSON.alertData.geometry);
-			  getAlertsForZone(leafletGeoJSON.alertData);
-			});
+			 leafletGeoJSON.on('click', function(e) {
+			   console.log("Shape Clicked at :", e.target.feature.geometry);
+			   getAlertsForZone(e.target.alertData);
+			 });
         } else {
             console.warn("Invalid geometry data in alert:", alert);
             reject("Invalid geometry data");
@@ -235,43 +241,43 @@ function addAlertToMap(alert) {
 }
 
 function getAlertsForZone(alertData) {
-    const geometry = alertData.geometry;
-    console.log("getAlertsForZone called with geometry: ", geometry);
-    $.ajax({
-        type: "GET",
-        url: "/get_alerts_for_zone",
-        data: {
-            geometry: JSON.stringify(geometry)
-        },
-        success: function(response) {
-            console.log("Alerts data received:", response);
-            if (response && response.alerts && response.alerts.length > 0) {
+  const geometry = alertData.geometry;
+  console.log("getAlertsForZone called with geometry: ", geometry);
+  $.ajax({
+      type: "GET",
+      url: "/get_alerts_for_zone",
+      data: {
+        geometry: JSON.stringify(geometry)
+      },
+      success: function(response) {
+        console.log("Alerts data received:", response);
+        if (response && response.alerts && response.alerts.length > 0) {
+          const transformedAlerts = response.alerts.map(alert => ({
+              ...alert,
+              geometry: alert.geometry || alertData.geometry,
+              color: alert.color, // Include color if it's in the response
+          }));
+          let alertName = null;
+          if (alertData && alertData.alert_name) {
+              alertName = alertData.alert_name;
+          } else if (alertData.alert_name) {
+              alertName = alertData.alert_name;
+          }
+          displayAlerts(transformedAlerts, alertName);
 
-                const transformedAlerts = response.alerts.map(alert => ({
-                  ...alert,
-                  geometry: alert.geometry || alertData.geometry,
-                  color: alert.color, // Include color if it's in the response
-                }));
-              let alertName = null
-                if (alertData && alertData.alert_name) {
-                  alertName = alertData.alert_name;
-                } else if (alertData.alert_name) {
-                  alertName = alertData.alert_name;
-                }
-                displayAlerts(transformedAlerts, alertName);
-            } else {
-                displayError("No alerts found for this area.");
-            }
-        },
-        error: function(xhr, status, errorThrown) {
-            console.error("Error fetching alerts for zone:", status, errorThrown, xhr);
-            let errorMessage = "Error fetching alerts for zone.";
-            if (xhr.responseJSON && xhr.responseJSON.error) {
-                errorMessage = xhr.responseJSON.error;
-            }
-            displayError(errorMessage);
+        } else {
+          //displayError("No alerts found for this area.");
         }
-    });
+      },
+      error: function(xhr, status, errorThrown) {
+        console.error("Error fetching alerts for zone:", status, errorThrown, xhr);
+        let errorMessage = "Error fetching alerts for zone.";
+        if (xhr.responseJSON && xhr.responseJSON.error) {
+          errorMessage = xhr.responseJSON.error;
+        }
+        displayError(errorMessage);
+      }
+  });
 }
 
 function displayAlerts(incidentAlerts, alert_name) {
@@ -287,8 +293,6 @@ function displayAlerts(incidentAlerts, alert_name) {
         $("#alertModal").modal('show');
         return;
     }
-    // Clear existing GeoJSON layers from the map, *only incident alerts*
-    alertLayers.clearLayers(); // Only clear incident alert layers
 
     let modalBodyContent = '<ul>';
 
@@ -427,7 +431,9 @@ L.geoJSON(alert.geometry, {
     }
 
   let drawnItems = new L.FeatureGroup();
+  let drawingLayer = new L.FeatureGroup();
   map.addLayer(drawnItems);
+  map.addLayer(drawingLayer);
 
   let drawControl = new L.Control.Draw({
     position: 'topleft',
@@ -481,8 +487,10 @@ L.geoJSON(alert.geometry, {
       `<b>Start:</b> ${moment.unix(alert.start).format('YYYY-MM-DD HH:mm:ss UTC')}<br>` +
       `<b>End:</b> ${moment.unix(alert.end).format('YYYY-MM-DD HH:mm:ss UTC')}<br>` +
       `<b>Sender:</b> ${alert.sender}<br>` +
-      `<div class="underline"><h3>Description</h3></div><span class='description-text'>${alert.description}</span>` +
-      `<br><button type="submit" class="btn btn-primary h-spaced-buttons translate">Translate to EN</button></div>`;
+`<div class="underline"><h3>Description</h3></div><span class='description-text'>${alert.description}</span>` +
+  (alert.language !== 'en-GB' && alert.language !== 'en-US' && alert.language !== 'en-JM' ?
+    `<br><button type="submit" class="btn btn-primary h-spaced-buttons translate">Translate to EN</button>` : "") +
+`</div>`;
   }
 
   function handleAlerts() {
@@ -579,33 +587,48 @@ L.geoJSON(alert.geometry, {
         }, 100);
       });
 
-      // Function to update the alert zone preview
-      function updateAlertZonePreview() {
-        const geojson = drawnItems.toGeoJSON();
-        if (geojson.features.length > 0) {
-          const preview = L.geoJSON(geojson, {
-            style: {
-              fillColor: 'lightblue',
-              color: '#000',
-              weight: 1,
-              fillOpacity: 0.5
-            }
-          });
-          $('#alertZonePreview').html(`<p><b>Preview of your alert zone:</b></p>`);
-          preview.addTo(map);
-          map.fitBounds(preview.getBounds());
-        } else {
-          $('#alertZonePreview').html('<p>Draw an alert zone on the map.</p>');
-        }
-      }
+	let previewLayer = null; //Add a global variable to hold the existing previewLayer
 
-      map.on('draw:created', function(e) {
-        console.log("draw:created event:", e);
-        const layer = e.layer;
-        drawingLayer.addLayer(e.layer);
-        drawnItems.addLayer(layer);
-        updateAlertZonePreview();
-      });
+function updateAlertZonePreview() {
+    const geojson = drawnItems.toGeoJSON();
+
+    // Remove the previous preview layer if it exists
+    if (previewLayer) {
+        map.removeLayer(previewLayer);
+        previewLayer = null;
+    }
+
+    if (geojson.features.length > 0) {
+        // The preview layer will not be added to the map, only the HTML
+        $('#alertZonePreview').html(`<p><b>Preview of your alert zone:</b></p>`);
+		} else {
+		$('#alertZonePreview').html('<p>Draw an alert zone on the map.</p>');
+		}
+	}
+
+map.on('draw:created', function(e) {
+    console.log("draw:created event:", e);
+    const layer = e.layer;
+
+    // Clear the drawing layer before adding a new layer
+    drawingLayer.clearLayers();
+    drawingLayer.addLayer(layer);
+    drawnItems.addLayer(layer);
+    updateAlertZonePreview();
+
+    // Zoom to the alert zone
+    if (layer) {
+      if (layer instanceof L.Polygon) {
+          map.fitBounds(layer.getBounds(), { padding: [20, 20] });
+      } else if(layer instanceof L.Rectangle) {
+        map.fitBounds(layer.getBounds(), { padding: [20, 20] });
+      }
+  }
+    // **New code to open the modal after drawing**
+    setTimeout(function() {
+        $('#createAlertModal').modal('show');
+    }, 100); // Add a small delay to ensure everything is ready
+});
 
       map.on('draw:edited', function(e) {
         console.log("draw:edited event:", e);
@@ -616,9 +639,6 @@ L.geoJSON(alert.geometry, {
         console.log("draw:deleted event:", e);
         updateAlertZonePreview();
       });
-
-      let drawingLayer = new L.FeatureGroup();
-      map.addLayer(drawingLayer);
 
       // Alert creation handler
       $('#createAlertSubmit').click(function() {
@@ -650,19 +670,35 @@ L.geoJSON(alert.geometry, {
       url: "/create_alert_zone",
       contentType: "application/json",
       data: JSON.stringify({geojson: geojson, alert_description: description, alert_name: alertName}),
-      success: function(response) {
-        displaySuccess(`Alert '${alertName}' created successfully! (ID: ${response.alert_id})`);
-        drawingLayer.clearLayers(); // Clear the drawing layer
-        drawnItems.clearLayers(); // Clear the drawnItems layer
-        $('#createAlertModal').modal('hide');
-        $('#alertName').val('');
-        $('#alertDescription').val('');
-        $('#alertZonePreview').empty();
-        // Optionally, re-fetch and redraw alerts here
-        //Optionally set the initial state:
-        setEmailAlertState(response.alert_id);
-        showAlertsButton.click();
-      },
+success: function(response) {
+    displaySuccess(`Alert '${alertName}' created successfully! (ID: ${response.alert_id})`);
+
+    // Zoom to the newly created alert zone
+    if (drawingLayer.getLayers().length > 0) {
+      const drawnLayer = drawingLayer.getLayers()[0]; //get the current drawn layer.
+      if(drawnLayer instanceof L.Polygon || drawnLayer instanceof L.Rectangle) {
+         map.fitBounds(drawnLayer.getBounds(), { padding: [20, 20] });
+      }
+    }
+    
+    drawnItems.clearLayers(); // Clear the drawnItems layer
+    // Use the Leaflet.draw tools to remove any existing drawings
+    if (map._toolbars && map._toolbars.draw && map._toolbars.draw._activeMode) {
+        map._toolbars.draw._activeMode.disable();
+    }
+    $('#createAlertModal').modal('hide');
+    $('#alertName').val('');
+    $('#alertDescription').val('');
+    $('#alertZonePreview').empty();
+    // Optionally set the initial state:
+    setEmailAlertState(response.alert_id);
+    
+      // Load the alerts
+    loadAlerts();
+    // Ensure the button says 'Hide Active Notification Zones'
+     showAlertsButton.text("Hide Active Alert Notification Zones");
+
+},
           error: function(xhr, status, errorThrown) {
             console.error("Error creating alert:", status, errorThrown, xhr.responseText, xhr);
             let errorMessage = "Error creating alert.";
@@ -678,19 +714,28 @@ L.geoJSON(alert.geometry, {
     }
 
 
-    let showAlerts = false;
-    const showAlertsButton = $('#showAlertsButton');
+  let showAlerts = true;
+  const showAlertsButton = $('#showAlertsButton');
+  
+    // Set initial button state and text on load
+    if (showAlerts) {
+      loadAlerts(); // Load alerts if it's initially set to true
+      showAlertsButton.text("Hide Active Alert Notification Zones");
+    } else {
+      showAlertsButton.text("Show Active Alert Notification Zones");
+    }
 
-    showAlertsButton.click(function() {
-      showAlerts = !showAlerts; // Toggle showAlerts state
-      if (showAlerts) {
-        loadAlerts(); // Separate function to load alerts
-        showAlertsButton.text("Hide Active Alert Notification Zones");
-      } else {
-        drawnItems.clearLayers();
-        showAlertsButton.text("Show Active Alert Notification Zones");
-      }
-    });
+  showAlertsButton.click(function() {
+  showAlerts = !showAlerts; // Toggle showAlerts state
+    if (showAlerts) {
+      loadAlerts(); // Separate function to load alerts
+      showAlertsButton.text("Hide Active Alert Notification Zones");
+    } else {
+      drawnItems.clearLayers(); // Clear the drawn items
+      drawingLayer.clearLayers(); // Clear the drawing layer
+      showAlertsButton.text("Show Active Alert Notification Zones");
+    }
+  });
 
     function loadAlerts() {
       $.ajax({
@@ -770,7 +815,7 @@ function createAlertZonePopupContent(alert) {
     let deleteButton = `<button class="btn btn-danger h-spaced-buttons delete-alert-button" data-alert-id="${alert._id}">Delete Alert Notification Zone</button>`;
     let emailAlertToggle = `<p>Enable e-mail alerts <input type="checkbox" class="email-alerts-popup" id="${uniqueId}" data-alert-id="${alert._id}"/></p>`;
 
-    return `<div class="my-tooltip"><h3>${alert.alert_name}</h3><p>${alert.alert_description}</p></div>` + emailAlertToggle + retrieveButton + deleteButton;
+    return `<div class="my-tooltip"><h3><b>Alert Zone Name:</b> ${alert.alert_name}</h3><p><b>Alert Zone Description:</b> ${alert.alert_description}</p></div>` + emailAlertToggle + retrieveButton + deleteButton;
 }
     map.on('popupopen', function(e) {
     const popup = e.popup;
@@ -854,7 +899,7 @@ function createAlertZonePopupContent(alert) {
         });
     }
 });
-
+	
   $('#deleteAllAlertsButton').click(function() {
       if (confirm("Are you sure you want to delete ALL your active alert zones?")) {
         $.ajax({
@@ -1001,26 +1046,29 @@ $('#createAlertModal').on('show.bs.modal', function (e) {
   const emailAlertSwitch = $(this).find('.email-alerts');
   const alertId = emailAlertSwitch.data('alert-id');
   //Get the current users saved switch state if it exists.
-   $.ajax({
+  $.ajax({
     type: "GET",
-     url: "/get_user_email_alert_state",
-     data: { user_id: alertId },
+    url: "/get_user_email_alert_state",
+    data: { user_id: alertId },
     success: function (response) {
       if (response.email_alerts_enabled === true) {
         emailAlertSwitch.prop('checked', true);
-         emailAlertSwitch.next('.switchery').find('small').css('left', '16px');
-         emailAlertSwitch.next('.switchery').find('small').css('transition', 'all 0.1s ease');
+        emailAlertSwitch.next('.switchery').css('background-color', 'rgb(100, 189, 99)');
+        emailAlertSwitch.next('.switchery').find('small').css('left', '16px');
+        emailAlertSwitch.next('.switchery').find('small').css('transition', 'all 0.1s ease');
       } else {
         emailAlertSwitch.prop('checked', false);
-          emailAlertSwitch.next('.switchery').find('small').css('left', '0px');
-           emailAlertSwitch.next('.switchery').find('small').css('transition', 'all 0.1s ease');
+        emailAlertSwitch.next('.switchery').css('background-color', '');
+        emailAlertSwitch.next('.switchery').find('small').css('left', '0px');
+        emailAlertSwitch.next('.switchery').find('small').css('transition', 'all 0.1s ease');
       }
     },
     error: function (xhr, status, errorThrown) {
       console.error("Error fetching email alert state:", status, errorThrown, xhr);
     }
   });
- });
+});
+	
 $(document).on('change', '.email-alerts-popup', function() {
     const isChecked = $(this).prop('checked');
     const alertId = $(this).data('alert-id');

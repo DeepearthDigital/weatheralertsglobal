@@ -24,7 +24,6 @@
   z-index: 9999;
   pointer-events: none;
 }
-}
 #loading-screen.shown, #loading-message.shown {
   display: block;
 }
@@ -141,13 +140,6 @@ body {
   padding: 5px;
   text-align: centre;
 }
-.square {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 60px;
-  height: 60px;
-}
 .text-severe-extreme {
   color: #FFFFFF;
 }
@@ -172,6 +164,12 @@ body {
   line-height: 1.5;
   box-sizing: border-box;
 }
+@media (max-width: 768px) {
+    .my-tooltip {
+	  min-width: 300px;
+	  min-width: 300px;
+    }
+}
 .my-tooltip.minor {
   border-color: #00FF00;
 }
@@ -192,9 +190,20 @@ body {
   background-color: inherit !important; /* default white background */
 }
 .leaflet-popup-content-wrapper {
-  background: none;
-  background-color: white;
+  width: auto;
+	min-width: 500px;
+  max-width: 600px;
+  padding: 10px;
+  overflow: auto; /* Makes the content scrollable if needed */
 }
+@media (max-width: 768px) {
+  .leaflet-popup-content-wrapper {
+	  min-width: 400px;
+	  min-width: 400px;
+      padding: 10px;
+    }
+}
+
 .underline {
   text-decoration: underline;
   text-decoration-thickness: 3px; /* Adjust underline thickness */
@@ -208,20 +217,20 @@ body {
   margin-bottom: 10px; /* Adjust as needed */
 }
 h1 {
-  font-size: 2.25em; /* Size of the heading (em is relative to parent font size) */
+  font-size: 2em; /* Size of the heading (em is relative to parent font size) */
   font-weight: bold; /* Font weight (bold, normal, etc.) */
   text-align: center; /* Alignment of the text */
   margin-bottom: 0.5em; /* Spacing below the heading */
   margin-top: 0.5em;
 }
 h2 {
-  font-size: 1.85em;
+  font-size: 1.5em;
   font-weight: normal; /* Example of different style for h2 */
   margin-bottom: 0.85em;
   margin-top: 0.85em;
 }
 h3 {
-  font-size: 1.25em;
+  font-size: 1em;
   font-weight: normal; /* Example of different style for h2 */
   margin-bottom: 0.5em;
   margin-top: 0.5em;
@@ -274,4 +283,72 @@ h4 {
 }
 .mobile-nav a:hover {
   background-color: #555;
+}
+.severity-key-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px; /* Space between rows */
+    width: 100%;
+}
+  .severity-row {
+    display: flex;
+    align-items: center;
+  }
+  .severity-square {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 40px;
+    height: 40px;
+    margin-right: 10px;
+  }
+  .severity-text {
+    flex-grow: 1;
+    text-align: left;
+  }
+@media (max-width: 768px) {
+      .severity-key-container {
+        flex-direction: row;
+          flex-wrap: wrap;
+    }
+
+    .severity-row {
+        display: flex;
+          flex-direction: column;
+          align-items: center;
+    }
+    .severity-square {
+      margin-right: 0px;
+        width: 50px;
+        height: 50px;
+    }
+      .severity-text {
+          display: none; /* Hide text labels on mobile */
+    }
+}
+ @media (min-width: 769px) {
+      .severity-key-container {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); /* Responsive grid columns */
+          gap: 10px;
+    }
+    .severity-row {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+    }
+  .severity-square {
+      width: 60px;
+      height: 60px;
+  }
+  .severity-text {
+      display: block;
+  }
+}
+.button-container a.btn {
+    display: inline-block;
+    padding: 0.375rem 0.75rem;  /* Same as bootstrap button padding*/
+    margin-bottom: 10px;
+    text-decoration: none;
+    margin-right: 20px;
 }

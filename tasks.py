@@ -28,7 +28,6 @@ import math
 from celery.schedules import crontab
 from celery.result import AsyncResult
 
-
 load_dotenv()
 
 # Email Configuration (Use environment variables for security!)
@@ -172,7 +171,7 @@ def send_request_with_retry(url, data, max_retries=3, backoff_factor=1, status_f
         response.raise_for_status()
         return response
     except requests.exceptions.RequestException as e:
-        celery_logger.exception(f"Error sending request to  after  retries: ")
+        celery_app_logger.exception(f"Error sending request to  after  retries: ")
         return None
 
 @app.task(name='generate_map_data_task')
@@ -210,9 +209,9 @@ def generate_map_data(future_days=14,  page = 1, page_size = 100000, total_alert
             redis_client.setex('map_data', 7200, json.dumps(map_data))    # Run every two hours
             celery_app_logger.info("Map data update successful, sent via socketio.")
          else:
-           celery_logger.error("Map data update failed via SocketIO.")
+           celery_app_logger.error("Map data update failed via SocketIO.")
       except requests.exceptions.RequestException as e:
-          celery_logger.exception(f"Error sending request to  :")
+          celery_app_logger.exception(f"Error sending request to  :")
       return map_data
 
     total_pages = (total_alerts + page_size - 1) // page_size
@@ -291,7 +290,7 @@ def generate_map_data(future_days=14,  page = 1, page_size = 100000, total_alert
                 simplified_geometry = mapping(transform(project_utm_to_wgs, simplified_shape))
                 geometry = simplified_geometry
             except Exception as e:
-                celery_logger.exception(f"Error simplifying geometry for alert id: {alert_data.get('_id')}")
+                celery_app_logger.exception(f"Error simplifying geometry for alert id: {alert_data.get('_id')}")
 
             msg_type = alert_data['msg_type']
             categories = alert_data['categories']
@@ -343,11 +342,11 @@ def generate_map_data(future_days=14,  page = 1, page_size = 100000, total_alert
             folium.GeoJson(geometry, style_function=lambda x: {'fillColor': color, 'color': '#000000', 'weight': 1, 'dashArray': '', 'fillOpacity': 0.5}, name=f"Alert ").add_to(my_map)
 
         except Exception as e:
-            celery_logger.exception("Critical error generating map data:")
+            celery_app_logger.exception("Critical error generating map data:")
             return None  # Indicate failure
 
         except (KeyError, TypeError, IndexError) as e:
-            celery_logger.exception(f"Error processing alert data from MongoDB: ")
+            celery_app_logger.exception(f"Error processing alert data from MongoDB: ")
 
     folium.LayerControl().add_to(my_map)
     map_js = my_map.get_root().render()
@@ -370,9 +369,9 @@ def generate_map_data(future_days=14,  page = 1, page_size = 100000, total_alert
                 redis_client.setex('map_data', 7200, json.dumps(map_data))    # Run every two hours
            celery_app_logger.info("Map data update successful, sent via socketio.")
         else:
-           celery_logger.error("Map data update failed via SocketIO.")
+           celery_app_logger.error("Map data update failed via SocketIO.")
     except requests.exceptions.RequestException as e:
-       celery_logger.exception(f"Error sending request to : ")
+       celery_app_logger.exception(f"Error sending request to : ")
 
     return map_data
 @app.task(name='find_matching_owa_alerts_task')
@@ -430,7 +429,7 @@ def find_matching_owa_alerts(wag_zone_geometry, future_days=14):
                                  'id': alert['id']
                              })
                     except (KeyError, TypeError) as e:
-                        celery_logger.exception(f"Error processing cached alert data: ")
+                        celery_app_logger.exception(f"Error processing cached alert data: ")
                         continue
                 return formatted_alerts
             except json.JSONDecodeError:
@@ -534,7 +533,7 @@ def find_matching_owa_alerts(wag_zone_geometry, future_days=14):
 
                     })
                 except (KeyError, TypeError, IndexError) as e:
-                    celery_logger.exception(f"Error processing alert data from MongoDB: {e}")
+                    celery_app_logger.exception(f"Error processing alert data from MongoDB: {e}")
                     continue
             return formatted_alerts
 
@@ -566,7 +565,7 @@ def calculate_center(geometry):
             celery_app_logger.info(f"Invalid GeoJSON type. Type: {shape_obj.geom_type}")
             return None, None
     except Exception as e:
-       celery_logger.exception(f"Error calculating center: ")
+       celery_app_logger.exception(f"Error calculating center: ")
        return None, None
 
 def send_email(recipient_email, subject, body, mail_server, mail_port, mail_username, mail_password):
@@ -582,7 +581,7 @@ def send_email(recipient_email, subject, body, mail_server, mail_port, mail_user
             server.send_message(msg)
         return True
     except Exception as e:
-        celery_logger.error(f"Error sending email: {e}")
+        celery_app_logger.error(f"Error sending email: {e}")
         return False
 
 
@@ -672,10 +671,10 @@ def send_alert_notification_zone_creation_email(email_data, mail_server, mail_po
             if success:
                 celery_app_logger.info(f"Alert zone creation email sent to  for alert ID: {alert_id}")
             else:
-                celery_logger.error(f"Failed to send alert zone creation email to {recipient} for alert ID: {alert_id}")
+                celery_app_logger.error(f"Failed to send alert zone creation email to {recipient} for alert ID: {alert_id}")
 
     except Exception as e:
-        celery_logger.exception(f"Error in send_alert_notification_zone_creation_email: {e}")
+        celery_app_logger.exception(f"Error in send_alert_notification_zone_creation_email: {e}")
 
 
 def calculate_zoom_level(geometry, image_size=(400, 400)):
@@ -714,7 +713,7 @@ def calculate_zoom_level(geometry, image_size=(400, 400)):
         return adjusted_zoom
 
     except Exception as e:
-        celery_logger.exception(f"Error calculating zoom level: ")
+        celery_app_logger.exception(f"Error calculating zoom level: ")
         return 7  # Return a default value
 
 
@@ -753,7 +752,7 @@ def create_map_image_url(center_lat, center_lon, geojson_str, api_key, color):
             return map_url
 
     except Exception as e:
-        celery_logger.error(f"Error creating map URL: {e}")
+        celery_app_logger.error(f"Error creating map URL: {e}")
     return None
 
 @app.task(name='send_weather_alert')
@@ -873,7 +872,7 @@ def send_weather_alert(user_email, owa_alert, wag_alert_id):
 
 
     except Exception as e:
-        celery_logger.error(f"Error in send_weather_alert: {e}")
+        celery_app_logger.error(f"Error in send_weather_alert: {e}")
 
 
 @app.task(name='check_for_and_send_alerts')
@@ -1018,8 +1017,8 @@ def send_weather_alert_email(user_email, subject, body, MAIL_SERVER, MAIL_PORT, 
                     )
 
         except smtplib.SMTPException as e:
-            celery_logger.error(f"SMTP error sending weather alert email to : {e}")
+            celery_app_logger.error(f"SMTP error sending weather alert email to : {e}")
         except pymongo.errors.PyMongoError as e:
-            celery_logger.error(f"Database error updating notification status: {e}")
+            celery_app_logger.error(f"Database error updating notification status: {e}")
         except Exception as e:
-            celery_logger.exception(f"Unexpected error sending weather alert email to : {e}")
+            celery_app_logger.exception(f"Unexpected error sending weather alert email to : {e}")
