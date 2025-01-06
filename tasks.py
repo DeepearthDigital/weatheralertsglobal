@@ -2,6 +2,7 @@
 # Patch gevent *before* Flask and SocketIO
 from gevent import monkey
 monkey.patch_all()
+import geventwebsocket
 import certifi
 from celery import Celery
 import smtplib
@@ -990,7 +991,9 @@ def process_matching_alerts(matching_alerts, user, user_email):
             # Get existing alerts
             sent_alert_ids = [alert.get("id") for alert in user.get("owa_alerts", [])]
 
-            # Determine new alerts
+            #  check if matching_alerts is None. If so, assign an empty list instead.
+            if matching_alerts is None:
+                matching_alerts = []
             new_alerts = [alert for alert in matching_alerts if alert["id"] not in sent_alert_ids]
 
             num_alerts = len(new_alerts)

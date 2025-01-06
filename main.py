@@ -2,6 +2,7 @@
 # Patch gevent *before* Flask and SocketIO
 from gevent import monkey
 monkey.patch_all()
+import geventwebsocket
 import certifi
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
@@ -31,6 +32,12 @@ from redis.exceptions import ConnectionError
 from celery import Celery
 from flask_socketio import SocketIO, emit, send
 import gevent
+import os
+import logging
+import asyncio
+import aiohttp
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 
 load_dotenv()
 
@@ -43,9 +50,9 @@ s = URLSafeTimedSerializer(os.environ.get('SERIALIZER_SECRET'))
 print('Request from: ', os.environ.get('CORS_ALLOWED_ORIGINS')) # test call.
 cors_origins = os.environ.get('CORS_ALLOWED_ORIGINS')
 if cors_origins == '*':
-    socketio = SocketIO(app, cors_allowed_origins='*')
+    socketio = SocketIO(app, cors_allowed_origins='*', max_http_buffer_size=1024*1024)
 else:
-    socketio = SocketIO(app, cors_allowed_origins=cors_origins)
+    socketio = SocketIO(app, cors_allowed_origins=cors_origins, max_http_buffer_size=1024*1024)
 
 # Create a logger for Celery tasks
 app_logger = logging.getLogger('app')
