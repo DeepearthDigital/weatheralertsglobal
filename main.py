@@ -3,6 +3,7 @@
 from gevent import monkey
 monkey.patch_all()
 import geventwebsocket
+import gevent
 import certifi
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
@@ -31,13 +32,9 @@ import redis
 from redis.exceptions import ConnectionError
 from celery import Celery
 from flask_socketio import SocketIO, emit, send
-import gevent
-import os
 import logging
 import asyncio
 import aiohttp
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
 
 load_dotenv()
 
