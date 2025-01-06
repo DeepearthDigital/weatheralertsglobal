@@ -27,7 +27,7 @@ Go to the "Variables" tab, where you can set environment variables that will be 
 
 Terminal run for Celery and Main (Pycharm or GCP):
 celery -A tasks worker --loglevel=info
-celery -A tasks beat --loglevel=INFO
+celery -A tasks worker --loglevel=info --concurrency=10 -P gevent
 
 
 gunicorn -b :8080 main:app --worker-class gevent
@@ -35,6 +35,7 @@ gunicorn -b 0.0.0.0:8080 main:app --worker-class gevent -w 5
 
 THIS ONE!
 gunicorn -k geventwebsocket.gunicorn.workers.GeventWebSocketWorker -w 1 main:app -b 0.0.0.0:8080
+gunicorn -k geventwebsocket.gunicorn.workers.GeventWebSocketWorker -w 5 main:app -b 0.0.0.0:8080
 
 gunicorn -b 0.0.0.0:8080 main:app --worker-class gevent
 

@@ -79,15 +79,9 @@ celery_app_logger.setLevel(logging.INFO)
 
 # Truncate the log file at the start
 log_file_path = 'celery_app.log'
-'''if os.path.exists(log_file_path):
+if os.path.exists(log_file_path):
     with open(log_file_path, 'w'):
         pass  # Simply open the file in write mode and immediately close it; this truncates it.
-        
-
-with open('logging.yaml', 'r') as f:
-    config = yaml.safe_load(f.read())
-    logging.config.dictConfig(config)
-    '''
 
 # Create a file handler for Celery task logs
 file_handler = logging.handlers.RotatingFileHandler(log_file_path, maxBytes=10 * 1024 * 1024,
@@ -102,13 +96,22 @@ formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(filename)s - %(li
 stream_handler.setFormatter(formatter)
 celery_app_logger.addHandler(stream_handler)
 
-# Update the celery config
 celery_config = {
     "worker_log_format": '[%(asctime)s: %(levelname)s/%(processName)s] %(message)s',
     "worker_task_log_format": '[%(asctime)s: %(levelname)s/%(processName)s] %(message)s',
     "log_level": "INFO",
-    "task_default_queue": "default",
-    "worker_hijack_root_logger": False
+    "task_default_queue": "celery",
+    "worker_hijack_root_logger": False,
+    'task_routes': {
+        'tasks.generate_map_data_task': {'queue': 'celery-map-data'},
+        'tasks.populate_map_data_if_needed': {'queue': 'celery-map-data'},
+        'tasks.find_matching_owa_alerts_task': {'queue': 'celery-alert-matching'},
+        'tasks.process_matching_alerts': {'queue': 'celery-alert-processing'},
+        'tasks.check_for_and_send_alerts': {'queue': 'celery-alert-processing'},
+        'tasks.send_alert_notification_zone_creation_email': {'queue': 'celery-email'},
+        'tasks.send_weather_alert': {'queue': 'celery-email'},
+        'tasks.send_weather_alert_email': {'queue': 'celery-email'},
+    },
 }
 
 

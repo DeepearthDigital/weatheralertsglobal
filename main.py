@@ -29,6 +29,7 @@ from celery import Celery
 from flask_socketio import SocketIO, emit, send
 import gevent
 
+
 load_dotenv()
 # Patch gevent *before* Flask and SocketIO
 from gevent import monkey
