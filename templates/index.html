@@ -30,6 +30,8 @@
     <div id="login-welcome">
       <div id="app-title">
         <h1>Weather Alerts Global</h1>
+		  <p>Version Beta 1.0</p>
+		  <p>Need help? Send our helpdesk an e-mail support@weatheralerts.global</p>
       </div>
       <h2>Welcome, {{ current_user.first_name }}!</h2>
       <div id="alert-count">
@@ -223,7 +225,7 @@ hamburgerButton.addEventListener('click', () => {
       `<b>End:</b> ${moment.unix(alert.end).format('YYYY-MM-DD HH:mm:ss UTC')}<br>` +
       `<b>Sender:</b> ${alert.sender}<br>` +
 `<div class="underline"><h3>Description</h3></div><span class='description-text'>${alert.description}</span>` +
-  (alert.language !== 'en-GB' && alert.language !== 'en-US' && alert.language !== 'en-JM' ?
+  (alert.language !== 'en' && alert.language !== 'en-GB' && alert.language !== 'en-US' && alert.language !== 'en-JM' ?
     `<br><button type="submit" class="btn btn-primary h-spaced-buttons translate">Translate to EN</button>` : "") +
 `</div>`;
   }
@@ -880,22 +882,24 @@ function createAlertZonePopupContent(alert) {
 
     return `<div class="my-tooltip"><h3><b>Alert Zone Name:</b> ${alert.alert_name}</h3><p><b>Alert Zone Description:</b> ${alert.alert_description}</p></div>` + emailAlertToggle + retrieveButton + deleteButton;
 }
-    map.on('popupopen', function(e) {
-    const popup = e.popup;
-    const popupContent = popup.getElement();
-    const retrieveButton = popupContent.querySelector('.retrieve-alert-button');
-    const deleteButton = popupContent.querySelector('.delete-alert-button');
-    const layer = e.popup._source;
-    const alertId = layer.alertId;
+map.on('popupopen', function(e) {
+  const popup = e.popup;
+  const popupContent = popup.getElement();
+  const retrieveButton = popupContent.querySelector('.retrieve-alert-button');
+  const deleteButton = popupContent.querySelector('.delete-alert-button');
+  const layer = e.popup._source;
+  const alertId = layer.alertId;
+    
+  
+  if (layer.alertZone) { //Check if it's an alert zone popup.
 
-    console.log("Current alerts:", alerts);
+     console.log("Current alerts:", alerts);
 
     //Initialize switchery for any new popups
-     let elems = Array.prototype.slice.call(popupContent.querySelectorAll('.email-alerts-popup'));
-     elems.forEach(function(html) {
-       var switchery = new Switchery(html);
-     });
-
+    let elems = Array.prototype.slice.call(popupContent.querySelectorAll('.email-alerts-popup'));
+    elems.forEach(function(html) {
+      var switchery = new Switchery(html, { color: '#1AB394', size: 'small' });
+    });
 
      // Get and Set Email alert state.
     const emailAlertSwitch = popupContent.querySelector('.email-alerts-popup');
@@ -918,7 +922,7 @@ function createAlertZonePopupContent(alert) {
              console.error("Error fetching email alert state:", status, errorThrown, xhr);
           }
        });
-
+}
 
 	if (retrieveButton) {
 		retrieveButton.addEventListener('click', function() {

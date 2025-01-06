@@ -506,11 +506,21 @@ def index():
                         task = celery_app.send_task('populate_map_data_if_needed')
                         redis_client.set('map_data_task_id', task.id)
                         app_logger.info(f"Triggered map data generation, task id: {task.id}")
-                else:
-                    app_logger.warning(
-                        "Previous task failed.")  # Handle task failure (e.g., retry or display an error)
+                elif async_result.state == 'FAILURE':
+                    app_logger.error(f"Previous task failed with traceback: {async_result.traceback}")
                     flash("Error generating map data. Please try again later.")
                     loading = False  # Ensure loading is false
+                    redis_client.delete('map_data_task_id') # Clear out the task_id
+                    # Optionally trigger a new task here
+                    task = celery_app.send_task('populate_map_data_if_needed')
+                    redis_client.set('map_data_task_id', task.id)
+                    app_logger.info(f"Triggered new map data generation, task id: {task.id}")
+                else:
+                    app_logger.warning(
+                        f"Previous task in unknown state: {async_result.state}")  # Handle task failure (e.g., retry or display an error)
+                    flash("Error generating map data. Please try again later.")
+                    loading = False  # Ensure loading is false
+                    redis_client.delete('map_data_task_id') # Clear out the task_id
             else:
                 app_logger.info("Map data not found in Redis. Generating...")
                 loading = True
@@ -766,7 +776,7 @@ def get_alerts_for_zone():
             alerts_data.append(alert)
 
         # Cache data before sending to the user.
-        redis_client.setex(cache_key, 3600, json.dumps(alerts_data))  # Store for 1 hour
+        redis_client.setex(cache_key, 7200, json.dumps(alerts_data))  # Store for 2 hours
         app_logger.info(f"Returning {len(alerts_data)} alerts and saving with key: ")
         return jsonify({"alerts": alerts_data})
     except Exception as e:
@@ -836,7 +846,7 @@ def map_data_callback():
         data = request.get_json()  # Get the json data
         if data and 'map_data' in data:
             map_data = data['map_data']
-            app_logger.info(f"map_data received: {map_data}")
+            app_logger.info(f"map_data has been received")
             # Retrieve existing map data from redis.
             existing_map_data_json = redis_client.get('map_data')
             if existing_map_data_json:
@@ -952,6 +962,10 @@ def send_alert_snapshots():
         app_logger.exception("Error in send_alert_snapshots:")
         return jsonify({"error": f"Error sending alert snapshots: {str(e)}"}), 500
 
+'''
+
+#Something for further development, the Mongo DB Change Sream which adds live alerts as they are recieved. Also need to adapt the map generation or create generate_partial_map_data_task
+
 def start_change_stream():
     try:
         app_logger.info("Starting MongoDB Change Stream")
@@ -972,9 +986,18 @@ def watch_for_owa_changes():
          change_stream = collection.watch(full_document="updateLookup")  # Initialize change stream
          for change in change_stream:
              if change['operationType'] in ['insert', 'update']:
-                     celery_app.send_task('generate_partial_map_data_task', args=[change['fullDocument']]) # Changed to new partial task
-                     # Add this line to trigger alerts after an alert is updated.
-                     celery_app.send_task('check_for_and_send_alerts')
+                full_document = change['fullDocument']
+                # Convert any ObjectId values to strings before sending to celery
+                if full_document and isinstance(full_document, dict):
+                    full_document_stringified = {
+                        key: str(value) if isinstance(value, ObjectId) else value
+                            for key, value in full_document.items()
+                    }
+                    celery_app.send_task('generate_partial_map_data_task', args=[full_document_stringified])  # Send stringified doc
+                else:
+                    celery_app.send_task('generate_partial_map_data_task', args=[full_document])  # Send as is if not dict
+                # Add this line to trigger alerts after an alert is updated.
+                celery_app.send_task('check_for_and_send_alerts')
 
  except pymongo_errors.PyMongoError as e:
       app_logger.error(f"MongoDB error in change stream: ")
@@ -982,6 +1005,7 @@ def watch_for_owa_changes():
       app_logger.exception(f"Error in MongoDB change stream: ")
 
 start_change_stream()
+'''
 
 def scheduled_task():
     try:
@@ -1010,7 +1034,6 @@ scheduler.add_job(scheduled_task, 'interval', seconds=7200)  # Run two hours
 
 def shutdown_scheduler():
     try:
-        scheduler_running.wait() #Wait for the scheduler to start
         scheduler.shutdown(wait=True) #Gracefully shutdown
         app_logger.info("Scheduler shut down successfully.")
     except Exception as e:
@@ -1023,14 +1046,13 @@ def close_mongo_connection():
     except Exception as e:
         app_logger.info(f"Error closing MongoDB connection: ")
 
+Thread(target=start_scheduler, daemon=True).start() #Daemon thread so it doesn't block app shutdown.
 atexit.register(close_mongo_connection)
 atexit.register(shutdown_scheduler)
-#Thread(target=start_scheduler, daemon=True).start() #Daemon thread so it doesn't block app shutdown.
 
 if __name__ == '__main__':
     #socketio.run(app, debug=False) # or app.run(debug=False, host='0.0.0.0', port=5000)
     #socketio.run(app, debug=False, allow_unsafe_werkzeug=True, host='0.0.0.0', port=8080)
     # Make sure to run Deployment using Gunicorn (Recommended for Production)
     #socketio.run(app, debug=False, allow_unsafe_werkzeug=True) # or app.run(debug=False, host='0.0.0.0', port=5000)
-    Thread(target=start_scheduler, daemon=True).start() # Start the scheduled tasks.
     pass
