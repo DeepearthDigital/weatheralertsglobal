@@ -1,0 +1,26 @@
+ version: 1
+ formatters:
+   brief:
+     format: '[%(asctime)s: %(levelname)s] %(message)s'
+   full:
+     format: '[%(asctime)s: %(levelname)s/%(processName)s] %(filename)s - %(lineno)d - %(message)s - %(exc_info)s'
+ handlers:
+   console:
+     class: logging.StreamHandler
+     level: INFO
+     formatter: full
+   file:
+     class: logging.handlers.RotatingFileHandler
+     level: INFO
+     formatter: full
+     filename: celery_app.log
+     maxBytes: 10485760 # 10MB
+     backupCount: 5
+ loggers:
+   celery_app:
+     level: INFO
+     handlers: [console, file] # console and file
+     propagate: no
+ root:
+   level: INFO
+   handlers: [console] # console only

@@ -903,19 +903,16 @@ def update_user_email_alert_state():
         email_alerts_enabled = data['email_alerts_enabled']
 
         # Update the user's email_alerts_enabled setting in MongoDB
-        with MongoClient(MONGODB_URI, tlsCAFile=certifi.where()) as client:
-            db = client[WAG_DATABASE_NAME]
-            collection = db[WAG_USER_ALERTS_NOTIFICATION_ZONE_COLLECTION_NAME]
-            result = collection.update_one({"_id": ObjectId(user_id)}, {"$set": {"email_alerts_enabled": email_alerts_enabled}})
-            if result.modified_count == 1:
-                # Check if email alerts is enabled, and if so trigger a scan and send.
-                if email_alerts_enabled:
-                    app_logger.info(f"Email alerts enabled for user . Starting send alerts.")
-                    task = celery_app.send_task('check_for_and_send_alerts') # Call the function via Celery, and get a task id.
-                    return jsonify({"message": "User email alert state updated successfully", "task_id": task.id}), 200
-                return jsonify({"message": "User email alert state updated successfully"}), 200
-            else:
-                return jsonify({"error": "User not found or state not updated"}), 404
+        result = wag_user_alerts_notification_zone_collection.update_one({"_id": ObjectId(user_id)}, {"$set": {"email_alerts_enabled": email_alerts_enabled}})
+        if result.modified_count == 1:
+            # Check if email alerts is enabled, and if so trigger a scan and send.
+            if email_alerts_enabled:
+                app_logger.info(f"Email alerts enabled for user . Starting send alerts.")
+                task = celery_app.send_task('check_for_and_send_alerts') # Call the function via Celery, and get a task id.
+                return jsonify({"message": "User email alert state updated successfully", "task_id": task.id}), 200
+            return jsonify({"message": "User email alert state updated successfully"}), 200
+        else:
+            return jsonify({"error": "User not found or state not updated"}), 404
     except pymongo_errors.PyMongoError as e:
         app_logger.error(f"Database error updating user email alert state: {e}")
         return jsonify({"error": "Database error"}), 500

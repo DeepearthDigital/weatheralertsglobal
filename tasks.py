@@ -27,6 +27,7 @@ import geojson
 import math
 from celery.schedules import crontab
 from celery.result import AsyncResult
+import logging.config
 
 load_dotenv()
 
@@ -78,9 +79,15 @@ celery_app_logger.setLevel(logging.INFO)
 
 # Truncate the log file at the start
 log_file_path = 'celery_app.log'
-if os.path.exists(log_file_path):
+'''if os.path.exists(log_file_path):
     with open(log_file_path, 'w'):
         pass  # Simply open the file in write mode and immediately close it; this truncates it.
+        
+
+with open('logging.yaml', 'r') as f:
+    config = yaml.safe_load(f.read())
+    logging.config.dictConfig(config)
+    '''
 
 # Create a file handler for Celery task logs
 file_handler = logging.handlers.RotatingFileHandler(log_file_path, maxBytes=10 * 1024 * 1024,
@@ -480,9 +487,6 @@ def find_matching_owa_alerts(wag_zone_geometry, future_days=14):
                 celery_app_logger.error("Error decoding cached map data from Redis.")
                 # Fallback to database query if we cannot use cached data.
 
-        with MongoClient(MONGODB_URI, tlsCAFile=certifi.where()) as client:
-            db = client[WAG_DATABASE_NAME]
-            owa_collection = db[OWA_COLLECTION_NAME]
             cursor = owa_collection.aggregate([
                 {
                     "$match": {
@@ -697,25 +701,22 @@ def send_alert_notification_zone_creation_email(email_data, mail_server, mail_po
         success = send_email(recipient, "Active Alert Notification Zone Created", body, mail_server, mail_port,
                              mail_username, mail_password)
 
-        with MongoClient(MONGODB_URI, tlsCAFile=certifi.where()) as client:
-            db = client[WAG_DATABASE_NAME]
-            collection = db[WAG_USER_ALERTS_NOTIFICATION_ZONE_COLLECTION_NAME]
-            collection.update_one(
-                {"_id": ObjectId(alert_id)},
-                {
-                    "$push": {
-                        "notifications": {
-                            "type": "alert_zone_creation",
-                            "timestamp": datetime.now(tz=timezone.utc),
-                            "sent": success
-                        }
+        wag_user_alerts_notification_zone_collection.update_one(
+            {"_id": ObjectId(alert_id)},
+            {
+                "$push": {
+                    "notifications": {
+                        "type": "alert_zone_creation",
+                        "timestamp": datetime.now(tz=timezone.utc),
+                        "sent": success
                     }
                 }
-            )
-            if success:
-                celery_app_logger.info(f"Alert zone creation email sent to  for alert ID: {alert_id}")
-            else:
-                celery_app_logger.error(f"Failed to send alert zone creation email to {recipient} for alert ID: {alert_id}")
+            }
+        )
+        if success:
+            celery_app_logger.info(f"Alert zone creation email sent to  for alert ID: {alert_id}")
+        else:
+            celery_app_logger.error(f"Failed to send alert zone creation email to {recipient} for alert ID: {alert_id}")
 
     except Exception as e:
         celery_app_logger.exception(f"Error in send_alert_notification_zone_creation_email: {e}")
@@ -804,115 +805,112 @@ def send_weather_alert(user_email, owa_alert, wag_alert_id):
     """Sends a weather alert email to a user."""
     try:
         # Fetch alert zone details
-        with MongoClient(MONGODB_URI, tlsCAFile=certifi.where()) as client:
-            db = client[WAG_DATABASE_NAME]
-            collection = db[WAG_USER_ALERTS_NOTIFICATION_ZONE_COLLECTION_NAME]
-            zone = collection.find_one({"_id": ObjectId(wag_alert_id)}, {"alert_name": 1, "alert_description": 1})
+            zone = wag_user_alerts_notification_zone_collection.find_one({"_id": ObjectId(wag_alert_id)}, {"alert_name": 1, "alert_description": 1})
             alert_name = zone.get('alert_name', 'N/A') if zone else 'N/A'
             alert_description = zone.get('alert_description', 'N/A') if zone else 'N/A'
 
-        # Extract relevant information from the owa_alert.
-        msg_type = owa_alert.get('msg_type', 'N/A')
-        categories = ", ".join(owa_alert.get('categories', [])) or 'N/A'
-        urgency = owa_alert.get('urgency', 'N/A')
-        severity = owa_alert.get('severity', 'N/A')
-        certainty = owa_alert.get('certainty', 'N/A')
-        start_timestamp = owa_alert.get('start', 'N/A')
-        end_timestamp = owa_alert.get('end', 'N/A')
-        sender = owa_alert.get('sender', 'N/A')
-        description_data = owa_alert.get('description', [])
-        description_text = ""
-        if description_data:
-            if isinstance(description_data, list):
-                description_text = description_data[0].get('headline', 'N/A')
+            # Extract relevant information from the owa_alert.
+            msg_type = owa_alert.get('msg_type', 'N/A')
+            categories = ", ".join(owa_alert.get('categories', [])) or 'N/A'
+            urgency = owa_alert.get('urgency', 'N/A')
+            severity = owa_alert.get('severity', 'N/A')
+            certainty = owa_alert.get('certainty', 'N/A')
+            start_timestamp = owa_alert.get('start', 'N/A')
+            end_timestamp = owa_alert.get('end', 'N/A')
+            sender = owa_alert.get('sender', 'N/A')
+            description_data = owa_alert.get('description', [])
+            description_text = ""
+            if description_data:
+                if isinstance(description_data, list):
+                    description_text = description_data[0].get('headline', 'N/A')
+                else:
+                    description_text = description_data
+            language = owa_alert.get('language', 'N/A')
+            event = owa_alert.get('event', 'N/A')
+            headline = owa_alert.get('headline', 'N/A')
+            instruction = owa_alert.get('instruction', 'N/A')
+            color = owa_alert.get('color', '#313131')
+            geometry = owa_alert.get('geometry')
+            if geometry:
+                celery_app_logger.info(f"Geometry found: ")  # Check what the geometry is
+                try:
+                    geojson.loads(json.dumps(geometry))
+                    celery_app_logger.info("Geometry is valid")
+                except Exception as e:
+                    celery_app_logger.info(f"Error validating geometry: {e}")
             else:
-                description_text = description_data
-        language = owa_alert.get('language', 'N/A')
-        event = owa_alert.get('event', 'N/A')
-        headline = owa_alert.get('headline', 'N/A')
-        instruction = owa_alert.get('instruction', 'N/A')
-        color = owa_alert.get('color', '#313131')
-        geometry = owa_alert.get('geometry')
-        if geometry:
-            celery_app_logger.info(f"Geometry found: ")  # Check what the geometry is
-            try:
-                geojson.loads(json.dumps(geometry))
-                celery_app_logger.info("Geometry is valid")
-            except Exception as e:
-                celery_app_logger.info(f"Error validating geometry: {e}")
-        else:
-            celery_app_logger.info("No geometry found")
+                celery_app_logger.info("No geometry found")
 
-        # Generate Map URL
-        map_url = None
-        if geometry:
-            center_lat, center_lon = calculate_center(geometry)
-            map_url = create_map_image_url(center_lat, center_lon, json.dumps(geometry), GOOGLE_MAPS_API_KEY, color)
+            # Generate Map URL
+            map_url = None
+            if geometry:
+                center_lat, center_lon = calculate_center(geometry)
+                map_url = create_map_image_url(center_lat, center_lon, json.dumps(geometry), GOOGLE_MAPS_API_KEY, color)
 
-        # Construct the email body with the extracted content.
-        subject = "Weather Alert!"
-        body = f"""
-        <html>
-        <head>
-            <style>
-                @import url('https://fonts.googleapis.com/css2?family=Parkinsans:wght@300..800&display=swap');
-
-                body {{
-                    font-family: 'Parkinsans', sans-serif;
-                    font-optical-sizing: auto;
-                    font-weight: 300;
-                    font-style: normal;
-                    font-size: 14px;
-                    color: #000000;
-                    line-height: 1.5;
-                }}
-
-                .alert-container {{
-                    border: 15px solid {color}; /* Dynamic border color */
-                    border-radius: 10px;
-                    padding: 15px;
-                    margin: 10px;
-                    background-color: #FFFFFF;
-
-                }}
-                .alert-header {{
-                    color: {color}; /* Dynamic header color to match border */
-                    font-size: 1.2em;
-                    margin-bottom: 10px;
-                }}
-                .alert-item {{
-                    margin-bottom: 5px;
-                }}
-                .bold {{
-                    font-weight: bold;
-                }}
-            </style>
-        </head>
-        <body>
-                <div class="alert-container">
-                    <h2 class="alert-header">A weather alert has been issued affecting your zone:</h2>
-                    <div class="alert-item"><span class="bold"><b>Alert Zone Name:</b></span> {alert_name}</div>
-                    <div class="alert-item"><span class="bold"><b>Alert Zone Description:</b></span> {alert_description}</div>
-                    <h2 class="alert-header">{headline if headline else "N/A"}</h2>
-                    {f'<div class="alert-item"><img src="{map_url}" alt="Map of OWA Alert"></div>' if map_url else ''}
-                    <div class="alert-item"><span class="bold"><b>Message Type:</b></span> {msg_type if msg_type else "N/A"}</div>
-                    <div class="alert-item"><span class="bold"><b>Categories:</b></span> {categories if categories else "N/A"}</div>
-                    <div class="alert-item"><span class="bold"><b>Urgency:</b></span> {urgency if urgency else "N/A"}</div>
-                    <div class="alert-item"><span class="bold"><b>Severity:</b></span> {severity if severity else "N/A"}</div>
-                    <div class="alert-item"><span class="bold"><b>Certainty:</b></span> {certainty if certainty else "N/A"}</div>
-                    <div class="alert-item"><span class="bold"><b>Start Time:</b></span> {datetime.fromtimestamp(start_timestamp).strftime('%Y-%m-%d %H:%M:%S UTC') if start_timestamp != 'N/A' else 'N/A'}</div>
-                    <div class="alert-item"><span class="bold"><b>End Time:</b></span> {datetime.fromtimestamp(end_timestamp).strftime('%Y-%m-%d %H:%M:%S UTC') if end_timestamp != 'N/A' else 'N/A'}</div>
-                    <div class="alert-item"><span class="bold"><b>Sender:</b></span> {sender if sender else "N/A"}</div>
-                    <div class="alert-item"><span class="bold"><b>Description:</b></span><br></div>
-                    <div class="alert-item"><span class="bold"><b>Language:</b></span><br> {language if language else "N/A"}</div>
-                    <div class="alert-item"><span class="bold"><b>Event:</b></span><br> {event if event else "N/A"}</div>
-                    <div class="alert-item"><span class="bold"><b>Headline:</b></span><br> {headline if headline else "N/A"}</div>
-                    <div class="alert-item"><span class="bold"><b>Instruction:</b></span><br> {instruction if instruction else "N/A"}</div>
-                </div>
-        </body>
-        </html>
-        """
-        send_weather_alert_email.delay(user_email, subject, body, MAIL_SERVER, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD)
+            # Construct the email body with the extracted content.
+            subject = "Weather Alert!"
+            body = f"""
+            <html>
+            <head>
+                <style>
+                    @import url('https://fonts.googleapis.com/css2?family=Parkinsans:wght@300..800&display=swap');
+    
+                    body {{
+                        font-family: 'Parkinsans', sans-serif;
+                        font-optical-sizing: auto;
+                        font-weight: 300;
+                        font-style: normal;
+                        font-size: 14px;
+                        color: #000000;
+                        line-height: 1.5;
+                    }}
+    
+                    .alert-container {{
+                        border: 15px solid {color}; /* Dynamic border color */
+                        border-radius: 10px;
+                        padding: 15px;
+                        margin: 10px;
+                        background-color: #FFFFFF;
+    
+                    }}
+                    .alert-header {{
+                        color: {color}; /* Dynamic header color to match border */
+                        font-size: 1.2em;
+                        margin-bottom: 10px;
+                    }}
+                    .alert-item {{
+                        margin-bottom: 5px;
+                    }}
+                    .bold {{
+                        font-weight: bold;
+                    }}
+                </style>
+            </head>
+            <body>
+                    <div class="alert-container">
+                        <h2 class="alert-header">A weather alert has been issued affecting your zone:</h2>
+                        <div class="alert-item"><span class="bold"><b>Alert Zone Name:</b></span> {alert_name}</div>
+                        <div class="alert-item"><span class="bold"><b>Alert Zone Description:</b></span> {alert_description}</div>
+                        <h2 class="alert-header">{headline if headline else "N/A"}</h2>
+                        {f'<div class="alert-item"><img src="{map_url}" alt="Map of OWA Alert"></div>' if map_url else ''}
+                        <div class="alert-item"><span class="bold"><b>Message Type:</b></span> {msg_type if msg_type else "N/A"}</div>
+                        <div class="alert-item"><span class="bold"><b>Categories:</b></span> {categories if categories else "N/A"}</div>
+                        <div class="alert-item"><span class="bold"><b>Urgency:</b></span> {urgency if urgency else "N/A"}</div>
+                        <div class="alert-item"><span class="bold"><b>Severity:</b></span> {severity if severity else "N/A"}</div>
+                        <div class="alert-item"><span class="bold"><b>Certainty:</b></span> {certainty if certainty else "N/A"}</div>
+                        <div class="alert-item"><span class="bold"><b>Start Time:</b></span> {datetime.fromtimestamp(start_timestamp).strftime('%Y-%m-%d %H:%M:%S UTC') if start_timestamp != 'N/A' else 'N/A'}</div>
+                        <div class="alert-item"><span class="bold"><b>End Time:</b></span> {datetime.fromtimestamp(end_timestamp).strftime('%Y-%m-%d %H:%M:%S UTC') if end_timestamp != 'N/A' else 'N/A'}</div>
+                        <div class="alert-item"><span class="bold"><b>Sender:</b></span> {sender if sender else "N/A"}</div>
+                        <div class="alert-item"><span class="bold"><b>Description:</b></span><br></div>
+                        <div class="alert-item"><span class="bold"><b>Language:</b></span><br> {language if language else "N/A"}</div>
+                        <div class="alert-item"><span class="bold"><b>Event:</b></span><br> {event if event else "N/A"}</div>
+                        <div class="alert-item"><span class="bold"><b>Headline:</b></span><br> {headline if headline else "N/A"}</div>
+                        <div class="alert-item"><span class="bold"><b>Instruction:</b></span><br> {instruction if instruction else "N/A"}</div>
+                    </div>
+            </body>
+            </html>
+            """
+            send_weather_alert_email.delay(user_email, subject, body, MAIL_SERVER, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD)
 
 
     except Exception as e:
@@ -926,54 +924,51 @@ def check_for_and_send_alerts():
 
     try:
         celery_app_logger.info("Starting check_for_and_send_alerts process")
-        with MongoClient(MONGODB_URI, tlsCAFile=certifi.where()) as client:
-            db = client[WAG_DATABASE_NAME]
-            user_collection = db[WAG_USER_ALERTS_NOTIFICATION_ZONE_COLLECTION_NAME]
 
-            users = user_collection.find({},
-                                         {"_id": 1, "user_id": 1, "email": 1, "geometry": 1,
-                                          "notifications": 1,
-                                          "email_alerts_enabled": 1, "owa_alerts": 1}).limit(100)
-            users_list = list(users)
-            celery_app_logger.info(f"Number of users found: {len(users_list)}")
+        users = wag_user_alerts_notification_zone_collection.find({},
+                                     {"_id": 1, "user_id": 1, "email": 1, "geometry": 1,
+                                      "notifications": 1,
+                                      "email_alerts_enabled": 1, "owa_alerts": 1}).limit(100)
+        users_list = list(users)
+        celery_app_logger.info(f"Number of users found: {len(users_list)}")
 
-            if not users_list:
-                celery_app_logger.info("User list is empty - Exiting")
-                return  # Exit if user list is empty
+        if not users_list:
+            celery_app_logger.info("User list is empty - Exiting")
+            return  # Exit if user list is empty
 
-            for user in users_list:
-                user_id = user["_id"]
-                user_email = user["email"]
-                wag_zone_geometry = user.get("geometry", None)
-                celery_app_logger.info(f"Processing user: {user_id}, User ID: {user.get('user_id', 'N/A')}, Geometry: {wag_zone_geometry}")
-                celery_app_logger.info(f"USER: {user}")
+        for user in users_list:
+            user_id = user["_id"]
+            user_email = user["email"]
+            wag_zone_geometry = user.get("geometry", None)
+            celery_app_logger.info(f"Processing user: {user_id}, User ID: {user.get('user_id', 'N/A')}, Geometry: {wag_zone_geometry}")
+            celery_app_logger.info(f"USER: {user}")
 
-                if user.get('email_alerts_enabled', False) == True:
-                    celery_app_logger.info(f"Email alerts enabled for user: ")
-                    if wag_zone_geometry:
-                        celery_app_logger.info(f"Finding matching alerts for user: ")
-                        # Convert _id to string
-                        user_id_str = str(user["_id"])
-                        # Extract only serializable data
-                        serializable_user = {
-                            "_id": user_id_str,
-                            "user_id": user.get("user_id", None),
-                            "email": user.get("email", None),
-                            "notifications": user.get("notifications", None),
-                            "email_alerts_enabled": user.get("email_alerts_enabled", None),
-                            "owa_alerts": user.get("owa_alerts", []),
-                        }
-                        find_matching_owa_alerts.apply_async(
-                            args=[wag_zone_geometry, 14],
-                            link=process_matching_alerts.s(serializable_user, user_email)
-                        )
+            if user.get('email_alerts_enabled', False) == True:
+                celery_app_logger.info(f"Email alerts enabled for user: ")
+                if wag_zone_geometry:
+                    celery_app_logger.info(f"Finding matching alerts for user: ")
+                    # Convert _id to string
+                    user_id_str = str(user["_id"])
+                    # Extract only serializable data
+                    serializable_user = {
+                        "_id": user_id_str,
+                        "user_id": user.get("user_id", None),
+                        "email": user.get("email", None),
+                        "notifications": user.get("notifications", None),
+                        "email_alerts_enabled": user.get("email_alerts_enabled", None),
+                        "owa_alerts": user.get("owa_alerts", []),
+                    }
+                    find_matching_owa_alerts.apply_async(
+                        args=[wag_zone_geometry, 14],
+                        link=process_matching_alerts.s(serializable_user, user_email)
+                    )
 
 
-                    else:
-                        celery_app_logger.info(f"User:  has no valid geometry defined")
                 else:
-                    celery_app_logger.info(f"Email alerts are disabled for user:  - Skipping")
-            celery_app_logger.info("Completed check_for_and_send_alerts process")
+                    celery_app_logger.info(f"User:  has no valid geometry defined")
+            else:
+                celery_app_logger.info(f"Email alerts are disabled for user:  - Skipping")
+        celery_app_logger.info("Completed check_for_and_send_alerts process")
     except Exception as e:  # Colon added here
         celery_app_logger.exception("Error in check_for_and_send_alerts:")
 
@@ -985,9 +980,6 @@ def process_matching_alerts(matching_alerts, user, user_email):
 
     try:
         # Ensure owa_alerts exists, create it if it does not
-        with MongoClient(MONGODB_URI, tlsCAFile=certifi.where()) as client:
-            db = client[WAG_DATABASE_NAME]
-            user_collection = db[WAG_USER_ALERTS_NOTIFICATION_ZONE_COLLECTION_NAME]
 
             # Get existing alerts
             sent_alert_ids = [alert.get("id") for alert in user.get("owa_alerts", [])]
@@ -1007,7 +999,7 @@ def process_matching_alerts(matching_alerts, user, user_email):
                     send_weather_alert.delay(user_email, owa_alert, user["_id"])  # Delay the task.
 
                     # Add the owa_alert to the database
-                    user_collection.update_one(
+                    wag_user_alerts_notification_zone_collection.update_one(
                         {"_id": ObjectId(user["_id"])},
                         {
                             "$push": {
@@ -1051,10 +1043,7 @@ def send_weather_alert_email(user_email, subject, body, MAIL_SERVER, MAIL_PORT, 
 
             # Update the database
             if wag_alert_id:
-                with MongoClient(MONGODB_URI, tlsCAFile=certifi.where()) as client:
-                    db = client[WAG_DATABASE_NAME]
-                    collection = db[WAG_USER_ALERTS_NOTIFICATION_ZONE_COLLECTION_NAME]
-                    collection.update_one(
+                    wag_user_alerts_notification_zone_collection.update_one(
                         {"_id": ObjectId(wag_alert_id)},
                         {"$push": {
                             "notifications": {"type": "weather_alert", "timestamp": datetime.now(timezone.utc), "sent": True}}}
