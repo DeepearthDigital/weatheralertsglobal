@@ -1,4 +1,4 @@
-FROM python:3.9-slim  # Or your preferred base image
+FROM python:3.9-slim as builder # Or your preferred base image
 
 # Set the working directory in the container
 WORKDIR /app
