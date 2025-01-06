@@ -1,4 +1,8 @@
 # tasks with Websockets
+# Patch gevent *before* Flask and SocketIO
+from gevent import monkey
+monkey.patch_all()
+import certifi
 from celery import Celery
 import smtplib
 from email.mime.text import MIMEText
@@ -9,7 +13,6 @@ from pymongo import MongoClient, errors as pymongo_errors
 import pymongo
 import os
 from dotenv import load_dotenv
-import certifi
 from bson import ObjectId
 import json
 from datetime import datetime, timezone, timedelta

@@ -1,11 +1,14 @@
 # main.py with Websockets
+# Patch gevent *before* Flask and SocketIO
+from gevent import monkey
+monkey.patch_all()
+import certifi
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from pymongo import MongoClient, errors as pymongo_errors
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
 from dotenv import load_dotenv
-import certifi
 from bson import ObjectId
 import atexit
 from threading import Thread
@@ -29,11 +32,8 @@ from celery import Celery
 from flask_socketio import SocketIO, emit, send
 import gevent
 
-
 load_dotenv()
-# Patch gevent *before* Flask and SocketIO
-from gevent import monkey
-monkey.patch_all()
+
 app = Flask(__name__)
 mail = Mail(app)
 app.secret_key = os.environ.get('SECRET_KEY')
