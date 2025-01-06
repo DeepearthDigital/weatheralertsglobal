@@ -54,7 +54,7 @@ jsonify==0.5
 kombu==5.4.2
 MarkupSafe==3.0.2
 multidict==6.1.0
-numpy==2.1.3
+numpy
 opentelemetry-api==1.29.0
 packaging==24.2
 polyline==2.0.2
