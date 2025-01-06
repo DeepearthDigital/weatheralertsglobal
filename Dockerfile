@@ -1,10 +1,10 @@
 FROM python:3.9-slim
 
 # Set the working directory in the container
-WORKDIR /app
+WORKDIR /workspace
 
 # Copy the application code into the container
-COPY . /app
+COPY . /workspace
 
 # Install dependencies (you might need to adjust this depending on your project's requirements)
 RUN pip install --no-cache-dir -r requirements.txt
