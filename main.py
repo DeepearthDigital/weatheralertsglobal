@@ -52,7 +52,7 @@ else:
     socketio = SocketIO(app, cors_allowed_origins=cors_origins, max_http_buffer_size=1024*1024)
 
 # Create a logger for Celery tasks
-app_logger = logging.getLogger('app')
+app_logger = logging.getLogger('main')
 app_logger.setLevel(logging.INFO)
 
 # Truncate the log file at the start
