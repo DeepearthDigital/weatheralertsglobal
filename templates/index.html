@@ -84,7 +84,9 @@
         <button id="createAlertButton" class="btn btn-primary h-spaced-buttons">Create Alert Zone Notification</button>
         <button id="showAlertsButton" class="btn btn-primary h-spaced-buttons">Show Active Alert Notifications Zone</button>
         <button id="deleteAllAlertsButton" class="btn btn-danger h-spaced-buttons">Delete All Active Alert Zones</button>
-        <a href="{{ url_for('logout') }}" class="btn btn-primary h-spaced-buttons">Logout</a> <a href="{{ url_for('change_password') }}" class="btn btn-primary h-spaced-buttons">Change Password</a> </div>
+		<a href="{{ url_for('change_password') }}" class="btn btn-primary h-spaced-buttons">Change Password</a> 
+        <a href="{{ url_for('logout') }}" class="btn btn-primary h-spaced-buttons">Logout</a>
+		  </div>
     </div>
     <!--  <p>Light/Dark Mode
     <input type="checkbox" class="lightdark-switch" />
@@ -130,13 +132,16 @@ const hamburgerButton = document.querySelector('.hamburger-button');
 const mobileNav = document.querySelector('.mobile-nav');
 
 hamburgerButton.addEventListener('click', () => {
-	mobileNav.classList.toggle('open');
+    mobileNav.classList.toggle('open');
 });
-	
 
-	
-
-		
+document.addEventListener('DOMContentLoaded', function() {
+    if (window.innerWidth > 768) {
+        if (!mobileNav.classList.contains('open')) {
+            mobileNav.classList.add('open');
+        }
+    }
+});
  let map; // Declare the variable here
     const fillOpacity = 0.5;
     let alertLayers = new L.FeatureGroup(); //Create the layer group at the top level
@@ -216,20 +221,27 @@ hamburgerButton.addEventListener('click', () => {
     }[alert.severity] || "#FF0000";
     return `<div class="my-tooltip" data-severity="${alert.severity}" style="border-color: ${severityColor};">` +
       `<div class="underline"><h3>Alert Details</h3></div>` +
-      `<b>Message Type:</b> ${alert.msg_type}<br>` +
-      `<b>Categories:</b> ${alert.categories.join(', ')}<br>` +
-      `<b>Urgency:</b> ${alert.urgency}<br>` +
-      `<b>Severity:</b> ${alert.severity}<br>` +
-      `<b>Certainty:</b> ${alert.certainty}<br>` +
-      `<b>Start:</b> ${moment.unix(alert.start).format('YYYY-MM-DD HH:mm:ss UTC')}<br>` +
-      `<b>End:</b> ${moment.unix(alert.end).format('YYYY-MM-DD HH:mm:ss UTC')}<br>` +
-      `<b>Sender:</b> ${alert.sender}<br>` +
+    `<p><b>Message Type:</b> ${alert.msg_type}</p>` +
+    `<p><b>Categories:</b> ${alert.categories.join(', ')}</p>` +
+    `<p><b>Urgency:</b> ${alert.urgency}</p>` +
+    `<p><b>Severity:</b> ${alert.severity}</p>` +
+    `<p><b>Certainty:</b> ${alert.certainty}</p>` +
+    `<p><b>Start:</b> ${moment.unix(alert.start).format('YYYY-MM-DD HH:mm:ss UTC')}</p>` +
+    `<p><b>End:</b> ${moment.unix(alert.end).format('YYYY-MM-DD HH:mm:ss UTC')}</p>` +
+    `<p><b>Sender:</b> ${alert.sender}</p>` +
 `<div class="underline"><h3>Description</h3></div><span class='description-text'>${alert.description}</span>` +
-  (alert.language !== 'en' && alert.language !== 'en-GB' && alert.language !== 'en-US' && alert.language !== 'en-JM' ?
-    `<br><button type="submit" class="btn btn-primary h-spaced-buttons translate">Translate to EN</button>` : "") +
-`</div>`;
+`<div style="text-align: right; margin-top: 10px;">` +
+    (alert.language !== 'en' && alert.language !== 'en-GB' && alert.language !== 'en-US' && alert.language !== 'en-JM' && alert.language !== 'en-CA' ?
+      `<button type="submit" class="btn btn-primary h-spaced-buttons translate">Translate to EN</button>` : "") +
+		`<button type="button" class="btn btn-primary h-spaced-buttons close-popup">Close Alert</button>`+
+	`</div>` +
+  `</div>`;
   }
 
+$(document).on('click', '.close-popup', function() {
+  $(this).closest('.leaflet-popup').remove();
+});
+	
 function displayAlerts(incidentAlerts, alert_name) {
 	const maxWidth = 600;
     console.log("Displaying alerts:", incidentAlerts);
@@ -382,52 +394,6 @@ displayAlerts(alerts);
      }
     }
 
-function addAlertToMap(alert) {
-    return new Promise((resolve, reject) => {
-        const geometry = alert.geometry || {};
-        const color = alert.color || 'lightblue';
-
-        if (geometry.type && geometry.coordinates && geometry.coordinates.length > 0) {
-            let leafletGeoJSON;
-            if (geometry.type === 'Polygon') {
-                leafletGeoJSON = L.polygon(geometry.coordinates[0].map(coord => [coord[1], coord[0]]), {
-                    color: '#000',
-                    weight: 2,
-                    fillColor: color,
-                    fillOpacity: 0.7
-                });
-            } else if (geometry.type === 'Point') {
-                leafletGeoJSON = L.marker([geometry.coordinates[1], geometry.coordinates[0]]);
-            } else {
-                console.warn("Unsupported geometry type:", geometry.type);
-                reject("Unsupported geometry type");
-                return;
-            }
-
-            leafletGeoJSON.bindPopup(createAlertZonePopupContent(alert), { autoClose: false, maxWidth: maxWidth });
-            leafletGeoJSON.on({
-                mouseover: function(e) {
-                    e.target.setStyle({fillOpacity: 0.9});
-                },
-                mouseout: function(e) {
-                    e.target.setStyle({fillOpacity: 0.7});
-                }
-            });
-            leafletGeoJSON.addTo(drawnItems);
-            leafletGeoJSON.alertId = alert._id;
-            leafletGeoJSON.alertData = alert;
-            leafletGeoJSON.alertZone = true; 
-            resolve();
-			 leafletGeoJSON.on('click', function(e) {
-			   console.log("Shape Clicked at :", e.target.feature.geometry);
-			   getAlertsForZone(e.target.alertData);
-			 });
-        } else {
-            console.warn("Invalid geometry data in alert:", alert);
-            reject("Invalid geometry data");
-        }
-    });
-}
 
 function getAlertsForZone(alertData) {
   const geometry = alertData.geometry;
@@ -829,7 +795,7 @@ success: function(response) {
 function addAlertToMap(alert) {
     return new Promise((resolve, reject) => {
       const geometry = alert.geometry || {};
-      const color = alert.color || 'lightblue';
+      const color = alert.color || '#9C3FFE';
 
       if (geometry.type && geometry.coordinates && geometry.coordinates.length > 0) {
        let leafletGeoJSON;
@@ -851,10 +817,10 @@ function addAlertToMap(alert) {
      leafletGeoJSON.bindPopup(createAlertZonePopupContent(alert), { autoClose: false, maxWidth: maxWidth });
      leafletGeoJSON.on({
          mouseover: function(e) {
-          e.target.setStyle({fillOpacity: 0.9});
+          e.target.setStyle({fillOpacity: 0.4});
          },
          mouseout: function(e) {
-          e.target.setStyle({fillOpacity: 0.7});
+          e.target.setStyle({fillOpacity: 0.2});
          }
       });
       leafletGeoJSON.addTo(drawnItems);
@@ -1058,6 +1024,7 @@ $('#createAlertModal').on('show.bs.modal', function (e) {
   const alertId = emailAlertSwitch.data('alert-id');
   //Get the current users saved switch state if it exists.
   $.ajax({
+    type: "GET",
     type: "GET",
     url: "/get_user_email_alert_state",
     data: { user_id: alertId },

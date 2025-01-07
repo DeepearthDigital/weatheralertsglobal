@@ -78,14 +78,14 @@ body {
   background-blend-mode: multiply;
 }
 #mapid::before {
-   content: "";
-   position: absolute;
-   top: 0;
-   left: 0;
-   right: 0;
-   bottom: 0;
-   background-color: rgba(0, 0, 0, 0.2); /*Black with opacity*/
-   z-index: 1; /* Ensure overlay is above the image but below the map tiles*/
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.2); /*Black with opacity*/
+  z-index: 1; /* Ensure overlay is above the image but below the map tiles*/
 }
 #login {
   background-color: white;
@@ -102,13 +102,13 @@ body {
 }
 #top-right-panel {
   position: absolute;
-  top: 20px;
+  top: 50px;
   left: 21px;
-  background-color: white;
   padding: 25px;
   z-index: 1000;
   display: flex;
   flex-direction: column;
+		    flex: 1; /* Allow panel to take up remaining space */
   align-items: flex-start;
   min-width: 200px;
   max-width: 400px;
@@ -119,6 +119,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 5px;
+	  margin-top: auto; /* Push buttons to the bottom */
 }
 #top-right-panel .table-container {
   overflow-x: auto; /* Enables horizontal scrolling */
@@ -164,11 +165,16 @@ body {
   line-height: 1.5;
   box-sizing: border-box;
 }
-@media (max-width: 768px) {
-    .my-tooltip {
-	  min-width: 300px;
-	  min-width: 300px;
+   .my-tooltip p {
+margin-bottom: 5px;
+margin-top: 5px;
     }
+@media (max-width: 768px) {
+  .my-tooltip {
+    min-width: 300px;
+    min-width: 300px;
+    font-size: 12px;
+  }
 }
 .my-tooltip.minor {
   border-color: #00FF00;
@@ -191,19 +197,19 @@ body {
 }
 .leaflet-popup-content-wrapper {
   width: auto;
-	min-width: 500px;
+  min-width: 500px;
   max-width: 600px;
   padding: 10px;
   overflow: auto; /* Makes the content scrollable if needed */
 }
 @media (max-width: 768px) {
   .leaflet-popup-content-wrapper {
-	  min-width: 400px;
-	  min-width: 400px;
-      padding: 10px;
-    }
+    min-width: 400px;
+    min-width: 400px;
+    padding: 10px;
+    font-size: 12px;
+  }
 }
-
 .underline {
   text-decoration: underline;
   text-decoration-thickness: 3px; /* Adjust underline thickness */
@@ -241,6 +247,39 @@ h4 {
   margin-bottom: 0.5em;
   margin-top: 0.5em;
 }
+@media (max-width: 768px) {
+  h1 {
+    font-size: 1.5em; /* Reduced size for h1 */
+  }
+  h2 {
+    font-size: 1.2em; /* Reduced size for h2 */
+  }
+  h3 {
+    font-size: 1em; /* Reduced size for h3 */
+  }
+  h4 {
+    font-size: 0.9em; /* Reduced size for h4 */
+  }
+  p {
+    font-size: 0.9em; /* Reduced font size for paragraphs */
+    line-height: 1.4; /* Slightly adjusted line-height for readability */
+  }
+}
+@media (max-width: 768px) {
+  .button-container a.btn,
+  .button-container button.btn { /* Added this line to target button elements */
+    padding: 0.25rem 0.5rem;
+    font-size: 0.9em;
+    margin-right: 10px;
+    margin-bottom: 5px;
+  }
+
+  .h-spaced-buttons {  /* Also modify if needed */
+    margin-right: 10px; /* Reduced right margin */
+    margin-top: 5px; /* Reduced top margin */
+    margin-bottom: 5px; /* Reduced bottom margin */
+  }
+}
 .hamburger-button {
   position: fixed;
   top: 20px;
@@ -258,19 +297,22 @@ h4 {
   width: 400px;
   height: 100vh;
   background: #FFFFFF;
-  border: 1px solid #000000;
-  border-radius: 10px;
-  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.25);
-  padding-top: 60px;
-  transition: right 0.3s ease; /* Changed transition direction */
+ border-width: 0px 0px 0px 20px;
+ border-style: solid;
+ border-color: #3282B8;
+  padding-top: 80px;
+  transition: right 0.5s ease; /* Changed transition direction */
   z-index: 999;
+    display: flex; /* Enable flexbox */
+    flex-direction: column; /* Stack content vertically */
 }
+
 .mobile-nav.open {
   right: 0; /* Changed from left to right */
 }
 .mobile-nav ul {
   list-style: none;
-    padding: 0;
+  padding: 0;
 }
 .mobile-nav li {
   padding: 10px 20px;
@@ -284,71 +326,89 @@ h4 {
 .mobile-nav a:hover {
   background-color: #555;
 }
-.severity-key-container {
-    display: flex;
-    flex-direction: column;
-    gap: 10px; /* Space between rows */
-    width: 100%;
+@media (max-width: 768px) {
+  .mobile-nav {
+    right: -400px; /* Ensure it is hidden on page load */
+  }
 }
+.severity-key-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* Space between rows */
+  width: 100%;
+}
+.severity-row {
+  display: flex;
+  align-items: center;
+}
+.severity-square {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 40px;
+  height: 40px;
+  margin-right: 10px;
+}
+.severity-text {
+  flex-grow: 1;
+  text-align: left;
+}
+@media (max-width: 768px) {
+  .severity-key-container {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
   .severity-row {
     display: flex;
+    flex-direction: column;
     align-items: center;
   }
   .severity-square {
+    margin-right: 0px;
+    width: 50px;
+    height: 50px;
+  }
+  .severity-text {
+    display: none; /* Hide text labels on mobile */
+  }
+}
+@media (min-width: 768px) {
+  .severity-key-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); /* Responsive grid columns */
+    gap: 10px;
+  }
+  .severity-row {
     display: flex;
-    justify-content: center;
+    flex-direction: row;
     align-items: center;
-    width: 40px;
-    height: 40px;
-    margin-right: 10px;
   }
-  .severity-text {
-    flex-grow: 1;
-    text-align: left;
-  }
-@media (max-width: 768px) {
-      .severity-key-container {
-        flex-direction: row;
-          flex-wrap: wrap;
-    }
-
-    .severity-row {
-        display: flex;
-          flex-direction: column;
-          align-items: center;
-    }
-    .severity-square {
-      margin-right: 0px;
-        width: 50px;
-        height: 50px;
-    }
-      .severity-text {
-          display: none; /* Hide text labels on mobile */
-    }
-}
- @media (min-width: 769px) {
-      .severity-key-container {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); /* Responsive grid columns */
-          gap: 10px;
-    }
-    .severity-row {
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-    }
   .severity-square {
-      width: 60px;
-      height: 60px;
+    width: 60px;
+    height: 60px;
   }
   .severity-text {
-      display: block;
+    display: block;
   }
 }
-.button-container a.btn {
-    display: inline-block;
-    padding: 0.375rem 0.75rem;  /* Same as bootstrap button padding*/
-    margin-bottom: 10px;
-    text-decoration: none;
-    margin-right: 20px;
+.button-container a.btn,
+.button-container button.btn,
+.my-tooltip .btn,
+.leaflet-popup-content-wrapper .btn {
+  display: inline-block;
+  padding: 0.375rem 0.75rem;
+  margin-bottom: 10px;
+  text-decoration: none;
+  margin-right: 20px;
+	  font-size: 14px; /* Set font size to match main buttons */
+	  line-height: 1.5; /* Set line height to match main buttons */
+    font-weight: 300; /* Ensure font weight matches main buttons */
+}
+
+.h-spaced-buttons,
+.my-tooltip .h-spaced-buttons,
+.leaflet-popup-content-wrapper .h-spaced-buttons{
+  margin-right: 20px;
+  margin-top: 10px;
+  margin-bottom: 10px;
 }

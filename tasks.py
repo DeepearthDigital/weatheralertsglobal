@@ -77,7 +77,7 @@ app = Celery('tasks',
              broker=f'redis://:{redis_cloud_password}@{redis_cloud_host}:{redis_cloud_port}/{redis_cloud_db}',
              backend=f'redis://:{redis_cloud_password}@{redis_cloud_host}:{redis_cloud_port}/{redis_cloud_db}')
 
-# Create a logger for Celery tasks
+# Create a celery_app_logger for Celery tasks
 celery_app_logger = logging.getLogger('celery_app')
 celery_app_logger.setLevel(logging.INFO)
 
@@ -315,7 +315,7 @@ def generate_map_data(future_days=14,  page = 1, page_size = 100000, total_alert
             event = description_data.get('event', 'N/A')
             headline = description_data.get('headline', 'N/A')
             instruction = description_data.get('instruction', 'N/A')
-            description = f"<b>Language:</b> {language}<br><b>Event:</b> {event} <br><b>Headline:</b> {headline}<br><b>Instruction:</b> {instruction}"
+            description = f"<p><b>Language:</b> {language}</p><br><p><b>Event:</b> {event}</p><br><p><b>Headline:</b> {headline}</p><br><p><b>Instruction:</b> {instruction}</p>"
             center_lat, center_lon = calculate_center(geometry)
 
             severity_color = {
@@ -407,7 +407,7 @@ def populate_map_data_if_needed():
                  celery_app_logger.info("Map data not found in Redis. Generating...")
                  generate_and_cache_map_data_task()
                  redis_client.delete('map_data_task_id')  # Only clear the task ID if map data was cleared.
-                 logger.info(f"Data with key 'map_data_task_id' deleted from Redis")
+                 celery_app_logger.info(f"Data with key 'map_data_task_id' deleted from Redis")
                  return
              elif expiry_time == -1:  # No expiry, which means the data is valid.
                 celery_app_logger.info(f"Map data found in Redis and it has not expired.")
@@ -415,9 +415,9 @@ def populate_map_data_if_needed():
              elif expiry_time <= 0:  # If expiry is less than or equal to 0, the data is expired.
                  celery_app_logger.info("Map data in Redis is expired. Regenerating...")
                  redis_client.delete('map_data')  # delete the expired data
-                 logger.info(f"Data with key 'map_data' deleted from Redis")
+                 celery_app_logger.info(f"Data with key 'map_data' deleted from Redis")
                  redis_client.delete('map_data_task_id')  # Only clear the task ID if map data was cleared.
-                 logger.info(f"Data with key 'map_data_task_id' deleted from Redis")
+                 celery_app_logger.info(f"Data with key 'map_data_task_id' deleted from Redis")
                  generate_and_cache_map_data_task()
                  return
     except ConnectionError as e:
