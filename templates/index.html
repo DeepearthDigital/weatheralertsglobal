@@ -30,8 +30,8 @@
     <div id="login-welcome">
       <div id="app-title">
         <h1>Weather Alerts Global</h1>
-		  <p>Version Beta 1.0</p>
-		  <p>Need help? Send our helpdesk an e-mail support@weatheralerts.global</p>
+        <p>Version Beta 1.0</p>
+        <p>Need help? Send our helpdesk an e-mail support@weatheralerts.global</p>
       </div>
       <h2>Welcome, {{ current_user.first_name }}!</h2>
       <div id="alert-count">
@@ -84,9 +84,7 @@
         <button id="createAlertButton" class="btn btn-primary h-spaced-buttons">Create Alert Zone Notification</button>
         <button id="showAlertsButton" class="btn btn-primary h-spaced-buttons">Show Active Alert Notifications Zone</button>
         <button id="deleteAllAlertsButton" class="btn btn-danger h-spaced-buttons">Delete All Active Alert Zones</button>
-		<a href="{{ url_for('change_password') }}" class="btn btn-primary h-spaced-buttons">Change Password</a> 
-        <a href="{{ url_for('logout') }}" class="btn btn-primary h-spaced-buttons">Logout</a>
-		  </div>
+        <a href="{{ url_for('change_password') }}" class="btn btn-primary h-spaced-buttons">Change Password</a> <a href="{{ url_for('logout') }}" class="btn btn-primary h-spaced-buttons">Logout</a> </div>
     </div>
     <!--  <p>Light/Dark Mode
     <input type="checkbox" class="lightdark-switch" />
@@ -229,11 +227,13 @@ document.addEventListener('DOMContentLoaded', function() {
     `<p><b>Start:</b> ${moment.unix(alert.start).format('YYYY-MM-DD HH:mm:ss UTC')}</p>` +
     `<p><b>End:</b> ${moment.unix(alert.end).format('YYYY-MM-DD HH:mm:ss UTC')}</p>` +
     `<p><b>Sender:</b> ${alert.sender}</p>` +
-`<div class="underline"><h3>Description</h3></div><span class='description-text'>${alert.description}</span>` +
-`<div style="text-align: right; margin-top: 10px;">` +
+	`<div class="underline"><h3>Description</h3></div>` +
+	`<div class="description-text"><p>${alert.description}</p></div>` +
+	`<div style="text-align: right; margin-top: 10px;">` +
     (alert.language !== 'en' && alert.language !== 'en-GB' && alert.language !== 'en-US' && alert.language !== 'en-JM' && alert.language !== 'en-CA' ?
       `<button type="submit" class="btn btn-primary h-spaced-buttons translate">Translate to EN</button>` : "") +
 		`<button type="button" class="btn btn-primary h-spaced-buttons close-popup">Close Alert</button>`+
+		
 	`</div>` +
   `</div>`;
   }
@@ -587,14 +587,15 @@ L.geoJSON(alert.geometry, {
     $('#loading-screen').addClass('hidden');
   }
 
-    function formatKeywords(text) {
-        const keywords = ["Language", "Event", "Headline", "Instruction"];
-        for (let keyword of keywords) {
-            const reg = new RegExp(`(${keyword}:)`, 'g');
-            text = text.replace(reg, '<br><b>' + '$1' + '</b>');
-        }
-        return text;
+function formatKeywords(text) {
+    const keywords = ["Language", "Event", "Headline", "Instruction"];
+    let formattedText = text;
+    for (let keyword of keywords) {
+       const reg = new RegExp(`(${keyword}:)(.*?)(\n|$)`, 'g');
+        formattedText = formattedText.replace(reg, `<p><b>$1</b> $2</p>`);
     }
+    return formattedText;
+  }
 
 
   const loading = {{ loading|tojson }};
@@ -984,17 +985,21 @@ map.on('popupopen', function(e) {
       }
     });
 
-    $(document).on('click', '.translate', function() {
-      var descriptionElement = $(this).parents('.my-tooltip').find('.description-text');
-      var text = descriptionElement.text();
-      $.get('/translate', {text: text}, function(response) {
-        if (response && response.translated_text) {
-          var formattedText = formatKeywords(response.translated_text);
-          descriptionElement.html(formattedText);
-        }
-      });
-    });
+  $(document).on('click', '.translate', function() {
+    var descriptionElement = $(this).parents('.my-tooltip').find('.description-text');
+    var text = descriptionElement.text();
 
+    if (!descriptionElement.data('translated')) {
+        $.get('/translate', {text: text}, function(response) {
+            if (response && response.translated_text) {
+            var formattedText = formatKeywords(response.translated_text);
+            descriptionElement.html(formattedText);
+            descriptionElement.data('translated', true);
+
+           }
+        });
+    }
+});
   var elems = Array.prototype.slice.call(document.querySelectorAll('.lightdark-switch'));
   elems.forEach(function(html) {
     var switchery = new Switchery(html);

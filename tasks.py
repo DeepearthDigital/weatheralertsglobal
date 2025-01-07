@@ -315,7 +315,12 @@ def generate_map_data(future_days=14,  page = 1, page_size = 100000, total_alert
             event = description_data.get('event', 'N/A')
             headline = description_data.get('headline', 'N/A')
             instruction = description_data.get('instruction', 'N/A')
-            description = f"<p><b>Language:</b> {language}</p><br><p><b>Event:</b> {event}</p><br><p><b>Headline:</b> {headline}</p><br><p><b>Instruction:</b> {instruction}</p>"
+            description = f"""
+                    <p><b>Language:</b> {language}</p>
+                    <p><b>Event:</b> {event}</p>
+                    <p><b>Headline:</b> {headline}</p>
+                    <p><b>Instruction:</b> {instruction}</p>
+            """
             center_lat, center_lon = calculate_center(geometry)
 
             severity_color = {
