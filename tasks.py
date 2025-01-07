@@ -18,8 +18,8 @@ from bson import ObjectId
 import json
 from datetime import datetime, timezone, timedelta
 import logging.handlers
-import requests  # Import requests
-import redis #Import Redis here
+import requests
+import redis
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import ssl
@@ -32,6 +32,7 @@ import math
 from celery.schedules import crontab
 from celery.result import AsyncResult
 import logging.config
+import logging
 
 load_dotenv()
 
@@ -76,6 +77,12 @@ redis_client = redis.Redis(host=redis_cloud_host, port=redis_cloud_port, passwor
 app = Celery('tasks',
              broker=f'redis://:{redis_cloud_password}@{redis_cloud_host}:{redis_cloud_port}/{redis_cloud_db}',
              backend=f'redis://:{redis_cloud_password}@{redis_cloud_host}:{redis_cloud_port}/{redis_cloud_db}')
+app.conf.update(
+    task_acks_late=True,
+    worker_prefetch_multiplier=1,
+    worker_heartbeat=20,
+    broker_heartbeat=20
+)
 
 # Create a celery_app_logger for Celery tasks
 celery_app_logger = logging.getLogger('celery_app')
@@ -87,16 +94,17 @@ if os.path.exists(log_file_path):
     with open(log_file_path, 'w'):
         pass  # Simply open the file in write mode and immediately close it; this truncates it.
 
+# Create a formatter for both file and stream handlers
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(filename)s - %(lineno)d - %(message)s - %(exc_info)s')
+
 # Create a file handler for Celery task logs
 file_handler = logging.handlers.RotatingFileHandler(log_file_path, maxBytes=10 * 1024 * 1024,
                                                     backupCount=5)  # 10MB, 5 backups
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(filename)s - %(lineno)d - %(message)s - %(exc_info)s')
 file_handler.setFormatter(formatter)
 celery_app_logger.addHandler(file_handler)
 
 # Create a stream handler for Celery task logs
 stream_handler = logging.StreamHandler()
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(filename)s - %(lineno)d - %(message)s - %(exc_info)s')
 stream_handler.setFormatter(formatter)
 celery_app_logger.addHandler(stream_handler)
 
@@ -184,7 +192,7 @@ def send_request_with_retry(url, data, max_retries=3, backoff_factor=1, status_f
         return None
 
 @app.task(name='generate_map_data_task')
-def generate_map_data(future_days=14,  page = 1, page_size = 100000, total_alerts=0):
+def generate_map_data(future_days=14,  page = 1, page_size = 3000, total_alerts=0):
     start_time = time.time()
     celery_app_logger.info(f"Generating map data task... Celery task started. QUERY_LIMIT_BATCH: , QUERY_LIMIT: , Page: {page}, Page Size: {page_size}")
     my_map = folium.Map(location=[51.4779, 0.0015], zoom_start=5)

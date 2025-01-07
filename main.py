@@ -61,12 +61,19 @@ if os.path.exists(log_file_path):
     with open(log_file_path, 'w'):
         pass  # Simply open the file in write mode and immediately close it; this truncates it.
 
+# Create a formatter for both file and stream handlers
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(filename)s - %(lineno)d - %(message)s - %(exc_info)s')
+
 # Create a file handler for Celery task logs
 file_handler = logging.handlers.RotatingFileHandler(log_file_path, maxBytes=10 * 1024 * 1024,
                                                     backupCount=5)  # 10MB, 5 backups
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(filename)s - %(lineno)d - %(message)s - %(exc_info)s')
 file_handler.setFormatter(formatter)
 app_logger.addHandler(file_handler)
+
+# Create a stream handler for Celery task logs
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(formatter)
+app_logger.addHandler(stream_handler)
 
 # Email Configuration (Use environment variables for security!)
 app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER')
