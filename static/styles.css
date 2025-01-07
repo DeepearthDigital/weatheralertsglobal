@@ -174,8 +174,8 @@ body {
 }
 @media (max-width: 768px) {
   .my-tooltip {
-    min-width: 300px;
-    min-width: 300px;
+    min-width: 200px;
+    max-width: 400px;
     font-size: 12px;
   }
 }
@@ -202,14 +202,13 @@ body {
   width: auto;
   min-width: 500px;
   max-width: 600px;
-  padding: 10px;
+  padding: 5px;
   overflow: auto; /* Makes the content scrollable if needed */
 }
 @media (max-width: 768px) {
   .leaflet-popup-content-wrapper {
-    min-width: 400px;
-    min-width: 400px;
-    padding: 10px;
+    min-width: 200px;
+    max-width: 400px;
     font-size: 12px;
   }
 }
