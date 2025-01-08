@@ -51,29 +51,36 @@ if cors_origins == '*':
 else:
     socketio = SocketIO(app, cors_allowed_origins=cors_origins, max_http_buffer_size=1024*1024)
 
-# Create a logger for Celery tasks
-app_logger = logging.getLogger('main')
+# Create a logger for the Flask app
+APP_LOGGER_NAME = 'main-weather-alerts-global'
+app_logger = logging.getLogger(APP_LOGGER_NAME)
 app_logger.setLevel(logging.INFO)
 
-# Truncate the log file at the start
-log_file_path = 'app.log'
-if os.path.exists(log_file_path):
-    with open(log_file_path, 'w'):
-        pass  # Simply open the file in write mode and immediately close it; this truncates it.
-
 # Create a formatter for both file and stream handlers
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(filename)s - %(lineno)d - %(message)s - %(exc_info)s')
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(filename)s - %(lineno)d - %(message)s')
 
-# Create a file handler for Celery task logs
-file_handler = logging.handlers.RotatingFileHandler(log_file_path, maxBytes=10 * 1024 * 1024,
-                                                    backupCount=5)  # 10MB, 5 backups
-file_handler.setFormatter(formatter)
-app_logger.addHandler(file_handler)
+# Check if running locally, if not, log to stdout only.
+if os.environ.get('ENVIRONMENT') != 'PRODUCTION':
 
-# Create a stream handler for Celery task logs
+    # Truncate the log file at the start
+    log_file_path = 'main-weather-alerts-global.log'
+    log_file_exists = os.path.exists(log_file_path)
+    if not log_file_exists:
+        with open(log_file_path, 'w'):
+             pass
+
+    # Create a file handler for local development
+    file_handler = logging.handlers.RotatingFileHandler(log_file_path, maxBytes=10 * 1024 * 1024, backupCount=5)
+    file_handler.setFormatter(formatter)
+    app_logger.addHandler(file_handler)
+
+# Create a stream handler for app logs (to stdout for both local/GCP)
 stream_handler = logging.StreamHandler()
 stream_handler.setFormatter(formatter)
 app_logger.addHandler(stream_handler)
+
+# Log that the app is started
+app_logger.info(f"Flask application logger created, logging started for {APP_LOGGER_NAME}")
 
 # Email Configuration (Use environment variables for security!)
 app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER')
@@ -497,9 +504,17 @@ def index():
             cached_task_id = redis_client.get('map_data_task_id')  # Returns None if not found
 
             if map_data_json:
-                map_data = json.loads(map_data_json)
-                app_logger.info("Retrieved map_data from Redis.")
-                loading = False
+                try:
+                    map_data = json.loads(map_data_json)
+                    app_logger.info("Retrieved map_data from Redis.")
+                    loading = False
+                except json.JSONDecodeError:
+                    app_logger.error("Error decoding map_data from redis in / route")
+                    loading = True
+                if map_data and map_data.get('alerts'):
+                    app_logger.info(f"Number of alerts found in map data: {len(map_data['alerts'])}")
+                else:
+                    app_logger.info(f"No alerts found in map data")
             elif cached_task_id:
                 app_logger.info("Task ID found in Redis, checking if running...")
                 async_result = AsyncResult(cached_task_id.decode('utf-8'), app=celery_app)
@@ -553,10 +568,13 @@ def index():
         alerts = map_data.get('alerts', [])
         map_js = map_data.get('map_js', '')
 
+        app_logger.info(f"Number of alerts sent to template: {len(alerts)}")
+
         active_alerts_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         current_date = datetime.now().strftime('%Y-%m-%d')
         alert_count, date_range = get_alert_stats(alerts)
         alert_counts = {}
+        app_logger.info(f"Alerts found for index route: {alert_count}, Date Range: {date_range}")
         for alert in alerts:
             severity = alert.get('severity', 'Unknown')  # Handle potential missing keys
             alert_counts[severity] = alert_counts.get(severity, 0) + 1
@@ -578,7 +596,9 @@ def get_alert_stats(alerts):
         latest_date = datetime.fromtimestamp(latest_start, tz=timezone.utc).strftime('%Y-%m-%d')
         date_range = f"{earliest_date} - {latest_date}"
         return len(alerts), date_range
+        app_logger.info(f"Alerts found: {len(alerts)}, Date Range: {date_range}")
     else:
+        app_logger.info(f"No alerts found")  # Added this log
         return 0, "No alerts currently displayed"
 
 
@@ -806,21 +826,56 @@ def handle_map_data():
             cached_task_id = redis_client.get('map_data_task_id')  # Returns None if not found
 
             if map_data_json:
-                map_data = json.loads(map_data_json)
-                app_logger.info("Retrieved map_data from Redis.")
-                socketio.emit('map_data_update', {'map_data': map_data}) # Ensure this line is executed
+                try:
+                    map_data = json.loads(map_data_json)
+                    cache_timestamp = None  # Initialize cache_timestamp here
+                    if isinstance(map_data,
+                                  dict) and 'map_data' in map_data:  # Check for map_data, and that its a dict.
+                        cache_timestamp = map_data.get('cache_timestamp')  # Retrieve the timestamp from the cache
+                        app_logger.info(f"Retrieved map_data from Redis with a cache timestamp of {cache_timestamp}.")
+                        socketio.emit('map_data_update',
+                                      {'map_data': map_data['map_data'], 'cache_timestamp': cache_timestamp})
+
+                    else:
+                        cache_timestamp = map_data.get('cache_timestamp')  # Retrieve the timestamp from the cache
+                        app_logger.info(
+                            f"Retrieved old style map_data from with a cache timestamp of {cache_timestamp}.")
+                        socketio.emit('map_data_update', {'map_data': map_data, 'cache_timestamp': cache_timestamp})
+
+                except json.JSONDecodeError:
+                    cache_timestamp = None  # Initialize cache_timestamp here
+                    # Attempt to get the cache timestamp from the old style object.
+                    try:
+                        map_data = json.loads(map_data_json)
+                        cache_timestamp = map_data.get('cache_timestamp')
+                    except:
+                        pass  # If we can't decode, the value stays at None.
+                    app_logger.info(
+                        f"Retrieved non JSON map_data from Redis  with a cache timestamp of {cache_timestamp}.")
+                    socketio.emit('map_data_update', {'map_data': map_data_json, 'cache_timestamp': cache_timestamp})
+
             elif cached_task_id:
                 app_logger.info("Task ID found in Redis, checking if running...")
                 async_result = AsyncResult(cached_task_id.decode('utf-8'), app=celery_app)
                 if async_result.state in ['PENDING', 'STARTED', 'RETRY']:
                     app_logger.info("Map Data task is running, setting loading screen")
                     #Do nothing, wait for task to complete
+
                 elif async_result.state == 'SUCCESS':
                     map_data_json = redis_client.get('map_data')
                     if map_data_json:
-                        map_data = json.loads(map_data_json)
-                        app_logger.info("Retrieved map_data from Redis after successful task completion")
-                        socketio.emit('map_data_update', {'map_data': map_data}) # Ensure this line is executed
+                         try:
+                            map_data = json.loads(map_data_json)
+                            if isinstance(map_data, dict) and 'map_data' in map_data:
+                                 app_logger.info("Retrieved map_data from Redis after successful task completion")
+                                 cache_timestamp = map_data.get('cache_timestamp')  # Retrieve the timestamp from the cache
+                                 socketio.emit('map_data_update', {'map_data': map_data['map_data'], 'cache_timestamp': cache_timestamp})
+                            else:
+                                  app_logger.info("Retrieved old style map_data from Redis after successful task completion")
+                                  socketio.emit('map_data_update', {'map_data': map_data, 'cache_timestamp': None})
+                         except json.JSONDecodeError:
+                             app_logger.info("Retrieved non JSON map_data from Redis after successful task completion")
+                             socketio.emit('map_data_update', {'map_data': map_data_json, 'cache_timestamp': None})
                     else:
                         app_logger.info("Redis data not found after a successful task.")
                         task = celery_app.send_task('populate_map_data_if_needed')
@@ -866,15 +921,29 @@ def map_data_callback():
                 # Add the new alerts to existing alerts, only if the page is > 1.  On the first request the whole set is overwritten.
                 if map_data['page'] > 1:
                     existing_map_data['alerts'].extend(map_data['alerts'])
-                    map_data['alerts'] = existing_map_data['alerts'] #Ensure all data is sent to the user.
+                    map_data['alerts'] = existing_map_data['alerts']  # Ensure all data is sent to the user.
                     app_logger.info(f"Added {len(map_data['alerts'])} new alerts to redis: ")
                 else:
-                     app_logger.info("This is the first page, overwriting the cache")
+                    app_logger.info("This is the first page, overwriting the cache")
+
+                # Check if cache_timestamp exists in the redis data, if not add one.
+                cache_timestamp = existing_map_data.get('cache_timestamp')
+                if not cache_timestamp:
+                    cache_timestamp = datetime.now(timezone.utc).isoformat()
+                    existing_map_data['cache_timestamp'] = cache_timestamp
+                    redis_client.setex('map_data', 7200, json.dumps({'map_data': map_data, 'cache_timestamp': cache_timestamp}))
+                else:
+                    redis_client.setex('map_data', 7200, json.dumps({'map_data': map_data, 'cache_timestamp': cache_timestamp}))
+                socketio.emit('map_data_update', {'map_data': map_data, 'cache_timestamp': cache_timestamp})  # Send the data via socketio
+                app_logger.info(f'Map data broadcasted via SocketIO, page: {map_data["page"]} of {map_data["total_pages"] if map_data.get("total_pages") else "Unknown"}')
+                return jsonify({'status': 'success', 'message': 'Map data broadcasted via SocketIO'}), 200
             else:
                  app_logger.info("No existing data in redis.")
-            socketio.emit('map_data_update', {'map_data': map_data})  # Send the data via socketio
-            app_logger.info(f'Map data broadcasted via SocketIO, page: {map_data["page"]} of {map_data["total_pages"] if map_data.get("total_pages") else "Unknown"}')
-            return jsonify({'status': 'success', 'message': 'Map data broadcasted via SocketIO'}), 200
+                 #Create a default timestamp.
+                 cache_timestamp = datetime.now(timezone.utc).isoformat()
+                 redis_client.setex('map_data', 7200, json.dumps({'map_data': map_data, 'cache_timestamp': cache_timestamp}))
+                 socketio.emit('map_data_update', {'map_data': map_data, 'cache_timestamp': cache_timestamp})
+                 return jsonify({'status': 'success', 'message': 'Map data broadcasted via SocketIO'}), 200
         else:
             app_logger.info(f'No map data found in request body. Nothing to emit')
             return jsonify({'status': 'success', 'message': 'No map data found in request body. Nothing to emit'}), 200
