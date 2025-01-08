@@ -63,7 +63,7 @@ body {
   font-optical-sizing: auto;
   font-weight: 300;
   font-style: normal;
-  font-size: 14px;
+  font-size: 16px;
   color: #000000;
 }
 #mapid {
@@ -159,10 +159,11 @@ body {
   font-optical-sizing: auto;
   font-weight: 300;
   font-style: normal;
-  font-size: 14px;
+  font-size: 16px;
   color: #000000;
   line-height: 1.5;
   box-sizing: border-box;
+  overflow-y: auto;   /* Add scrollbar when needed */
 }
 .my-tooltip p {
   margin-bottom: 10px;
@@ -227,7 +228,7 @@ body {
   margin-bottom: 10px; /* Adjust as needed */
 }
 h1 {
-  font-size: 2em; /* Size of the heading (em is relative to parent font size) */
+  font-size: 1.75em; /* Size of the heading (em is relative to parent font size) */
   font-weight: bold; /* Font weight (bold, normal, etc.) */
   text-align: center; /* Alignment of the text */
   margin-bottom: 0.5em; /* Spacing below the heading */
@@ -235,19 +236,19 @@ h1 {
 }
 h2 {
   font-size: 1.5em;
-  font-weight: normal; /* Example of different style for h2 */
+  font-weight: bold; /* Example of different style for h2 */
   margin-bottom: 0.85em;
   margin-top: 0.85em;
 }
 h3 {
-  font-size: 1em;
-  font-weight: normal; /* Example of different style for h2 */
+  font-size: 1.25em;
+  font-weight: bold; /* Example of different style for h2 */
   margin-bottom: 0.5em;
   margin-top: 0.5em;
 }
 h4 {
-  font-size: 1em;
-  font-weight: normal; /* Example of different style for h2 */
+  font-size: 1.25em;
+  font-weight: bold; /* Example of different style for h2 */
   margin-bottom: 0.5em;
   margin-top: 0.5em;
 }
