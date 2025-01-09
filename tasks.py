@@ -207,6 +207,20 @@ def send_request_with_retry(url, data, max_retries=3, backoff_factor=1, status_f
              app_logger.error(f"Response status code: {response.status_code}")
         return None
 
+# Trim the database
+@app.task(name='keep_recent_entries_efficient')
+def keep_recent_entries_efficient(days_to_keep=1):
+    try:
+        today_utc = datetime.now(timezone.utc)
+        retention_cutoff_utc = today_utc - timedelta(days=days_to_keep)
+        retention_cutoff_timestamp = int(retention_cutoff_utc.timestamp())
+
+        # Delete only alerts that are completely in the past
+        result = owa_collection.delete_many({"end": {"$lte": retention_cutoff_timestamp}})
+        app_logger.info(f"Deleted {result.deleted_count} entries completely in the past.")
+    except Exception as e:
+        app_logger.exception("Error cleaning up entries:")
+
 @app.task(name='generate_map_data_task')
 def generate_map_data(future_days=14,  page = 1, page_size = 3000, total_alerts=0):
     start_time = time.time()
@@ -276,6 +290,7 @@ def generate_map_data(future_days=14,  page = 1, page_size = 3000, total_alerts=
         },
         {
             "$project": {
+                '_id': 1,
                 'alert': 1, 'msg_type': 1, 'categories': 1,
                 'urgency': 1, 'severity': 1, 'certainty': 1, 'start': 1, 'end': 1, 'sender': 1,
                 'description': 1, 'alert_key': 1
@@ -286,6 +301,7 @@ def generate_map_data(future_days=14,  page = 1, page_size = 3000, total_alerts=
 
     for alert_data in cursor:
         try:
+            mongo_id = alert_data['_id']
             alert = alert_data['alert']
             center_lat, center_lon = calculate_center(alert['geometry'])
             geometry = alert['geometry']
@@ -360,7 +376,8 @@ def generate_map_data(future_days=14,  page = 1, page_size = 3000, total_alerts=
                 'headline': headline,
                 'instruction': instruction,
                 'color': color,
-                'id': alert_data['alert_key']
+                'id': alert_data['alert_key'],
+                'mongo_id': mongo_id
             })
 
             folium.GeoJson(geometry, style_function=lambda x: {'fillColor': color, 'color': '#000000', 'weight': 1, 'dashArray': '', 'fillOpacity': 0.5}, name=f"Alert ").add_to(my_map)
@@ -386,23 +403,43 @@ def generate_map_data(future_days=14,  page = 1, page_size = 3000, total_alerts=
 
     app_logger.info(f"Celery task completed successfully: ")
 
+    # Convert ObjectIds to strings *before* Celery tries to serialize the result
+    map_data_serializable = convert_object_ids_to_str(map_data)
+
     # Send the map data to the callback URL - this will trigger the socket.io broadcast.
     redis_client = create_redis_client()
     redis_client.set('map_data_task_id', generate_map_data.request.id)  # Set the task ID
     app_logger.info(f"Task ID {generate_map_data.request.id} saved to Redis for generate_map_data.")
     try:
-        response = send_request_with_retry(MAP_DATA_CALLBACK_URL, data={'map_data': map_data})
+
+
+        # Before sending, make sure to convert ObjectIds to string representations
+        def convert_object_ids_to_str(obj):
+            if isinstance(obj, dict):
+                return {k: convert_object_ids_to_str(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_object_ids_to_str(elem) for elem in obj]
+            elif isinstance(obj, ObjectId):
+                return str(obj)
+            else:
+                return obj
+
+        map_data_serializable = convert_object_ids_to_str(map_data)  # Run this function before sending
+
+        response = send_request_with_retry(MAP_DATA_CALLBACK_URL,
+                                           data={'map_data': map_data_serializable})  # Use converted data.
         if response and response.status_code == 200:
             # Now include the timestamp when saving to Redis
             if page == 1:
-                redis_client.setex('map_data', 7200, json.dumps(map_data))    # Run every two hours
+                redis_client.setex('map_data', 7200, json.dumps(
+                    map_data_serializable))  # Run every two hours # Use serializable data here too.
             app_logger.info("Map data update successful, sent via socketio.")
         else:
             app_logger.error("Map data update failed via SocketIO.")
     except requests.exceptions.RequestException as e:
         app_logger.exception(f"Error sending request to : ")
 
-    return map_data
+    return map_data_serializable
 
 
 @app.task(name='populate_map_data_if_needed')

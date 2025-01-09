@@ -474,21 +474,6 @@ def logout():
     logout_user()
     return redirect(url_for("login"))
 
-
-# Trim the database
-def keep_recent_entries_efficient(days_to_keep=1):
-    try:
-        today_utc = datetime.now(timezone.utc)
-        retention_cutoff_utc = today_utc - timedelta(days=days_to_keep)
-        retention_cutoff_timestamp = int(retention_cutoff_utc.timestamp())
-
-        # Delete only alerts that are completely in the past
-        result = owa_collection.delete_many({"end": {"$lte": retention_cutoff_timestamp}})
-        app_logger.info(f"Deleted {result.deleted_count} entries completely in the past.")
-    except Exception as e:
-        app_logger.exception("Error cleaning up entries:")
-
-
 @app.route("/")
 def index():
     app_logger.info(
@@ -988,7 +973,7 @@ def update_user_email_alert_state():
         if result.modified_count == 1:
             # Check if email alerts is enabled, and if so trigger a scan and send.
             if email_alerts_enabled:
-                app_logger.info(f"Email alerts enabled for user . Starting send alerts.")
+                app_logger.info(f"Email alerts enabled for user {user_id}. Starting send alerts.")
                 task = celery_app.send_task('check_for_and_send_alerts') # Call the function via Celery, and get a task id.
                 return jsonify({"message": "User email alert state updated successfully", "task_id": task.id}), 200
             return jsonify({"message": "User email alert state updated successfully"}), 200
@@ -1040,6 +1025,48 @@ def send_alert_snapshots():
         app_logger.exception("Error in send_alert_snapshots:")
         return jsonify({"error": f"Error sending alert snapshots: {str(e)}"}), 500
 
+
+@app.route('/send_single_alert_snapshot', methods=['POST'])
+@login_required
+def send_single_alert_snapshot():
+    """Sends a single OWA alert based on the alert key."""
+    try:
+        app_logger.info(f"Manual single alert snapshot requested by user: {current_user.email}")
+        alert_key = request.form.get('alert_key')
+
+        # Convert the alert_key string to an ObjectId
+        try:
+            alert_key_object_id = ObjectId(alert_key)
+            app_logger.info(f"Attempting to find alert with key: {alert_key_object_id}")
+        except Exception as e:
+            app_logger.error(f"Invalid ObjectId format: {alert_key}. Error: {str(e)}")
+            return jsonify({"error": f"Invalid ObjectId format."}), 400
+
+        # Fetch the specific alert using the alert_key as an ObjectId
+        alert = owa_collection.find_one({"_id": alert_key_object_id})
+
+        if not alert:
+            app_logger.error(f"Error: Alert with id {alert_key} not found.")
+            return jsonify({"error": f"Error: Alert with id {alert_key} not found."}), 404
+        app_logger.info(f"Found Alert: {alert}")
+        user_email = alert.get("email")
+        owa_alert = alert.get("owa_alert")
+
+        app_logger.info(f"User email: {user_email}, owa_alert: {owa_alert}")
+
+        if owa_alert:
+            app_logger.info(
+                f"Sending single alert for User: {user_email}, Alert ID: {alert_key}")
+            celery_app.send_task('send_weather_alert', args=[user_email, owa_alert, str(alert_key)])
+        else:
+            app_logger.info(f"User {user_email} has no valid owa_alert defined for alert {alert_key}.")
+            celery_app.send_task('send_weather_alert', args=[user_email, owa_alert, str(alert_key)])
+
+        app_logger.info(f"Manual single alert snapshot process completed.")
+        return jsonify({"message": f"Alert snapshot sent for alert: {alert_key}."}), 200
+    except Exception as e:
+        app_logger.exception("Error in send_single_alert_snapshot:")
+        return jsonify({"error": f"Error sending alert snapshot: {str(e)}"}), 500
 '''
 
 #Something for further development, the Mongo DB Change Sream which adds live alerts as they are recieved. Also need to adapt the map generation or create generate_partial_map_data_task
@@ -1087,7 +1114,7 @@ start_change_stream()
 
 def scheduled_task():
     try:
-        keep_recent_entries_efficient()
+        celery_app.send_task('keep_recent_entries_efficient')
         celery_app.send_task('populate_map_data_if_needed')
         celery_app.send_task('check_for_and_send_alerts')
         app_logger.info("Scheduled task completed.")
@@ -1096,7 +1123,7 @@ def scheduled_task():
 
 def start_scheduler():
     try:
-        keep_recent_entries_efficient()
+        celery_app.send_task('keep_recent_entries_efficient')
         celery_app.send_task('populate_map_data_if_needed')
         celery_app.send_task('check_for_and_send_alerts')
         scheduler.start()
