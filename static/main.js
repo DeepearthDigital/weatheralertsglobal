@@ -137,9 +137,9 @@ function createAlertTooltipContent(alert) {
     Extreme: "#313131",
     Unknown: "#313131"
   } [alert.severity] || "#FF0000";
-  return `<div class="my-tooltip" data-severity="${alert.severity}" style="border-color: $;">`
+  return `<div class="my-tooltip" data-severity="${alert.severity}" style="border-color: ${severityColor}">`
     + `<div class="underline"><h2>Alert Details</h2></div>`
-    + `<p><b>Message ID:</b> ${alert.mongo_id}</p>`
+    //+ `<p><b>Message ID:</b> ${alert.mongo_id}</p>`
     + `<p><b>Message Type:</b> ${alert.msg_type}</p>`
     + `<p><b>Categories:</b> ${alert.categories.join(', ')}</p>`
     + `<p><b>Urgency:</b> ${alert.urgency}</p>`
