@@ -245,30 +245,11 @@ def generate_map_data(future_days=14,  page = 1, page_size = 3000, total_alerts=
     })
     if total_alerts == 0:
       app_logger.info(f"Total alerts is 0. Halting map data generation.")
-      # create timestamp
-      cache_timestamp = datetime.now(timezone.utc).isoformat()
-      map_data = {'map_data': {'map_js': "", 'alerts': alerts, 'total_pages': 0, 'page': 0 }, 'cache_timestamp': cache_timestamp }  # Return the data
-      # Send the map data to the callback URL - this will trigger the socket.io broadcast.
-      redis_client = create_redis_client()
-      redis_client.set('map_data_task_id', generate_map_data.request.id)  # Set the task ID
-      app_logger.info(f"Task ID {generate_map_data.request.id} saved to Redis for generate_map_data.")
-      try:
-         response = send_request_with_retry(MAP_DATA_CALLBACK_URL, data={'map_data': map_data})
-         if response and response.status_code == 200:
-            redis_client.setex('map_data', 7200, json.dumps(map_data))    # Run every two hours
-            app_logger.info("Map data update successful, sent via socketio.")
-         else:
-           app_logger.error("Map data update failed via SocketIO.")
-      except requests.exceptions.RequestException as e:
-          app_logger.exception(f"Error sending request to  :")
-      return map_data
 
     total_pages = (total_alerts + page_size - 1) // page_size
     if page > total_pages:
         app_logger.info(f"Requested page is greater than the total number of pages. Halting map data generation.")
-        # create timestamp
-        cache_timestamp = datetime.now(timezone.utc).isoformat()
-        return {'map_data': {'map_js': "", 'alerts': [], 'total_pages': total_pages, 'page': page }, 'cache_timestamp': cache_timestamp } # Exit early if page is out of range
+        return {'map_js': "", 'alerts': [], 'total_pages': total_pages, 'page': page } # Exit early if page is out of range
 
     skip = (page - 1) * page_size
 
@@ -410,9 +391,13 @@ def generate_map_data(future_days=14,  page = 1, page_size = 3000, total_alerts=
     end_time = time.time()
     elapsed_time = end_time - start_time
     app_logger.info(f"Map data generated in {elapsed_time:.4f} seconds. Celery task completed.")  # Added this line
-    # create timestamp
+
+    map_data = {'map_js': map_js, 'alerts': alerts, 'total_pages': total_pages, 'page': page }
+
+    # Add the timestamp here!
     cache_timestamp = datetime.now(timezone.utc).isoformat()
-    map_data = {'map_data': {'map_js': map_js, 'alerts': alerts, 'total_pages': total_pages, 'page': page }, 'cache_timestamp': cache_timestamp}  # Return the data
+    map_data['cache_timestamp'] = cache_timestamp
+
     app_logger.info(f"Celery task completed successfully: ")
 
     # Send the map data to the callback URL - this will trigger the socket.io broadcast.
@@ -422,16 +407,17 @@ def generate_map_data(future_days=14,  page = 1, page_size = 3000, total_alerts=
     try:
         response = send_request_with_retry(MAP_DATA_CALLBACK_URL, data={'map_data': map_data})
         if response and response.status_code == 200:
-           # Do not save the map_data on the first pass, as we may add to it later
-           if page == 1:
+            # Now include the timestamp when saving to Redis
+            if page == 1:
                 redis_client.setex('map_data', 7200, json.dumps(map_data))    # Run every two hours
-           app_logger.info("Map data update successful, sent via socketio.")
+            app_logger.info("Map data update successful, sent via socketio.")
         else:
-           app_logger.error("Map data update failed via SocketIO.")
+            app_logger.error("Map data update failed via SocketIO.")
     except requests.exceptions.RequestException as e:
-       app_logger.exception(f"Error sending request to : ")
+        app_logger.exception(f"Error sending request to : ")
 
     return map_data
+
 
 @app.task(name='populate_map_data_if_needed')
 def populate_map_data_if_needed():
