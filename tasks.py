@@ -102,10 +102,8 @@ if os.environ.get('ENVIRONMENT') != 'PRODUCTION':
 
     # Truncate the log file at the start
     log_file_path = 'celery-weather-alerts-global.log'
-    log_file_exists = os.path.exists(log_file_path)
-    if not log_file_exists:
-        with open(log_file_path, 'w'):
-             pass
+    with open(log_file_path, 'w'):
+        pass #This line erases the file
 
     # Create a file handler for local development
     file_handler = logging.handlers.RotatingFileHandler(log_file_path, maxBytes=10 * 1024 * 1024, backupCount=5)
@@ -438,33 +436,32 @@ def populate_map_data_if_needed():
              # If no task is running and we have map data, lets check expiry.
              expiry_time = redis_client.ttl('map_data')
              if expiry_time == -2:  # Key not found (should not happen in this section)
-                 app_logger.info("Map data not found in Redis. Generating...")
-                 generate_and_cache_map_data_task()
-                 redis_client.delete('map_data_task_id')  # Only clear the task ID if map data was cleared.
-                 app_logger.info(f"Data with key 'map_data_task_id' deleted from Redis")
-                 return
+                app_logger.info("Map data not found in Redis. Generating...")
+                generate_and_cache_map_data_task()
+                return
              elif expiry_time == -1:  # No expiry, which means the data is valid.
                 app_logger.info(f"Map data found in Redis and it has not expired.")
                 return
              elif expiry_time <= 0:  # If expiry is less than or equal to 0, the data is expired.
-                 app_logger.info("Map data in Redis is expired. Regenerating...")
-                 redis_client.delete('map_data')  # delete the expired data
-                 app_logger.info(f"Data with key 'map_data' deleted from Redis")
-                 redis_client.delete('map_data_task_id')  # Only clear the task ID if map data was cleared.
-                 app_logger.info(f"Data with key 'map_data_task_id' deleted from Redis")
-                 generate_and_cache_map_data_task()
-                 return
+                app_logger.info("Map data in Redis is expired. Regenerating...")
+                generate_and_cache_map_data_task()
+                return
     except ConnectionError as e:
         app_logger.error(f"Redis connection error: ")
     except Exception as e:
         app_logger.exception("Error checking or populating map data:")
 
-def generate_and_cache_map_data_task():
-    """Triggers Celery task to generate map data, and then emit the data to clients."""
-    task = app.send_task('generate_map_data_task')
-    redis_client.set('map_data_task_id', task.id)  #Cache the task ID
-    app_logger.info(f"Map data generation task triggered, task id: {task.id}")
-    app_logger.info(f"Task ID {task.id} saved to Redis.")
+@app.task(bind=True, name='generate_and_cache_map_data_task')
+def generate_and_cache_map_data(self):
+    # Execute the existing task first
+    map_data = generate_map_data()
+
+    # Set the new cache
+    # We assuming here that map_data contains the needed data to be cached
+    redis_client.set('map_data', map_data)
+
+    # Keep track of the task id
+    redis_client.set('map_data_task_id', self.request.id)
 
 @app.task(name='find_matching_owa_alerts_task')
 def find_matching_owa_alerts(wag_zone_geometry, future_days=14):

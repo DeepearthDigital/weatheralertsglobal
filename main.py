@@ -64,10 +64,8 @@ if os.environ.get('ENVIRONMENT') != 'PRODUCTION':
 
     # Truncate the log file at the start
     log_file_path = 'main-weather-alerts-global.log'
-    log_file_exists = os.path.exists(log_file_path)
-    if not log_file_exists:
-        with open(log_file_path, 'w'):
-             pass
+    with open(log_file_path, 'w'):
+        pass #This line erases the file
 
     # Create a file handler for local development
     file_handler = logging.handlers.RotatingFileHandler(log_file_path, maxBytes=10 * 1024 * 1024, backupCount=5)
@@ -522,7 +520,6 @@ def index():
                     app_logger.error(f"Previous task failed with traceback: {async_result.traceback}")
                     flash("Error generating map data. Please try again later.")
                     loading = False  # Ensure loading is false
-                    redis_client.delete('map_data_task_id') # Clear out the task_id
                     # Optionally trigger a new task here
                     task = celery_app.send_task('populate_map_data_if_needed')
                     redis_client.set('map_data_task_id', task.id)
@@ -532,7 +529,6 @@ def index():
                         f"Previous task in unknown state: {async_result.state}")  # Handle task failure (e.g., retry or display an error)
                     flash("Error generating map data. Please try again later.")
                     loading = False  # Ensure loading is false
-                    redis_client.delete('map_data_task_id') # Clear out the task_id
             else:
                 app_logger.info("Map data not found in Redis. Generating...")
                 loading = True
@@ -1112,20 +1108,44 @@ def watch_for_owa_changes():
 start_change_stream()
 '''
 
-def scheduled_task():
+def scheduled_task_two_hours():
     try:
         celery_app.send_task('keep_recent_entries_efficient')
-        celery_app.send_task('populate_map_data_if_needed')
         celery_app.send_task('check_for_and_send_alerts')
-        app_logger.info("Scheduled task completed.")
+        app_logger.info("scheduled_task_two_hours Scheduled task completed.")
     except Exception as e:
-        app_logger.exception("Error in scheduled task:")
+        app_logger.exception("Error in scheduled_task_two_hours scheduled task:")
+
+def scheduled_task_one_hour():
+    try:
+        celery_app.send_task('populate_map_data_if_needed')
+        app_logger.info("scheduled_task_one_hour Scheduled task completed.")
+    except Exception as e:
+        app_logger.exception("Error in scheduled_task_one_hour scheduled task:")
+
+scheduler_running = threading.Event()
+scheduler = BackgroundScheduler()
 
 def start_scheduler():
     try:
-        celery_app.send_task('keep_recent_entries_efficient')
-        celery_app.send_task('populate_map_data_if_needed')
-        celery_app.send_task('check_for_and_send_alerts')
+        if scheduler_running.is_set():
+            app_logger.warning("Scheduler is already running.")
+            return
+
+        scheduler.add_job(
+            scheduled_task_two_hours,
+            'interval',
+            seconds=7200,
+            next_run_time=datetime.now()
+        )
+        scheduler.add_job(
+            scheduled_task_one_hour,
+            'interval',
+            seconds=3600,
+            next_run_time=datetime.now()
+        )
+
+
         scheduler.start()
         scheduler_running.set()
         app_logger.info("Scheduler started.")
@@ -1133,14 +1153,14 @@ def start_scheduler():
         app_logger.exception("Error starting scheduler:")
         scheduler_running.clear()
 
-scheduler_running = threading.Event()
-scheduler = BackgroundScheduler()
-scheduler.add_job(scheduled_task, 'interval', seconds=7200)  # Run two hours
-
 def shutdown_scheduler():
     try:
-        scheduler.shutdown(wait=True) #Gracefully shutdown
-        app_logger.info("Scheduler shut down successfully.")
+        if scheduler_running.is_set():
+            scheduler.shutdown(wait=True)
+            scheduler_running.clear()
+            app_logger.info("Scheduler shut down successfully.")
+        else:
+            app_logger.info("Scheduler is not running. Shutdown skipped.")
     except Exception as e:
         app_logger.exception("Error shutting down scheduler:")
 

@@ -30,15 +30,15 @@
     <div id="login-welcome">
       <div id="app-title">
         <h1>Weather Alerts Global</h1>
-        <p>Version Beta 1.0</p>
-        <p>Need help? Send our helpdesk an e-mail support@weatheralerts.global</p>
+        <h5>Version Beta 1.0 | © <a href="https://www.deepearth.digital" target="_blank">DeepEarth Digital 2025</a></h5>
+        <p>Need help? Send our helpdesk an e-mail: <a href="mailto:support@weatheralerts.global">support@weatheralerts.global</a></p></div>
       </div>
       <h2>Welcome, {{ current_user.first_name }}!</h2>
       <div id="alert-count">
         <p>There are <b>{{ alert_count }}</b> live alerts in place covering the period <b>{{ date_range }}</b></p>
         <div id="date-range"></div>
       </div>
-		<p>Last Map Update: <b><span id="cache-timestamp"></b></span>
+      <p>Last Map Update: <b><span id="cache-timestamp"></b></span>
       <div class="severity-key-container">
         <div class="severity-row">
           <div class="severity-square" style="background-color: #E8E8E8;">

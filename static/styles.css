@@ -66,6 +66,14 @@ body {
   font-size: 16px;
   color: #000000;
 }
+a {
+  color: #000000;
+	text-decoration: none;
+	 font-weight: bold;
+}
+a:hover {
+  color: #181818;
+}
 #mapid {
   flex: 1;
   position: relative; /* Make map a positioning context */
@@ -163,7 +171,7 @@ body {
   color: #000000;
   line-height: 1.5;
   box-sizing: border-box;
-  overflow-y: auto;   /* Add scrollbar when needed */
+  overflow-y: auto; /* Add scrollbar when needed */
 }
 .my-tooltip p {
   margin-bottom: 10px;
@@ -178,8 +186,8 @@ body {
     min-width: 200px;
     max-width: 400px;
     font-size: 12px;
-	max-height: 600px; /* Adjust this value as needed */
-  	overflow-y: auto;   /* Add scrollbar when needed */
+    max-height: 600px; /* Adjust this value as needed */
+    overflow-y: auto; /* Add scrollbar when needed */
   }
 }
 .my-tooltip.minor {
@@ -207,6 +215,22 @@ body {
   max-width: 600px;
   padding: 5px;
   overflow: auto; /* Makes the content scrollable if needed */
+}
+.leaflet-control-zoom-out {
+    background-color: #4F4F4F;
+    color: #333;
+    font-size: 30px; /* Adjust the zoom out icon size*/
+    width: 30px;
+    height: 30px;
+    line-height: 30px; /* Vertically center the icon*/
+}
+
+ .leaflet-control-zoom-out:hover {
+    background-color: #ddd;
+}
+
+  .leaflet-control-zoom-out:active {
+    background-color: #ccc;
 }
 @media (max-width: 768px) {
   .leaflet-popup-content-wrapper {
@@ -252,6 +276,14 @@ h4 {
   margin-bottom: 0.5em;
   margin-top: 0.5em;
 }
+
+  h5 {
+    font-size: 0.85em; /* Reduced size for h4 */
+    text-align: right;
+	    font-weight: bold; /* Example of different style for h2 */
+  margin-bottom: 1.5em;
+  margin-top: 0.5em;
+  }
 @media (max-width: 768px) {
   h1 {
     font-size: 1.5em; /* Reduced size for h1 */
@@ -319,15 +351,7 @@ h4 {
 .mobile-nav li {
   padding: 10px 20px;
 }
-.mobile-nav a {
-  display: block;
-  padding: 15px;
-  color: white;
-  text-decoration: none;
-}
-.mobile-nav a:hover {
-  background-color: #555;
-}
+
 @media (max-width: 768px) {
   .mobile-nav {
     right: -400px; /* Ensure it is hidden on page load */
