@@ -1,7 +1,6 @@
 # tasks with Websockets
 # Patch gevent *before* Flask and SocketIO
 from gevent import monkey
-
 monkey.patch_all()
 import geventwebsocket
 import certifi
