@@ -33,9 +33,6 @@ from celery.schedules import crontab
 from celery.result import AsyncResult
 import logging.config
 import logging
-from google.cloud import logging as cloudlogging
-import google.auth
-
 from celery import shared_task
 from flask import current_app
 
