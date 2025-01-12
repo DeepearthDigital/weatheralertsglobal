@@ -451,17 +451,12 @@ def populate_map_data_if_needed():
     except Exception as e:
         app_logger.exception("Error checking or populating map data:")
 
-@app.task(bind=True, name='generate_and_cache_map_data_task')
-def generate_and_cache_map_data(self):
-    # Execute the existing task first
-    map_data = generate_map_data()
-
-    # Set the new cache
-    # We assuming here that map_data contains the needed data to be cached
-    redis_client.set('map_data', map_data)
-
-    # Keep track of the task id
-    redis_client.set('map_data_task_id', self.request.id)
+def generate_and_cache_map_data_task():
+    """Triggers Celery task to generate map data, and then emit the data to clients."""
+    task = app.send_task('generate_map_data_task')
+    redis_client.set('map_data_task_id', task.id)  #Cache the task ID
+    app_logger.info(f"Map data generation task triggered, task id: {task.id}")
+    app_logger.info(f"Task ID {task.id} saved to Redis.")
 
 @app.task(name='find_matching_owa_alerts_task')
 def find_matching_owa_alerts(wag_zone_geometry, future_days=14):
