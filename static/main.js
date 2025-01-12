@@ -29,6 +29,8 @@ map = L.map('mapid', { // Assign it here, with out the var keyword.
 
 map.addLayer(alertLayers); // Add it to the map
 
+const loadingScreen = $('#loading-screen');
+const loadingMessage = $('#loading-message');
 
 // --- Socket.IO ---
 let socketUrl;
@@ -41,6 +43,17 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '0.
 const socket = io.connect(socketUrl, {
   timeout: 10000
 });
+
+  // Listen for 'loading' websocket message from server
+  socket.on('loading', function (data) {
+    if (data.loading === true) {
+      loadingScreen.removeClass('hidden');
+      loadingMessage.removeClass('hidden');
+    } else {
+      loadingScreen.addClass('hidden');
+      loadingMessage.addClass('hidden');
+    }
+  });
 
 
 // Handle connection and request initial map data
@@ -70,7 +83,6 @@ function connectSocket() {
     //displaySuccess("Reconnected to server via WebSockets!");
     socket.emit('map_data'); // Re-request data on reconnect
   });
-
   // Handle incoming map data updates from server
   socket.on('map_data_update', function (data) {
     console.log("Received map data update via SocketIO:", data);
@@ -82,12 +94,12 @@ function connectSocket() {
         }
       });
       displayAlerts(data.map_data.alerts);
-		        // Update the global alerts variable
-        alerts = data.map_data.alerts;
+      // Update the global alerts variable
+      alerts = data.map_data.alerts;
 
-        // Recalculate statistics and update the display
-        updateAlertStatistics(alerts);
-		
+      // Recalculate statistics and update the display
+      updateAlertStatistics(alerts);
+
 
       // Display the cached timestamp
       const timestampElement = document.getElementById('cache-timestamp');
@@ -105,30 +117,31 @@ function connectSocket() {
 connectSocket();
 
 function updateAlertStatistics(alerts) {
-    let alertCount = 0;
-    let alertCounts = {};
-    let dateRange = "";
+  let alertCount = 0;
+  let alertCounts = {};
+  let dateRange = "";
 
-    if (alerts) {
-        alertCount = alerts.length;
+  if (alerts) {
+    alertCount = alerts.length;
 
-        for (const alert of alerts) {
-            const severity = alert.severity || "Unknown";
-            alertCounts[severity] = (alertCounts[severity] || 0) + 1;
-            let startDate = new Date(Math.min(...alerts.map(a => a.start * 1000)));
-            let endDate = new Date(Math.max(...alerts.map(a => a.end * 1000)));
-            dateRange = `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
-        }
+    for (const alert of alerts) {
+      const severity = alert.severity || "Unknown";
+      alertCounts[severity] = (alertCounts[severity] || 0) + 1;
+      let startDate = new Date(Math.min(...alerts.map(a => a.start * 1000)));
+      let endDate = new Date(Math.max(...alerts.map(a => a.end * 1000)));
+      dateRange = `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
     }
+  }
 
-    $('#alert-count p').html(`There are <b>${alertCount}</b> live alerts in place covering the period <b>${dateRange}</b>`);
-    $('.square').text(alertCount);
-    $('.square:eq(1)').text(alertCounts.Minor || 0);
-    $('.square:eq(2)').text(alertCounts.Moderate || 0);
-    $('.text-severe-extreme:eq(0)').text(alertCounts.Severe || 0);
-    $('.text-severe-extreme:eq(1)').text(alertCounts.Extreme || 0);
+  $('#alert-count p').html(`There are <b>${alertCount}</b> live alerts in place covering the period <b>${dateRange}</b>`);
+  $('.square').text(alertCount);
+  $('.square:eq(1)').text(alertCounts.Minor || 0);
+  $('.square:eq(2)').text(alertCounts.Moderate || 0);
+  $('.text-severe-extreme:eq(0)').text(alertCounts.Severe || 0);
+  $('.text-severe-extreme:eq(1)').text(alertCounts.Extreme || 0);
 
 }
+
 function createAlertTooltipContent(alert) {
   const severityColor = {
     Minor: "#00FF00",
@@ -151,12 +164,11 @@ function createAlertTooltipContent(alert) {
     + `<div class="underline"><h3>Description</h3></div>`
     + `<div class="description-text"><p>${alert.description}</p></div>`
     + `<div style="text-align: right; margin-top: 10px;">`
-  	//+ `<button type="button" class="btn btn-primary h-spaced-buttons send-single-alert-snapshot" data-alert-key="${alert.mongo_id}">Send Single Alert</button>`
+    //+ `<button type="button" class="btn btn-primary h-spaced-buttons send-single-alert-snapshot" data-alert-key="${alert.mongo_id}">Send Single Alert</button>`
     + (alert.language !== 'en' && alert.language !== 'en-GB' && alert.language !== 'en-US' && alert.language !== 'en-JM' && alert.language !== 'en-CA' && alert.language !== 'en-AU'
       ? `<button type="submit" class="btn btn-primary h-spaced-buttons translate">Translate to EN</button>` : "")
     + `<button type="button" class="btn btn-primary h-spaced-buttons close-popup">Close Alert</button>`
-    +
-    `</div>`
+    + `</div>`
     + `</div>`;
 }
 
@@ -950,29 +962,29 @@ $(document).ready(function () {
       });
     }
   });
-$(document).on('click', '.send-single-alert-snapshot', function () {
-  const alertKey = $(this).data('alert-key');
-  console.log("Send single alert snapshot clicked for alert key:", alertKey);
-  $.ajax({
-    type: "POST",
-    url: "/send_single_alert_snapshot",
-    data: {
-      alert_key: alertKey,
-    },
-    success: function (response) {
-      displaySuccess(response.message);
-    },
-    error: function (xhr, status, errorThrown) {
-      console.error("Error sending single alert snapshot:", status, errorThrown, xhr);
-      let errorMessage = "Error sending single alert snapshot.";
-      if (xhr.responseJSON && xhr.responseJSON.error) {
-        errorMessage = xhr.responseJSON.error;
+  $(document).on('click', '.send-single-alert-snapshot', function () {
+    const alertKey = $(this).data('alert-key');
+    console.log("Send single alert snapshot clicked for alert key:", alertKey);
+    $.ajax({
+      type: "POST",
+      url: "/send_single_alert_snapshot",
+      data: {
+        alert_key: alertKey,
+      },
+      success: function (response) {
+        displaySuccess(response.message);
+      },
+      error: function (xhr, status, errorThrown) {
+        console.error("Error sending single alert snapshot:", status, errorThrown, xhr);
+        let errorMessage = "Error sending single alert snapshot.";
+        if (xhr.responseJSON && xhr.responseJSON.error) {
+          errorMessage = xhr.responseJSON.error;
+        }
+        displayError(errorMessage);
       }
-      displayError(errorMessage);
-    }
+    });
   });
-});
-	
+
   var elems = Array.prototype.slice.call(document.querySelectorAll('.lightdark-switch'));
   elems.forEach(function (html) {
     var switchery = new Switchery(html);

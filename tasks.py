@@ -116,7 +116,7 @@ stream_handler.setFormatter(formatter)
 app_logger.addHandler(stream_handler)
 
 # Log that the app is started
-app_logger.info(f"Flask application logger created, logging started for {APP_LOGGER_NAME}")
+app_logger.info(f"Celery application logger created, logging started for {APP_LOGGER_NAME}")
 
 celery_config = {
     "worker_log_format": '[%(asctime)s: %(levelname)s/%(processName)s] %(message)s',
@@ -125,6 +125,7 @@ celery_config = {
     "task_default_queue": "celery",
     "worker_hijack_root_logger": False,
     'task_routes': {
+        'tasks.keep_recent_entries_efficient': {'queue': 'celery-map-data'},
         'tasks.generate_map_data_task': {'queue': 'celery-map-data'},
         'tasks.populate_map_data_if_needed': {'queue': 'celery-map-data'},
         'tasks.find_matching_owa_alerts_task': {'queue': 'celery-alert-matching'},
@@ -220,7 +221,7 @@ def keep_recent_entries_efficient(days_to_keep=1):
         app_logger.exception("Error cleaning up entries:")
 
 @app.task(name='generate_map_data_task')
-def generate_map_data(future_days=14,  page = 1, page_size = 3000, total_alerts=0):
+def generate_map_data_task(future_days=14,  page = 1, page_size = 3000, total_alerts=0):
     start_time = time.time()
     app_logger.info(f"Generating map data task... Celery task started. QUERY_LIMIT_BATCH: , QUERY_LIMIT: , Page: {page}, Page Size: {page_size}")
     my_map = folium.Map(location=[51.4779, 0.0015], zoom_start=5)
@@ -400,63 +401,75 @@ def generate_map_data(future_days=14,  page = 1, page_size = 3000, total_alerts=
 
     # Send the map data to the callback URL - this will trigger the socket.io broadcast.
     redis_client = create_redis_client()
-    redis_client.set('map_data_task_id', generate_map_data.request.id)  # Set the task ID
-    app_logger.info(f"Task ID {generate_map_data.request.id} saved to Redis for generate_map_data.")
+    redis_client.set('map_data_task_id', generate_map_data_task.request.id)  # Set the task ID
+    app_logger.info(f"Task ID {generate_map_data_task.request.id} saved to Redis for generate_map_data.")
     try:
         response = send_request_with_retry(MAP_DATA_CALLBACK_URL, data={'map_data': map_data})
         if response and response.status_code == 200:
             # Now include the timestamp when saving to Redis
             if page == 1:
-                redis_client.setex('map_data', 7200, json.dumps(map_data))    # Run every two hours
+                app_logger.info(f"Setting Redis key 'temp_map_data' with value: {map_data}")
+                redis_client.set('temp_map_data', json.dumps(map_data))
             app_logger.info("Map data update successful, sent via socketio.")
         else:
             app_logger.error("Map data update failed via SocketIO.")
     except requests.exceptions.RequestException as e:
         app_logger.exception(f"Error sending request to : ")
+        raise e  # Instead of return None, raise the exception
 
     return map_data
 
-
 @app.task(name='populate_map_data_if_needed')
 def populate_map_data_if_needed():
-    """Populates map data in Redis only if it doesn't exist or is expired or a task is not in process."""
+    """Check if we need to regenerate the map data"""
     try:
-        map_data_json = redis_client.get('map_data')  # Returns none if not found
-        cached_task_id = redis_client.get('map_data_task_id')  # Returns None if not found
+        map_data_json = redis_client.get('map_data')
+        cached_task_id = redis_client.get('map_data_task_id')
         if not map_data_json or not cached_task_id:
-            app_logger.info("Map data not found in Redis or Task ID is missing, Generating...")
-            generate_and_cache_map_data_task()
+            app_logger.info("Map data not found in Redis or Task ID is missing. Generating...")
+            generate_map_data_task.apply_async()
+            cache_map_data_task.apply_async()
             return
         app_logger.info(f"Task ID {cached_task_id} retrieved from Redis.")
         task = app.AsyncResult(cached_task_id.decode('utf-8'))
         if task.status in ['PENDING', 'STARTED', 'RETRY']:
-            app_logger.info(f"Map data found in Redis and last task with id: {cached_task_id.decode('utf-8')} is still running.")
-            return  # Task is still running so don't regenerate.
+            app_logger.info(
+                f"Map data found in Redis, and a task with id: {cached_task_id.decode('utf-8')} is already running.")
+            cache_map_data_task.apply_async()
+            return
         else:
-             # If no task is running and we have map data, lets check expiry.
-             expiry_time = redis_client.ttl('map_data')
-             if expiry_time == -2:  # Key not found (should not happen in this section)
-                app_logger.info("Map data not found in Redis. Generating...")
-                generate_and_cache_map_data_task()
-                return
-             elif expiry_time == -1:  # No expiry, which means the data is valid.
-                app_logger.info(f"Map data found in Redis and it has not expired.")
-                return
-             elif expiry_time <= 0:  # If expiry is less than or equal to 0, the data is expired.
-                app_logger.info("Map data in Redis is expired. Regenerating...")
-                generate_and_cache_map_data_task()
-                return
+            app_logger.info("Previous task finished, and map data found in Redis. Regenerating data...")
+            generate_map_data_task.apply_async()
+            cache_map_data_task.apply_async()
     except ConnectionError as e:
         app_logger.error(f"Redis connection error: ")
     except Exception as e:
         app_logger.exception("Error checking or populating map data:")
 
-def generate_and_cache_map_data_task():
-    """Triggers Celery task to generate map data, and then emit the data to clients."""
-    task = app.send_task('generate_map_data_task')
-    redis_client.set('map_data_task_id', task.id)  #Cache the task ID
-    app_logger.info(f"Map data generation task triggered, task id: {task.id}")
-    app_logger.info(f"Task ID {task.id} saved to Redis.")
+@app.task(name='cache_map_data_task')
+def cache_map_data_task():
+    while True:
+        cached_task_id = redis_client.get('map_data_task_id')
+
+        if cached_task_id is not None:
+            task = app.AsyncResult(cached_task_id.decode('utf-8'))
+
+            if task.state == 'SUCCESS':
+                # The map data has finished generating and can now be saved to the main key
+                temp_data = redis_client.get('temp_map_data')  # Get the temp data
+
+                if temp_data is not None:
+                    redis_client.set('map_data', temp_data)  # Save the temp data to main key
+                    redis_client.delete('temp_map_data')  # Now you can delete the temp key
+                else:
+                    app_logger.info("No temporary map data available.")
+                    break
+            elif task.state in ['FAILURE', 'REVOKED']:
+                # The task failed, no new map data will be arriving
+                break
+
+        # Wait between checks
+        time.sleep(5)
 
 @app.task(name='find_matching_owa_alerts_task')
 def find_matching_owa_alerts(wag_zone_geometry, future_days=14):
