@@ -484,8 +484,8 @@ def index():
         task_id = None
 
         try:
-            app_logger.info("index Attempting to retrieve map_data from Redis...")
-            map_data_json, cached_task_id = get_map_data_from_redis()
+            app_logger.info("Attempting to retrieve map_data from Redis...")
+            map_data_json = redis_client.get('map_data')
             cached_task_id = redis_client.get('map_data_task_id')  # Returns None if not found
 
             if map_data_json:
@@ -507,14 +507,13 @@ def index():
                     app_logger.info("Map Data task is running, setting loading screen")
                     loading = True
                 elif async_result.state == 'SUCCESS':
-                    map_data_json, cached_task_id = get_map_data_from_redis()
+                    map_data_json = redis_client.get('map_data')
                     if map_data_json:
                         map_data = json.loads(map_data_json)
                         app_logger.info("Retrieved map_data from Redis after successful task completion")
                         loading = False
                     else:
                         app_logger.info("Redis data not found after a successful task.")
-                        task = celery_app.send_task('populate_map_data_if_needed')
                         redis_client.set('map_data_task_id', task.id)
                         app_logger.info(f"Triggered map data generation, task id: {task.id}")
                         loading = True
@@ -805,30 +804,33 @@ def handle_map_data():
     app_logger.info(f'Initial map data requested via SocketIO')
     # Emit the loading signal for the frontend to know data fetching has started.
     flask_socketio.emit('loading', {'loading': True}, room=request.sid)  # Start loading
-    app_logger.info(f"handle_map_data loading event emitted to room: {request.sid}")
+    app_logger.info(f"loading event emitted to room: {request.sid}")
+
 
     try:
-            app_logger.info("handle_map_data Attempting to retrieve map_data from Redis...")
-            map_data_json, cached_task_id = get_map_data_from_redis()
+            app_logger.info("Attempting to retrieve map_data from Redis...")
+            map_data_json = redis_client.get('map_data')
             cached_task_id = redis_client.get('map_data_task_id')  # Returns None if not found
 
             if map_data_json:
                 try:
                     map_data = json.loads(map_data_json)
                     cache_timestamp = None  # Initialize cache_timestamp here
-                    if isinstance(map_data, dict) and 'map_data' in map_data:  # Check for map_data, and that its a dict.
+                    if isinstance(map_data,
+                                  dict) and 'map_data' in map_data:  # Check for map_data, and that its a dict.
                         cache_timestamp = map_data.get('cache_timestamp')  # Retrieve the timestamp from the cache
                         app_logger.info(f"Retrieved map_data from Redis with a cache timestamp of {cache_timestamp}.")
-                        flask_socketio.emit('map_data_update', {'map_data': map_data, 'cache_timestamp': cache_timestamp}, room=request.sid)
+                        socketio.emit('map_data_update', {'map_data': map_data, 'cache_timestamp': cache_timestamp})
                         flask_socketio.emit('loading', {'loading': False}, room=request.sid)
-                        app_logger.info(f"if map_data_json if isinstance loading event emitted to room: {request.sid}")
+                        app_logger.info(f"loading event emitted to room: {request.sid}")
 
                     else:
                         cache_timestamp = map_data.get('cache_timestamp')  # Retrieve the timestamp from the cache
-                        app_logger.info(f"Retrieved old style map_data from with a cache timestamp of {cache_timestamp}.")
-                        flask_socketio.emit('map_data_update', {'map_data': map_data, 'cache_timestamp': cache_timestamp}, room=request.sid)
+                        app_logger.info(
+                            f"Retrieved old style map_data from with a cache timestamp of {cache_timestamp}.")
+                        socketio.emit('map_data_update', {'map_data': map_data, 'cache_timestamp': cache_timestamp})
                         flask_socketio.emit('loading', {'loading': False}, room=request.sid)
-                        app_logger.info(f"if map_data_json else loading event emitted to room: {request.sid}")
+                        app_logger.info(f"loading event emitted to room: {request.sid}")
 
                 except json.JSONDecodeError:
                     cache_timestamp = None  # Initialize cache_timestamp here
@@ -839,8 +841,8 @@ def handle_map_data():
                     except:
                         pass  # If we can't decode, the value stays at None.
                     app_logger.info(
-                        f"Retrieved non JSON map_data from Redis with a cache timestamp of {cache_timestamp}.")
-                    flask_socketio.emit('map_data_update', {'map_data': map_data_json, 'cache_timestamp': cache_timestamp}, room=request.sid)
+                        f"Retrieved non JSON map_data from Redis  with a cache timestamp of {cache_timestamp}.")
+                    socketio.emit('map_data_update', {'map_data': map_data_json, 'cache_timestamp': cache_timestamp})
 
             elif cached_task_id:
                 app_logger.info("Task ID found in Redis, checking if running...")
@@ -849,21 +851,29 @@ def handle_map_data():
                     app_logger.info("Map Data task is running, setting loading screen")
                     #Do nothing, wait for task to complete
                     flask_socketio.emit('loading', {'loading': True}, room=request.sid)
-                    app_logger.info(f"elif cached_task_id loading event emitted to room: {request.sid}")
+                    app_logger.info(f"loading event emitted to room: {request.sid}")
 
                 elif async_result.state == 'SUCCESS':
-                    map_data_json, cached_task_id = get_map_data_from_redis()
+                    map_data_json = redis_client.get('map_data')
                     if map_data_json:
                          try:
                             map_data = json.loads(map_data_json)
                             if isinstance(map_data, dict) and 'map_data' in map_data:
+                                app_logger.info("Retrieved map_data from Redis after successful task completion")
                                 cache_timestamp = map_data.get('cache_timestamp')  # Retrieve the timestamp from the cache
-                                app_logger.info(f"Retrieved map_data from Redis with a cache timestamp of {cache_timestamp}.")
-                                flask_socketio.emit('map_data_update',{'map_data': map_data, 'cache_timestamp': cache_timestamp}, room=request.sid)
+                                socketio.emit('map_data_update', {'map_data': map_data['map_data'], 'cache_timestamp': cache_timestamp})
                                 flask_socketio.emit('loading', {'loading': False}, room=request.sid)
-                                app_logger.info(f"elif async_result.state == 'SUCCESS': if isinstance loading event emitted to room: {request.sid}")
+                                app_logger.info(f"loading event emitted to room: {request.sid}")
+                            else:
+                                app_logger.info("Retrieved old style map_data from Redis after successful task completion")
+                                socketio.emit('map_data_update', {'map_data': map_data, 'cache_timestamp': None})
+                                flask_socketio.emit('loading', {'loading': False}, room=request.sid)
+                                app_logger.info(f"loading event emitted to room: {request.sid}")
                          except json.JSONDecodeError:
                              app_logger.info("Retrieved non JSON map_data from Redis after successful task completion")
+                             socketio.emit('map_data_update', {'map_data': map_data_json, 'cache_timestamp': None})
+                             flask_socketio.emit('loading', {'loading': False}, room=request.sid)
+                             app_logger.info(f"loading event emitted to room: {request.sid}")
                     else:
                         app_logger.info("Redis data not found after a successful task.")
                         task = celery_app.send_task('populate_map_data_if_needed')
@@ -872,9 +882,10 @@ def handle_map_data():
                         # If the task has completed or failed, emit the loading signal as False.
                         # Keep 'loading' as True while the task is being run.
                         flask_socketio.emit('loading', {'loading': True}, room=request.sid)
-                        app_logger.info(f"else SUCCESS loading event emitted to room: {request.sid}")
+                        app_logger.info(f"loading event emitted to room: {request.sid}")
                 else:
-                    app_logger.warning("Previous task failed.")  # Handle task failure (e.g., retry or display an error)
+                    app_logger.warning(
+                        "Previous task failed.")  # Handle task failure (e.g., retry or display an error)
             else:
                 app_logger.info("Map data not found in Redis. Generating...")
                 task = celery_app.send_task('populate_map_data_if_needed')
@@ -885,18 +896,13 @@ def handle_map_data():
         app_logger.error(f"Redis connection error: ")
         # In case of an error emit loading as False.
         flask_socketio.emit('loading', {'loading': False}, room=request.sid)
-        app_logger.info(f"ConnectionError loading event emitted to room: {request.sid}")
+        app_logger.info(f"loading event emitted to room: {request.sid}")
     except Exception as e:
         app_logger.exception("Unhandled error in index route:")
         # In case of an error emit loading as False.
         flask_socketio.emit('loading', {'loading': False}, room=request.sid)
-        app_logger.info(f"Exception loading event emitted to room: {request.sid}")
+        app_logger.info(f"loading event emitted to room: {request.sid}")
 
-def get_map_data_from_redis():
-    app_logger.info("Attempting to retrieve map_data from Redis...")
-    map_data_json = redis_client.get('map_data')
-    cached_task_id = redis_client.get('map_data_task_id')
-    return map_data_json, cached_task_id
 
 # Socket.IO event handler for receiving map data
 @socketio.on('connect')
@@ -905,46 +911,61 @@ def handle_connect():
     join_room(request.sid)  # Creates a private room for each connected client.
     # emits message only to the client in the room with session ID as room name.
     flask_socketio.emit('loading', {'loading': True}, room=request.sid)  # Start loading
-    app_logger.info(f"handle_connect loading event emitted to room: {request.sid}")
+    app_logger.info(f"loading event emitted to room: {request.sid}")
     emit('map_data')
 
 # main with Websockets.py
-@app.route('/map_data_callback', methods=['POST'])
+@app.route('/map_data_callback', methods=['POST'])  # Changed to POST method
 def map_data_callback():
+    data = request.get_json()
+    app_logger.info("map_data_callback request.get_json():", data)
+    """ Callback endpoint to retrieve map data from Redis and send it via SocketIO. """
     try:
         app_logger.info("map_data_callback() route has been called...")
+
         data = request.get_json()  # Get the json data
-
         if data and 'map_data' in data:
-            app_logger.info("map_data_callback data has been received")
+            map_data = data['map_data']
+            app_logger.info(f"map_data has been received")
+            # Retrieve existing map data from redis.
+            existing_map_data_json = redis_client.get('map_data')
+            if existing_map_data_json:
+                existing_map_data = json.loads(existing_map_data_json)
+                # Add the new alerts to existing alerts, only if the page is > 1.  On the first request the whole set is overwritten.
+                if map_data['page'] > 1:
+                    existing_map_data['alerts'].extend(map_data['alerts'])
+                    map_data['alerts'] = existing_map_data['alerts']  # Ensure all data is sent to the user.
+                    app_logger.info(f"Added {len(map_data['alerts'])} new alerts to redis: ")
+                else:
+                    app_logger.info("This is the first page, overwriting the cache")
 
-            # The line below fetches 'temp_map_data' from Redis.
-            temp_map_data_json = redis_client.get('temp_map_data')
-
-            if temp_map_data_json:
-                # The data is decoded and stored in 'temp_map_data'.
-                temp_map_data = json.loads(temp_map_data_json)
-
-                # 'cache_timestamp' is fetched from 'temp_map_data'.
-                # If 'cache_timestamp' doesn't exist, the current date-time in UTC format is used.
-                cache_timestamp = temp_map_data.get('cache_timestamp', datetime.now(timezone.utc).isoformat())
-
-                # New alerts are broadcasted via SocketIO
-                socketio.emit('map_data_update', {'map_data': temp_map_data, 'cache_timestamp': cache_timestamp})
-
-                # 'temp_map_data' in Redis is moved to 'map_data'
-                redis_client.set('map_data', temp_map_data_json)
-
-                app_logger.info("Map data broadcasted via SocketIO")
+                # Check if cache_timestamp exists in the redis data, if not add one.
+                cache_timestamp = existing_map_data.get('cache_timestamp')
+                if not cache_timestamp:
+                    cache_timestamp = datetime.now(timezone.utc).isoformat()
+                    existing_map_data['cache_timestamp'] = cache_timestamp
+                    redis_client.set('map_data', json.dumps({'map_data': map_data, 'cache_timestamp': cache_timestamp}))
+                else:
+                    redis_client.set('map_data', json.dumps({'map_data': map_data, 'cache_timestamp': cache_timestamp}))
+                socketio.emit('map_data_update', {'map_data': map_data, 'cache_timestamp': cache_timestamp})  # Send the data via socketio
+                flask_socketio.emit('loading', {'loading': False}, room=request.sid)
+                app_logger.info(f"loading event emitted to room: {request.sid}")
+                app_logger.info(f'Map data broadcasted via SocketIO, page: {map_data["page"]} of {map_data["total_pages"] if map_data.get("total_pages") else "Unknown"}')
                 return jsonify({'status': 'success', 'message': 'Map data broadcasted via SocketIO'}), 200
             else:
-                app_logger.info("No existing data in Redis")
-                return jsonify({'status': 'error', 'message': 'No map data found in Redis'}), 500
+                 app_logger.info("No existing data in redis.")
+                 #Create a default timestamp.
+                 cache_timestamp = datetime.now(timezone.utc).isoformat()
+                 redis_client.set('map_data', json.dumps({'map_data': map_data, 'cache_timestamp': cache_timestamp}))
+                 socketio.emit('map_data_update', {'map_data': map_data, 'cache_timestamp': cache_timestamp})
+                 flask_socketio.emit('loading', {'loading': False}, room=request.sid)
+                 app_logger.info(f"loading event emitted to room: {request.sid}")
+                 return jsonify({'status': 'success', 'message': 'Map data broadcasted via SocketIO'}), 200
         else:
-            app_logger.info('No map data found in request body. Nothing to emit')
+            app_logger.info(f'No map data found in request body. Nothing to emit')
             return jsonify({'status': 'success', 'message': 'No map data found in request body. Nothing to emit'}), 200
     except Exception as e:
-        app_logger.exception(f"Error in map_data_callback of type {type(e).__name__}, Error message: {str(e)}")
+        app_logger.exception("Error in map_data_callback")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
