@@ -33,6 +33,8 @@ from celery.schedules import crontab
 from celery.result import AsyncResult
 import logging.config
 import logging
+from google.cloud import logging as cloudlogging
+import google.auth
 
 from celery import shared_task
 from flask import current_app
@@ -89,7 +91,7 @@ app.conf.update(
     worker_heartbeat_interval = 120,
 )
 
-# Create a logger for the Flask app
+# Create a logger for the Celery app
 APP_LOGGER_NAME = 'celery-weather-alerts-global'
 app_logger = logging.getLogger(APP_LOGGER_NAME)
 app_logger.setLevel(logging.INFO)
@@ -397,10 +399,22 @@ def generate_map_data_task(future_days=14,  page = 1, page_size = 3000, total_al
     cache_timestamp = datetime.now(timezone.utc).isoformat()
     map_data['cache_timestamp'] = cache_timestamp
 
+    redis_client = create_redis_client()
+
+    if page == 1:
+        app_logger.info(f"Setting Redis key 'temp_map_data'")
+    else:
+        # For pages > 1, attempt to get the existing data and append the new alerts.
+        existing_map_data_json = redis_client.get('temp_map_data')
+        if existing_map_data_json:
+            existing_map_data = json.loads(existing_map_data_json)
+            existing_map_data['alerts'].extend(map_data['alerts'])
+            map_data = existing_map_data
+    redis_client.set('temp_map_data', json.dumps(map_data))
+
     app_logger.info(f"Celery task completed successfully: ")
 
     # Send the map data to the callback URL - this will trigger the socket.io broadcast.
-    redis_client = create_redis_client()
     redis_client.set('map_data_task_id', generate_map_data_task.request.id)  # Set the task ID
     app_logger.info(f"Task ID {generate_map_data_task.request.id} saved to Redis for generate_map_data.")
     try:
@@ -408,7 +422,7 @@ def generate_map_data_task(future_days=14,  page = 1, page_size = 3000, total_al
         if response and response.status_code == 200:
             # Now include the timestamp when saving to Redis
             if page == 1:
-                app_logger.info(f"Setting Redis key 'temp_map_data' with value: {map_data}")
+                app_logger.info(f"Setting Redis key 'temp_map_data'")
                 redis_client.set('temp_map_data', json.dumps(map_data))
             app_logger.info("Map data update successful, sent via socketio.")
         else:
