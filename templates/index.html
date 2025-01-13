@@ -20,7 +20,7 @@
 <div id="loading-screen"></div>
 <div id="loading-message">
   <div id="login">
-    <h3>Gathering Global Weather Alert Data...</h3>
+    <p><b>Gathering Global Weather Alert Data...</b></p>
     <p>Please be patient</p>
   </div>
 </div>
@@ -29,68 +29,74 @@
   <div id="top-right-panel">
     <div id="login-welcome">
       <div id="app-title">
+		  	      <div class="wag-logo menu">
+      <a href="{{ url_for('index') }}">
+        <img src="../static/images/WAG-brand.png" alt="Weather Alerts Global">
+      </a>
+    </div>
         <h1>Weather Alerts Global</h1>
         <h5>Version Beta 1.0 | © <a href="https://www.deepearth.digital" target="_blank">DeepEarth Digital 2025</a></h5>
+		  <h5><a href="about" target="_blank">About WAG</a></h5>
         <p>Need help? Send our helpdesk an e-mail: <a href="mailto:support@weatheralerts.global">support@weatheralerts.global</a></p></div>
       </div>
       <h2>Welcome, {{ current_user.first_name }}!</h2>
       <div id="alert-count">
         <p>There are <b>{{ alert_count }}</b> live alerts in place covering the period <b>{{ date_range }}</b></p>
         <div id="date-range"></div>
+  </div>
+  <p></b>Last Map Update: </b><span id="cache-timestamp"></span></p>
+  <p></b>Next Map Update: </b><span id="cache-timestamp-next-update"></span></p>
+  <div class="severity-key-container">
+    <div class="severity-row">
+      <div class="severity-square" style="background-color: #E8E8E8;">
+        <h3 class="square">{{ alert_count }}</h3>
       </div>
-		<p></b>Last Map Update: </b><span id="cache-timestamp"></span></p>
-		<p></b>Next Map Update: </b><span id="cache-timestamp-next-update"></span></p>
-      <div class="severity-key-container">
-        <div class="severity-row">
-          <div class="severity-square" style="background-color: #E8E8E8;">
-            <h3 class="square">{{ alert_count }}</h3>
-          </div>
-          <div class="severity-text">
-            <h3>Live Alerts</h3>
-          </div>
-        </div>
-        <div class="severity-row">
-          <div class="severity-square" style="background-color: #00FF00;">
-            <h3 class="square">{{ alert_counts.Minor|default(0) }}</h3>
-          </div>
-          <div class="severity-text">
-            <h3>Minor</h3>
-          </div>
-        </div>
-        <div class="severity-row">
-          <div class="severity-square" style="background-color: #FFA500;">
-            <h3>{{ alert_counts.Moderate|default(0) }}</h3>
-          </div>
-          <div class="severity-text">
-            <h3>Moderate</h3>
-          </div>
-        </div>
-        <div class="severity-row">
-          <div class="severity-square" style="background-color: #FF0000;">
-            <h3 class="text-severe-extreme">{{ alert_counts.Severe|default(0) }}</h3>
-          </div>
-          <div class="severity-text">
-            <h3>Severe</h3>
-          </div>
-        </div>
-        <div class="severity-row">
-          <div class="severity-square" style="background-color: #313131;">
-            <h3 class="text-severe-extreme">{{ alert_counts.Extreme|default(0) }}</h3>
-          </div>
-          <div class="severity-text">
-            <h3>Extreme/Unknown</h3>
-          </div>
-        </div>
+      <div class="severity-text">
+        <h3>Live Alerts</h3>
       </div>
-      <div class="button-container">
-        <button id="createAlertButton" class="btn btn-primary h-spaced-buttons">Create Alert Zone Notification</button>
-        <button id="showAlertsButton" class="btn btn-primary h-spaced-buttons">Show Active Alert Notifications Zone</button>
-        <button id="deleteAllAlertsButton" class="btn btn-danger h-spaced-buttons">Delete All Active Alert Zones</button>
-        <a href="{{ url_for('change_password') }}" class="btn btn-primary h-spaced-buttons">Change Password</a> <a href="{{ url_for('logout') }}" class="btn btn-primary h-spaced-buttons">Logout</a> </div>
     </div>
-    <!--  <p>Light/Dark Mode
+    <div class="severity-row">
+      <div class="severity-square" style="background-color: #00FF00;">
+        <h3 class="square">{{ alert_counts.Minor|default(0) }}</h3>
+      </div>
+      <div class="severity-text">
+        <h3>Minor</h3>
+      </div>
+    </div>
+    <div class="severity-row">
+      <div class="severity-square" style="background-color: #FFA500;">
+        <h3>{{ alert_counts.Moderate|default(0) }}</h3>
+      </div>
+      <div class="severity-text">
+        <h3>Moderate</h3>
+      </div>
+    </div>
+    <div class="severity-row">
+      <div class="severity-square" style="background-color: #FF0000;">
+        <h3 class="text-severe-extreme">{{ alert_counts.Severe|default(0) }}</h3>
+      </div>
+      <div class="severity-text">
+        <h3>Severe</h3>
+      </div>
+    </div>
+    <div class="severity-row">
+      <div class="severity-square" style="background-color: #313131;">
+        <h3 class="text-severe-extreme">{{ alert_counts.Extreme|default(0) }}</h3>
+      </div>
+      <div class="severity-text">
+        <h3>Extreme/Unknown</h3>
+      </div>
+    </div>
+  </div>
+  <div class="button-container">
+    <button id="createAlertButton" class="btn btn-primary h-spaced-buttons">Create Alert Zone Notification</button>
+    <button id="showAlertsButton" class="btn btn-primary h-spaced-buttons">Show Active Alert Notifications Zone</button>
+    <button id="deleteAllAlertsButton" class="btn btn-danger h-spaced-buttons">Delete All Active Alert Zones</button>
+    <a href="{{ url_for('change_password') }}" class="btn btn-primary h-spaced-buttons">Change Password</a> <a href="{{ url_for('logout') }}" class="btn btn-primary h-spaced-buttons">Logout</a> </div>
+  </div>
+  <!--  <p>Light/Dark Mode
     <input type="checkbox" class="lightdark-switch" />
-  </p>--> 
+  </p>-->
   </div>
 </nav>
 <div id="createAlertModal" class="modal fade" role="dialog">

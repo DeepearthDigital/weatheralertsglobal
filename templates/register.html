@@ -20,8 +20,16 @@ body {
 </head>
 
 <<body>
-    <div class="container">
-        <div id="login">
+<div class="page-container">
+  <div class="container top">
+    <div class="wag-logo">
+      <a href="{{ url_for('index') }}">
+        <img src="../static/images/WAG-brand.png" alt="Weather Alerts Global">
+      </a>
+    </div>
+  </div>
+  <div class="container bottom">
+<div id="login">	
 			<h1>Weather Alerts Global</h1>
             <h2>Register</h2>
             {% with messages = get_flashed_messages() %}
@@ -60,8 +68,9 @@ body {
             </div>
 				</form>
             <p>Upon successful registration, a verification email will be sent to your email address.</p>
-        </div>
     </div>
+  </div>
+</div>
 
     <script>
 document.addEventListener('DOMContentLoaded', function() {

@@ -20,10 +20,16 @@ body {
 </head>
 
 <body>
-
-<div class="container">
-
-<div id="login">
+<div class="page-container">
+  <div class="container top">
+    <div class="wag-logo">
+      <a href="{{ url_for('index') }}">
+        <img src="../static/images/WAG-brand.png" alt="Weather Alerts Global">
+      </a>
+    </div>
+  </div>
+  <div class="container bottom">
+<div id="login">	
 	<h1>Weather Alerts Global</h1>
     <h2>Login</h2>
     {% with messages = get_flashed_messages() %}
@@ -50,7 +56,8 @@ body {
     <a href="{{ url_for('forgot') }}" class="btn btn-primary h-spaced-buttons">Forgot password?</a>
 	</div>
 		</form>
+    </div>
+  </div>
 </div>
-	</div>
 </body>
 </html>

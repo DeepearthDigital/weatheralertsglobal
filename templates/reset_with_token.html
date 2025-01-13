@@ -20,9 +20,15 @@ body {
 </head>
 
 <body>
-
-<div class="container">
-  <a href="{{ url_for('index') }}"> <img src="../static/images/WAG-brand.png" alt="Weather Alerts Global" class="wag-logo"></a>
+<div class="page-container">
+  <div class="container top">
+    <div class="wag-logo">
+      <a href="{{ url_for('index') }}">
+        <img src="../static/images/WAG-brand.png" alt="Weather Alerts Global">
+      </a>
+    </div>
+  </div>
+  <div class="container bottom">
 <div id="login">	
 {% extends "main.html" %}
 {% block content %}
@@ -38,7 +44,8 @@ body {
 		</div>
 	</form>
 {% endblock %}
+    </div>
+  </div>
 </div>
-	</div>
 </body>
 </html>

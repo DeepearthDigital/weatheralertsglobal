@@ -1,0 +1,108 @@
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Welcome to Weather Alerts Global</title>
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+<link rel="stylesheet" href="../static/styles.css">
+<style>
+body {
+    background-image: url(../static/images/storm-small-town.jpg); /* Your image path */
+    background-size: cover; /* Cover the entire viewport */
+    background-position: center; /* Center the image */
+    background-repeat: no-repeat; /* Prevent image repetition */
+    background-color: #f0f0f0; /* Light grey */
+    display: flex; /* Enable flexbox on the body */
+    justify-content: center; /* Center horizontally */
+    align-items: center; /* Center vertically */
+    min-height: 100vh; /* Ensure body takes up full viewport height */
+}
+</style>
+</head>
+<body>
+	  <main>
+<div class="page-container">
+
+  <div class="container top">
+    <div class="wag-logo">
+      <a href="{{ url_for('index') }}">
+        <img src="../static/images/WAG-brand.png" alt="Weather Alerts Global">
+      </a>
+    </div>
+  </div>
+  <div class="container bottom">
+    <div id="login">
+      {% extends "main.html" %}
+      {% block content %}
+      <h1>Weather Alerts Global</h1>
+      <h2>About</h2>
+      <p>
+        Welcome to Weather Alerts Global, a service designed to keep you informed
+        about significant weather events around the world. Our system monitors
+        global weather alerts and presents them on an interactive map, giving
+        you an easy way to see what's happening and where. You can also create
+        custom alert notification zones, ensuring you're always in the loop for
+        events that matter most to you. Whether it's a minor disturbance or an
+        extreme event, we strive to deliver the most relevant information
+        directly to you.
+      </p>
+      <p>
+        <h3>Key features of our service include:</h3>
+      </p>
+      <p>
+        <h4>Interactive Global Map:</h4>
+        View current weather alerts overlaid directly on an interactive map.
+        This allows you to see the scope of each alert at a glance and explore
+        areas of interest. The map updates dynamically using WebSockets to give
+        you the most up to date information.
+      </p>
+      <p>
+        <h4>Customisable Alert Zones:</h4>
+        Draw custom areas directly on the map where you want to be notified of
+        alerts. You can create specific shapes to match your exact requirements.
+      </p>
+      <p>
+        <h4>Real-time Notifications:</h4>
+        When you create an alert zone, the system will check in real time for any
+        events which may be relevant to you.
+      </p>
+      <p>
+        <h4>Email Alerts:</h4>
+        Receive email notifications whenever an alert is active in your defined
+        zones, or when a new alert zone is created. You have control over
+        whether to turn these e-mail alerts on or off for each zone you create.
+        You can also optionally request snapshots of alerts with e-mail.
+      </p>
+      <p>
+        <h4>Severity-Based Color Coding:</h4>
+        Weather events are displayed with colors representing their severity to
+        make it easier to identify the most critical alerts at first glance.
+        The severity categories are Minor, Moderate, Severe and Extreme, this
+        is based on the severity levels provided by the issuing authority.
+      </p>
+      <p>
+        <h4>Detailed Alert Information:</h4>
+        You can click on any alert on the map to view detailed information,
+        including the start and end times, descriptions, and instructions.
+      </p>
+      <p>
+        <h4>Account Management:</h4>
+        We provide secure account management features, so you can change your
+        password and manage the information you provide in a secure manner.
+      </p>
+      <p>
+        <h4>Daily Automated Operations:</h4>
+        A daily process occurs which handles data management such as removing old
+        entries, and also checks for and sends alerts, as well as keeping the
+        map up to date. The map data is checked for updates every 1 - 2 hours.
+      </p>
+      <p>
+        We are committed to providing a simple and intuitive experience to keep
+        you updated on weather conditions that matter.
+      </p>
+      {% endblock %}
+    </div>
+  </div>
+</div>
+  </main>
+</body>
+</html>
