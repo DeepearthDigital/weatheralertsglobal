@@ -156,6 +156,7 @@ a:hover {
   width: auto;
   min-width: 500px;
   max-width: 500px;
+  max-height: 600px; /* Adjust this value as needed */
   background-color: #fff;
   border: 15px solid #898989;
   padding: 15px;
@@ -252,14 +253,14 @@ a:hover {
   margin-bottom: 10px; /* Adjust as needed */
 }
 h1 {
-  font-size: 1.75em; /* Size of the heading (em is relative to parent font size) */
+  font-size: 1.5em; /* Size of the heading (em is relative to parent font size) */
   font-weight: bold; /* Font weight (bold, normal, etc.) */
   text-align: center; /* Alignment of the text */
   margin-bottom: 0.5em; /* Spacing below the heading */
   margin-top: 0.5em;
 }
 h2 {
-  font-size: 1.5em;
+  font-size: 1.3em;
   font-weight: bold; /* Example of different style for h2 */
   margin-bottom: 0.85em;
   margin-top: 0.85em;

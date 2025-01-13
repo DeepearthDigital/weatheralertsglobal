@@ -401,7 +401,19 @@ def generate_map_data_task(future_days=14, page=1, page_size=3000, total_alerts=
     map_data = {'map_js': map_js, 'alerts': alerts, 'total_pages': total_pages, 'page': page}
 
     # Add the timestamp here!
-    cache_timestamp = datetime.now(timezone.utc).isoformat()
+    # Retrieve the last run timestamp from Redis
+    redis_client = create_redis_client()
+    gen_map_last_run_timestamp = redis_client.get('gen_map_last_run_timestamp')
+
+    # If 'gen_map_last_run_timestamp' does not exist in Redis,
+    # set 'cache_timestamp' to the current date-time in UTC format and log a warning.
+    if gen_map_last_run_timestamp is not None:
+        cache_timestamp = datetime.fromtimestamp(float(gen_map_last_run_timestamp), tz=timezone.utc).isoformat()
+    else:
+        cache_timestamp = datetime.now(timezone.utc).isoformat()
+        app_logger.warning("'gen_map_last_run_timestamp' was not found in Redis database. "
+                           "Using current date-time as cache_timestamp.")
+
     map_data['cache_timestamp'] = cache_timestamp
 
     redis_client = create_redis_client()
@@ -445,6 +457,21 @@ def populate_map_data_if_needed():
     try:
         map_data_json = redis_client.get('map_data')
         cached_task_id = redis_client.get('map_data_task_id')
+        gen_map_last_run_timestamp = redis_client.get('gen_map_last_run_timestamp')
+
+        current_timestamp = datetime.now(timezone.utc).timestamp()
+
+        if not gen_map_last_run_timestamp or (current_timestamp - float(gen_map_last_run_timestamp)) >= 2*60*60:
+            # It's been 2 hours since last map generation, force it now
+            app_logger.info("2 hours since last forced map generation. Generating...")
+            generate_map_data_task.apply_async()
+
+            # Update timestamp of last run
+            redis_client.set('gen_map_last_run_timestamp', str(current_timestamp))
+
+            cache_map_data_task.apply_async()
+            return
+
         if not map_data_json or not cached_task_id:
             app_logger.info("Map data not found in Redis or Task ID is missing. Generating...")
             generate_map_data_task.apply_async()
@@ -1066,10 +1093,10 @@ def process_matching_alerts(matching_alerts, user, user_email):
         if num_alerts > 0:
             # Log a sample of the alerts, not all of them
             sample_alerts = new_alerts[:min(num_alerts, 5)]  # Limit to 5 for logging
-            app_logger.info(f"Sample of matching alerts for user: : {sample_alerts}")
+            app_logger.info(f"Sample of matching alerts for user: : (sample_alerts)")
             for owa_alert in new_alerts:
                 app_logger.info(
-                    f"Sending alert for User: {user.get('user_id', 'N/A')}, Alert ID: {owa_alert['id']}, OWA Alert: {owa_alert}")
+                    f"Sending alert for User: {user.get('user_id', 'N/A')}, Alert ID: {owa_alert['id']}, OWA Alert: (owa_alert)")
                 send_weather_alert.delay(user_email, owa_alert, user["_id"])  # Delay the task.
 
                 # Add the owa_alert to the database

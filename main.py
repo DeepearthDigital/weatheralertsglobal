@@ -37,6 +37,7 @@ import asyncio
 import aiohttp
 import flask_socketio
 from flask_socketio import join_room
+from dateutil.parser import parse
 
 load_dotenv()
 
@@ -926,8 +927,14 @@ def map_data_callback():
                 temp_map_data = json.loads(temp_map_data_json)
 
                 # 'cache_timestamp' is fetched from 'temp_map_data'.
-                # If 'cache_timestamp' doesn't exist, the current date-time in UTC format is used.
-                cache_timestamp = temp_map_data.get('cache_timestamp', datetime.now(timezone.utc).isoformat())
+                # If 'cache_timestamp' doesn't exist, get 'gen_map_last_run_timestamp' to convert and use
+                last_run_timestamp = temp_map_data.get('cache_timestamp', redis_client.get('gen_map_last_run_timestamp'))
+
+                # Parse the timestamp string to a datetime object
+                last_run_timestamp = parse(last_run_timestamp)
+
+                # Format it back to an ISO string
+                cache_timestamp = last_run_timestamp.isoformat()
 
                 # New alerts are broadcasted via SocketIO
                 socketio.emit('map_data_update', {'map_data': temp_map_data, 'cache_timestamp': cache_timestamp})
