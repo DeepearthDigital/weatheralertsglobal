@@ -108,12 +108,22 @@ function connectSocket() {
       } else {
         console.warn("cache-timestamp element not found in DOM")
       }
+		      // Display the cache_timestamp_next_update
+      const timestampNextUpdateElement = document.getElementById('cache-timestamp-next-update');
+      if (timestampNextUpdateElement) {
+        timestampNextUpdateElement.textContent = data.cache_timestamp_next_update ?
+          moment(data.cache_timestamp_next_update).format('YYYY-MM-DD HH:mm:ss UTC') : 
+          "No next update timestamp available";
+      } else {
+        console.warn("cache-timestamp-next-update element not found in DOM")
+      }
     } else {
       console.error("Error: Invalid map data received.");
       displayError("Error: Invalid map data received via WebSockets.");
     }
   });
 }
+
 connectSocket();
 
 function updateAlertStatistics(alerts) {

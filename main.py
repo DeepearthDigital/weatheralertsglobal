@@ -817,17 +817,40 @@ def handle_map_data():
                 try:
                     map_data = json.loads(map_data_json)
                     cache_timestamp = None  # Initialize cache_timestamp here
-                    if isinstance(map_data, dict) and 'map_data' in map_data:  # Check for map_data, and that its a dict.
+                    if isinstance(map_data, dict):  # Ensure that map_data is a dictionary
                         cache_timestamp = map_data.get('cache_timestamp')  # Retrieve the timestamp from the cache
-                        app_logger.info(f"Retrieved map_data from Redis with a cache timestamp of {cache_timestamp}.")
-                        flask_socketio.emit('map_data_update', {'map_data': map_data, 'cache_timestamp': cache_timestamp}, room=request.sid)
+                        cache_timestamp_next_update = map_data.get('cache_timestamp_next_update')
+                        app_logger.info(f"Retrieved map_data from Redis with a cache_timestamp of {cache_timestamp}.")
+                        app_logger.info(f"Retrieved map_data from Redis with a cache_timestamp_next_update of {cache_timestamp_next_update}.")
+
+                        flask_socketio.emit(
+                            'map_data_update',
+                            {
+                                'map_data': map_data,
+                                'cache_timestamp': cache_timestamp,
+                                'cache_timestamp_next_update': cache_timestamp_next_update
+                            },
+                            room=request.sid
+                        )
+
                         flask_socketio.emit('loading', {'loading': False}, room=request.sid)
                         app_logger.info(f"if map_data_json if isinstance loading event emitted to room: {request.sid}")
 
                     else:
                         cache_timestamp = map_data.get('cache_timestamp')  # Retrieve the timestamp from the cache
-                        app_logger.info(f"Retrieved old style map_data from with a cache timestamp of {cache_timestamp}.")
-                        flask_socketio.emit('map_data_update', {'map_data': map_data, 'cache_timestamp': cache_timestamp}, room=request.sid)
+                        cache_timestamp_next_update = map_data.get('cache_timestamp_next_update')
+                        app_logger.info(f"Retrieved map_data from Redis with a cache timestamp of {cache_timestamp}.")
+                        app_logger.info(f"Retrieved map_data from Redis with a cache_timestamp_next_update of {cache_timestamp_next_update}.")
+
+                        flask_socketio.emit(
+                            'map_data_update',
+                            {
+                                'map_data': map_data,
+                                'cache_timestamp': cache_timestamp,
+                                'cache_timestamp_next_update': cache_timestamp_next_update
+                            },
+                            room=request.sid
+                        )
                         flask_socketio.emit('loading', {'loading': False}, room=request.sid)
                         app_logger.info(f"if map_data_json else loading event emitted to room: {request.sid}")
 
@@ -839,9 +862,20 @@ def handle_map_data():
                         cache_timestamp = map_data.get('cache_timestamp')
                     except:
                         pass  # If we can't decode, the value stays at None.
+                    cache_timestamp_next_update = map_data.get('cache_timestamp_next_update')
+                    app_logger.info(f"Retrieved map_data from Redis with a cache timestamp of {cache_timestamp}.")
                     app_logger.info(
-                        f"Retrieved non JSON map_data from Redis with a cache timestamp of {cache_timestamp}.")
-                    flask_socketio.emit('map_data_update', {'map_data': map_data_json, 'cache_timestamp': cache_timestamp}, room=request.sid)
+                        f"Retrieved map_data from Redis with a cache_timestamp_next_update of {cache_timestamp_next_update}.")
+
+                    flask_socketio.emit(
+                        'map_data_update',
+                        {
+                            'map_data': map_data,
+                            'cache_timestamp': cache_timestamp,
+                            'cache_timestamp_next_update': cache_timestamp_next_update
+                        },
+                        room=request.sid
+                    )
 
             elif cached_task_id:
                 app_logger.info("Task ID found in Redis, checking if running...")
@@ -859,8 +893,21 @@ def handle_map_data():
                             map_data = json.loads(map_data_json)
                             if isinstance(map_data, dict) and 'map_data' in map_data:
                                 cache_timestamp = map_data.get('cache_timestamp')  # Retrieve the timestamp from the cache
-                                app_logger.info(f"Retrieved map_data from Redis with a cache timestamp of {cache_timestamp}.")
-                                flask_socketio.emit('map_data_update',{'map_data': map_data, 'cache_timestamp': cache_timestamp}, room=request.sid)
+                                cache_timestamp_next_update = map_data.get('cache_timestamp_next_update')
+                                app_logger.info(
+                                    f"Retrieved map_data from Redis with a cache timestamp of {cache_timestamp}.")
+                                app_logger.info(
+                                    f"Retrieved map_data from Redis with a cache_timestamp_next_update of {cache_timestamp_next_update}.")
+
+                                flask_socketio.emit(
+                                    'map_data_update',
+                                    {
+                                        'map_data': map_data,
+                                        'cache_timestamp': cache_timestamp,
+                                        'cache_timestamp_next_update': cache_timestamp_next_update
+                                    },
+                                    room=request.sid
+                                )
                                 flask_socketio.emit('loading', {'loading': False}, room=request.sid)
                                 app_logger.info(f"elif async_result.state == 'SUCCESS': if isinstance loading event emitted to room: {request.sid}")
                          except json.JSONDecodeError:
@@ -935,9 +982,18 @@ def map_data_callback():
 
                 # Format it back to an ISO string
                 cache_timestamp = last_run_timestamp.isoformat()
+                # Extracts the cache timestamp for the next update
+                cache_timestamp_next_update = temp_map_data.get('cache_timestamp_next_update')
 
-                # New alerts are broadcasted via SocketIO
-                socketio.emit('map_data_update', {'map_data': temp_map_data, 'cache_timestamp': cache_timestamp})
+                # Now you can include this data in the emitted dictionary
+                socketio.emit(
+                    'map_data_update',
+                    {
+                        'map_data': temp_map_data,
+                        'cache_timestamp': cache_timestamp,
+                        'cache_timestamp_next_update': cache_timestamp_next_update
+                    }
+                )
 
                 # 'temp_map_data' in Redis is moved to 'map_data'
                 redis_client.set('map_data', temp_map_data_json)

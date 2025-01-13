@@ -38,6 +38,9 @@ from flask import current_app
 
 load_dotenv()
 
+# Import the map regeneration time
+map_generation_interval = int(os.getenv('MAP_GENERATION_INTERVAL', '2'))  # fallback to '2' if the environment variable is not set
+
 # Email Configuration (Use environment variables for security!)
 MAIL_SERVER = os.environ['MAIL_SERVER']
 MAIL_PORT = os.environ['MAIL_PORT']
@@ -416,6 +419,11 @@ def generate_map_data_task(future_days=14, page=1, page_size=3000, total_alerts=
 
     map_data['cache_timestamp'] = cache_timestamp
 
+    # Compute 'cache_timestamp_next_update' from 'cache_timestamp'
+    cache_timestamp_next_update = (datetime.fromisoformat(cache_timestamp) + timedelta(hours=map_generation_interval)).isoformat()
+
+    map_data['cache_timestamp_next_update'] = cache_timestamp_next_update
+
     redis_client = create_redis_client()
 
     if page == 1:
@@ -461,7 +469,7 @@ def populate_map_data_if_needed():
 
         current_timestamp = datetime.now(timezone.utc).timestamp()
 
-        if not gen_map_last_run_timestamp or (current_timestamp - float(gen_map_last_run_timestamp)) >= 2*60*60:
+        if not gen_map_last_run_timestamp or (current_timestamp - float(gen_map_last_run_timestamp)) >= map_generation_interval * 60 * 60:
             # It's been 2 hours since last map generation, force it now
             app_logger.info("2 hours since last forced map generation. Generating...")
             generate_map_data_task.apply_async()
