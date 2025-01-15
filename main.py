@@ -518,7 +518,7 @@ def index():
                         loading = False
                     else:
                         app_logger.info("Redis data not found after a successful task.")
-                        task = celery_app.send_task('populate_map_data_if_needed')
+                        # task = celery_app.send_task('populate_map_data_if_needed')
                         redis_client.set('map_data_task_id', task.id)
                         app_logger.info(f"Triggered map data generation, task id: {task.id}")
                         loading = True
@@ -527,7 +527,7 @@ def index():
                     flash("Error generating map data. Please try again later.")
                     loading = False  # Ensure loading is false
                     # Optionally trigger a new task here
-                    task = celery_app.send_task('populate_map_data_if_needed')
+                    # task = celery_app.send_task('populate_map_data_if_needed')
                     redis_client.set('map_data_task_id', task.id)
                     app_logger.info(f"Triggered new map data generation, task id: {task.id}")
                 else:
@@ -538,7 +538,7 @@ def index():
             else:
                 app_logger.info("Map data not found in Redis. Generating...")
                 loading = True
-                task = celery_app.send_task('populate_map_data_if_needed')
+                # task = celery_app.send_task('populate_map_data_if_needed')
                 redis_client.set('map_data_task_id', task.id)
                 app_logger.info(f"Starting map data generation task id: {task.id}")
 
@@ -917,7 +917,7 @@ def handle_map_data():
                              app_logger.info("Retrieved non JSON map_data from Redis after successful task completion")
                     else:
                         app_logger.info("Redis data not found after a successful task.")
-                        task = celery_app.send_task('populate_map_data_if_needed')
+                        # task = celery_app.send_task('populate_map_data_if_needed')
                         redis_client.set('map_data_task_id', task.id)
                         app_logger.info(f"Triggered map data generation, task id: {task.id}")
                         # If the task has completed or failed, emit the loading signal as False.
@@ -928,7 +928,7 @@ def handle_map_data():
                     app_logger.warning("Previous task failed.")  # Handle task failure (e.g., retry or display an error)
             else:
                 app_logger.info("Map data not found in Redis. Generating...")
-                task = celery_app.send_task('populate_map_data_if_needed')
+                # task = celery_app.send_task('populate_map_data_if_needed')
                 redis_client.set('map_data_task_id', task.id)
                 app_logger.info(f"Starting map data generation task id: {task.id}")
 
@@ -1189,6 +1189,7 @@ def watch_for_owa_changes():
 start_change_stream()
 '''
 
+'''
 def scheduled_task_two_hours():
     try:
         celery_app.send_task('keep_recent_entries_efficient')
@@ -1244,6 +1245,7 @@ def shutdown_scheduler():
             app_logger.info("Scheduler is not running. Shutdown skipped.")
     except Exception as e:
         app_logger.exception("Error shutting down scheduler:")
+'''
 
 def close_mongo_connection():
     try:
@@ -1252,9 +1254,9 @@ def close_mongo_connection():
     except Exception as e:
         app_logger.info(f"Error closing MongoDB connection: ")
 
-Thread(target=start_scheduler, daemon=True).start() #Daemon thread so it doesn't block app shutdown.
+#Thread(target=start_scheduler, daemon=True).start() #Daemon thread so it doesn't block app shutdown.
 atexit.register(close_mongo_connection)
-atexit.register(shutdown_scheduler)
+#atexit.register(shutdown_scheduler)
 
 if __name__ == '__main__':
     #socketio.run(app, debug=False) # or app.run(debug=False, host='0.0.0.0', port=5000)

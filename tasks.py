@@ -34,9 +34,14 @@ from celery.result import AsyncResult
 import logging.config
 import logging
 from celery import shared_task
-from flask import current_app
+from celery import current_app
+from celery import signals
+import logging
+from flask import Flask
+from celery import current_app as celery_app
 
 load_dotenv()
+app = Flask(__name__)
 
 # Import the map regeneration time
 map_generation_interval = int(os.getenv('MAP_GENERATION_INTERVAL', '2'))  # fallback to '2' if the environment variable is not set
@@ -117,6 +122,14 @@ app_logger.addHandler(stream_handler)
 # Log that the app is started
 app_logger.info(f"Celery application logger created, logging started for {APP_LOGGER_NAME}")
 
+# Set the task to run once upon worker startup
+@signals.worker_init.connect
+def worker_init_task(**kwargs):
+    # Ensure Flask app context is available via
+    # https://flask.palletsprojects.com/en/3.0.x/appcontext/#working-with-the-app-context
+    with Flask(__name__).app_context():
+        app.send_task('tasks.initial_load_task')
+
 celery_config = {
     "worker_log_format": '[%(asctime)s: %(levelname)s/%(processName)s] %(message)s',
     "worker_task_log_format": '[%(asctime)s: %(levelname)s/%(processName)s] %(message)s',
@@ -133,8 +146,54 @@ celery_config = {
         'tasks.send_alert_notification_zone_creation_email': {'queue': 'celery-email'},
         'tasks.send_weather_alert': {'queue': 'celery-email'},
         'tasks.send_weather_alert_email': {'queue': 'celery-email'},
+        'tasks.initial_load_task': {'queue': 'celery-map-data'},
     },
+    'beat_schedule': {
+        'scheduled-task-two-hours': {
+            'task': 'tasks.scheduled_task_two_hours', # path to your celery task function
+            'schedule': 7200.0,  # every 2 hours in seconds
+            'options': {'queue': 'celery-map-data'}  # queue to send the task to
+         },
+         'scheduled-task-one-hour': {
+             'task': 'tasks.scheduled_task_one_hour',
+             'schedule': 3600.0, # every 1 hour in seconds
+             'options': {'queue': 'celery-map-data'} # queue to send the task to
+         }
+     }
 }
+app.conf.update(celery_config)
+
+@shared_task(queue='celery-map-data')
+def initial_load_task():
+    try:
+        with Flask(__name__).app_context(): # CREATE THE CONTEXT HERE
+            celery_app.send_task('tasks.keep_recent_entries_efficient') # fully qualified task name
+            celery_app.send_task('tasks.populate_map_data_if_needed')
+            celery_app.send_task('tasks.check_for_and_send_alerts')
+            app_logger.info("Celery initial_load_task Scheduled task completed.")
+    except Exception as e:
+        app_logger.exception("Celery Error in initial_load_task scheduled task:")
+
+
+@shared_task(queue='celery-map-data')
+def scheduled_task_two_hours():
+    try:
+        with Flask(__name__).app_context(): # CREATE THE CONTEXT HERE
+            celery_app.send_task('tasks.keep_recent_entries_efficient') # fully qualified task name
+            celery_app.send_task('tasks.check_for_and_send_alerts')
+            app_logger.info("Celery scheduled_task_two_hours Scheduled task completed.")
+    except Exception as e:
+        app_logger.exception("Celery Error in scheduled_task_two_hours scheduled task:")
+
+@shared_task(queue='celery-map-data')
+def scheduled_task_one_hour():
+    try:
+        with Flask(__name__).app_context(): # CREATE THE CONTEXT HERE
+            celery_app.send_task('tasks.populate_map_data_if_needed')
+            app_logger.info("Celery scheduled_task_one_hour Scheduled task completed.")
+    except Exception as e:
+        app_logger.exception("Celery Error in scheduled_task_one_hour scheduled task:")
+
 
 # Database connections using MongoClient
 mongo_client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
@@ -211,7 +270,7 @@ def send_request_with_retry(url, data, max_retries=3, backoff_factor=1, status_f
 
 
 # Trim the database
-@app.task(name='keep_recent_entries_efficient')
+@shared_task(queue='celery-map-data')
 def keep_recent_entries_efficient(days_to_keep=1):
     try:
         today_utc = datetime.now(timezone.utc)
@@ -459,7 +518,7 @@ def generate_map_data_task(future_days=14, page=1, page_size=3000, total_alerts=
     return map_data
 
 
-@app.task(name='populate_map_data_if_needed')
+@shared_task(queue='celery-map-data')
 def populate_map_data_if_needed():
     """Check if we need to regenerate the map data"""
     try:
@@ -1022,7 +1081,7 @@ def send_weather_alert(user_email, owa_alert, wag_alert_id):
         app_logger.error(f"Error in send_weather_alert: {e}")
 
 
-@app.task(name='check_for_and_send_alerts')
+@shared_task(queue='celery-map-data')
 def check_for_and_send_alerts():
     """Checks for new OWA alerts and sends emails to affected users."""
     app_logger.info("check_for_and_send_alerts task is running")  # Added this log

@@ -1,9 +1,29 @@
 <!DOCTYPE html>
-<html>
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Error</title>
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+	<link rel="stylesheet" href="../static/styles.css">
+    <style>
+body {
+  background-image: url(../static/images/drought-by-lake.jpg); /* Your image path */
+	}
+    </style>
 </head>
+
 <body>
-    <h1>An error occurred.</h1>
+<div class="page-container">
+  <div class="container top">
+    <div class="wag-logo">
+      <a href="{{ url_for('index') }}">
+        <img src="../static/images/WAG-brand.png" alt="Weather Alerts Global">
+      </a>
+    </div>
+  </div>
+  <div class="container bottom">
+<div id="login">		
+<h3>Sorry! An error occurred</h3>
+</div>
 </body>
 </html>

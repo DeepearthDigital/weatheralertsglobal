@@ -29,6 +29,10 @@ USER wag-user
 # print all files in the directory, for debugging purposes
 RUN ls -lha
 
+# Set the healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s \
+    CMD supervisorctl status | grep -q 'RUNNING' && exit 0 || exit 1
+
 # Set the entrypoint to supervisord
 # Use -c flag to tell supervisor where to find the config file
 ENTRYPOINT ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
