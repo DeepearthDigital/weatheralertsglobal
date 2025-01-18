@@ -1051,7 +1051,7 @@ def update_user_email_alert_state():
             # Check if email alerts is enabled, and if so trigger a scan and send.
             if email_alerts_enabled:
                 app_logger.info(f"Email alerts enabled for user {user_id}. Starting send alerts.")
-                task = celery_app.send_task('check_for_and_send_alerts') # Call the function via Celery, and get a task id.
+                task = celery_app.send_task('check_for_and_send_alerts_on_enabled_button') # Call the function via Celery, and get a task id.
                 return jsonify({"message": "User email alert state updated successfully", "task_id": task.id}), 200
             return jsonify({"message": "User email alert state updated successfully"}), 200
         else:
@@ -1179,7 +1179,7 @@ def watch_for_owa_changes():
                 else:
                     celery_app.send_task('generate_partial_map_data_task', args=[full_document])  # Send as is if not dict
                 # Add this line to trigger alerts after an alert is updated.
-                celery_app.send_task('check_for_and_send_alerts')
+                celery_app.send_task('check_for_and_send_alerts_on_enabled_button')
 
  except pymongo_errors.PyMongoError as e:
       app_logger.error(f"MongoDB error in change stream: ")
@@ -1193,7 +1193,7 @@ start_change_stream()
 def scheduled_task_two_hours():
     try:
         celery_app.send_task('keep_recent_entries_efficient')
-        celery_app.send_task('check_for_and_send_alerts')
+        celery_app.send_task('check_for_and_send_alerts_on_enabled_button')
         app_logger.info("scheduled_task_two_hours Scheduled task completed.")
     except Exception as e:
         app_logger.exception("Error in scheduled_task_two_hours scheduled task:")

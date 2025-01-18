@@ -128,7 +128,7 @@ def worker_init_task(**kwargs):
     # Ensure Flask app context is available via
     # https://flask.palletsprojects.com/en/3.0.x/appcontext/#working-with-the-app-context
     with Flask(__name__).app_context():
-        app.send_task('tasks.initial_load_task')
+        celery_app.send_task('tasks.initial_load_task')
 
 celery_config = {
     "worker_log_format": '[%(asctime)s: %(levelname)s/%(processName)s] %(message)s',
@@ -1080,6 +1080,14 @@ def send_weather_alert(user_email, owa_alert, wag_alert_id):
     except Exception as e:
         app_logger.error(f"Error in send_weather_alert: {e}")
 
+@app.task(name='check_for_and_send_alerts_on_enabled_button')
+def check_for_and_send_alerts_on_enabled_button():
+    try:
+        check_for_and_send_alerts()
+        app_logger.info("Starting check_for_and_send_alerts_on_enabled_button process")
+    except Exception as e:
+        app_logger.error("Error check_for_and_send_alerts_on_enabled_button process")
+        app_logger.error(str(e))
 
 @shared_task(queue='celery-map-data')
 def check_for_and_send_alerts():

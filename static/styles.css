@@ -17,7 +17,8 @@ body {
   display: flex;
   justify-content: center;
   width: 100%;
-  flex-direction: column;
+  //flex-direction: column;
+  //align-items: center;
 }
 a {
   color: #FFFFFF;
@@ -116,7 +117,7 @@ a:hover {
   min-width: 600px;
   max-width: 800px;
 }
-@media (max-width: 425px) {
+@media (max-width: 580px) {
   .page-container {
     min-width: auto;
     max-width: 400px;
