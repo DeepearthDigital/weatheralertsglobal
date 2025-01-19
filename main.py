@@ -2,8 +2,6 @@
 # Patch gevent *before* Flask and SocketIO
 from gevent import monkey
 monkey.patch_all()
-import geventwebsocket
-import gevent
 import certifi
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
@@ -13,10 +11,8 @@ import os
 from dotenv import load_dotenv
 from bson import ObjectId
 import atexit
-from threading import Thread
 import json
-from apscheduler.schedulers.background import BackgroundScheduler
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 import re
 from flask_mail import Mail, Message
 import secrets
@@ -24,17 +20,14 @@ import smtplib
 from itsdangerous import URLSafeTimedSerializer
 import requests
 import pymongo
-import threading
 import logging.handlers
 import geojson
 from celery.result import AsyncResult
 import redis
 from redis.exceptions import ConnectionError
 from celery import Celery
-from flask_socketio import SocketIO, emit, send
+from flask_socketio import SocketIO, emit
 import logging
-import asyncio
-import aiohttp
 import flask_socketio
 from flask_socketio import join_room
 from dateutil.parser import parse

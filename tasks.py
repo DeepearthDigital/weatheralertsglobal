@@ -2,19 +2,17 @@
 # Patch gevent *before* Flask and SocketIO
 from gevent import monkey
 monkey.patch_all()
-import geventwebsocket
 import certifi
 from celery import Celery
 import smtplib
 from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 import time
 import folium
-from pymongo import MongoClient, errors as pymongo_errors
+from pymongo import MongoClient
 import pymongo
 import os
 from dotenv import load_dotenv
-from bson import ObjectId, json_util
+from bson import ObjectId
 import json
 from datetime import datetime, timezone, timedelta
 import logging.handlers
@@ -29,12 +27,7 @@ import pyproj
 from functools import partial
 import geojson
 import math
-from celery.schedules import crontab
-from celery.result import AsyncResult
-import logging.config
-import logging
 from celery import shared_task
-from celery import current_app
 from celery import signals
 import logging
 from flask import Flask
