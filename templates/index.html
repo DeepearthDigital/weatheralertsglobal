@@ -1,9 +1,9 @@
-{% if current_user.is_authenticated %}
 <!DOCTYPE html>
+{% if current_user.is_authenticated %}
 <html lang="en">
 <head>
-  <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-4E0TWQ9M43"></script>
+<!-- Google tag (gtag.js) --> 
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-4E0TWQ9M43"></script> 
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
@@ -22,6 +22,7 @@
 <style></style>
 </head>
 <body>
+	{% include 'navbar.html' %}
 <div id="loading-bar-container" class="hidden">
   <div id="loading-bar"></div>
 </div>
@@ -29,7 +30,9 @@
 <div id="loading-screen"></div>
 <div id="loading-message">
   <div id="login">
-    <h3><b>Gathering Weather Alerts Global Data...</h3></p>
+    <p>
+    <h3><b>Gathering Weather Alerts Global Data...</b></h3>
+    </p>
     <p>Please be patient</p>
   </div>
 </div>
@@ -38,75 +41,71 @@
   <div id="top-right-panel">
     <div id="login-welcome">
       <div id="app-title">
-		  	      <div class="wag-logo menu">
-      <a href="{{ url_for('index') }}">
-        <img src="../static/images/WAG-brand.png" alt="Weather Alerts Global">
-      </a>
-    </div>
+        <div class="wag-logo menu"> <a href="{{ url_for('index') }}"> <img src="../static/images/WAG-brand.png" alt="Weather Alerts Global"> </a> </div>
         <h1>Weather Alerts Global</h1>
         <h5>Version Beta 1.0 | © <a href="https://www.deepearth.digital" target="_blank">DeepEarth Digital 2025</a></h5>
-		  <h5><a href="about" target="_blank">About WAG</a></h5>
-        <p>Need help? Send our helpdesk an e-mail: <a href="mailto:support@weatheralerts.global">support@weatheralerts.global</a></p></div>
-      </div>
-      <h2>Welcome, {{ current_user.first_name }}!</h2>
-      <div id="alert-count">
-        <p>There are <b>{{ alert_count }}</b> live alerts in place covering the period <b>{{ date_range }}</b></p>
-        <div id="date-range"></div>
-  </div>
-  <p></b>Last Map Update: </b><span id="cache-timestamp"></span></p>
-  <p></b>Next Map Update: </b><span id="cache-timestamp-next-update"></span></p>
-  <div class="severity-key-container">
-    <div class="severity-row">
-      <div class="severity-square" style="background-color: #E8E8E8;">
-        <h3 class="square">{{ alert_count }}</h3>
-      </div>
-      <div class="severity-text">
-        <h3>Live Alerts</h3>
+        <h5><a href="about" target="_blank">About WAG</a></h5>
+        <p>Need help? Send our helpdesk an e-mail: <a href="mailto:support@weatheralerts.global">support@weatheralerts.global</a></p>
       </div>
     </div>
-    <div class="severity-row">
-      <div class="severity-square" style="background-color: #00FF00;">
-        <h3 class="square">{{ alert_counts.Minor|default(0) }}</h3>
+    <h2>Welcome, {{ current_user.first_name }}!</h2>
+    <div id="alert-count">
+      <p>There are <b>{{ alert_count }}</b> live alerts in place covering the period <b>{{ date_range }}</b></p>
+      <div id="date-range"></div>
+    </div>
+    <p><b>Last Map Update: </b><span id="cache-timestamp"></span></p>
+    <p><b>Next Map Update: </b><span id="cache-timestamp-next-update"></span></p>
+    <div class="severity-key-container">
+      <div class="severity-row">
+        <div class="severity-square" style="background-color: #E8E8E8;">
+          <h3 class="square">{{ alert_count }}</h3>
+        </div>
+        <div class="severity-text">
+          <h3>Live Alerts</h3>
+        </div>
       </div>
-      <div class="severity-text">
-        <h3>Minor</h3>
+      <div class="severity-row">
+        <div class="severity-square" style="background-color: #00FF00;">
+          <h3 class="square">{{ alert_counts.Minor|default(0) }}</h3>
+        </div>
+        <div class="severity-text">
+          <h3>Minor</h3>
+        </div>
+      </div>
+      <div class="severity-row">
+        <div class="severity-square" style="background-color: #FFA500;">
+          <h3>{{ alert_counts.Moderate|default(0) }}</h3>
+        </div>
+        <div class="severity-text">
+          <h3>Moderate</h3>
+        </div>
+      </div>
+      <div class="severity-row">
+        <div class="severity-square" style="background-color: #FF0000;">
+          <h3 class="text-severe-extreme">{{ alert_counts.Severe|default(0) }}</h3>
+        </div>
+        <div class="severity-text">
+          <h3>Severe</h3>
+        </div>
+      </div>
+      <div class="severity-row">
+        <div class="severity-square" style="background-color: #313131;">
+          <h3 class="text-severe-extreme">{{ alert_counts.Extreme|default(0) }}</h3>
+        </div>
+        <div class="severity-text">
+          <h3>Extreme/Unknown</h3>
+        </div>
       </div>
     </div>
-    <div class="severity-row">
-      <div class="severity-square" style="background-color: #FFA500;">
-        <h3>{{ alert_counts.Moderate|default(0) }}</h3>
-      </div>
-      <div class="severity-text">
-        <h3>Moderate</h3>
-      </div>
-    </div>
-    <div class="severity-row">
-      <div class="severity-square" style="background-color: #FF0000;">
-        <h3 class="text-severe-extreme">{{ alert_counts.Severe|default(0) }}</h3>
-      </div>
-      <div class="severity-text">
-        <h3>Severe</h3>
-      </div>
-    </div>
-    <div class="severity-row">
-      <div class="severity-square" style="background-color: #313131;">
-        <h3 class="text-severe-extreme">{{ alert_counts.Extreme|default(0) }}</h3>
-      </div>
-      <div class="severity-text">
-        <h3>Extreme/Unknown</h3>
-      </div>
-    </div>
-  </div>
-  <div class="button-container">
-    <button id="createAlertButton" class="btn btn-primary h-spaced-buttons">Create Alert Zone Notification</button>
-    <button id="showAlertsButton" class="btn btn-primary h-spaced-buttons">Show Active Alert Notifications Zone</button>
-    <button id="deleteAllAlertsButton" class="btn btn-danger h-spaced-buttons">Delete All Active Alert Zones</button>
-    <a href="{{ url_for('change_password') }}" class="btn btn-primary h-spaced-buttons">Change Password</a> <a href="{{ url_for('logout') }}" class="btn btn-primary h-spaced-buttons">Logout</a> </div>
+    <div class="button-container">
+      <button id="createAlertButton" class="btn btn-primary h-spaced-buttons">Create Alert Zone Notification</button>
+      <button id="showAlertsButton" class="btn btn-primary h-spaced-buttons">Show Active Alert Notifications Zone</button>
+      <button id="deleteAllAlertsButton" class="btn btn-danger h-spaced-buttons">Delete All Active Alert Zones</button>
+	</div>
   </div>
   <!--  <p>Light/Dark Mode
     <input type="checkbox" class="lightdark-switch" />
   </p>-->
-  </div>
 </nav>
 <div id="createAlertModal" class="modal fade" role="dialog">
   <div class="modal-dialog">
@@ -139,11 +138,13 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script> 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/switchery/0.8.2/switchery.min.js"></script> 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script> 
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script> 
 <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script> 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script> 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+	<!-- JS, Popper.js, and jQuery -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/js/bootstrap.bundle.min.js"></script>
 <script src="../static/main.js"></script>
 </body>
+
 </html>
 {% else %}
 <h1>Please log in</h1>

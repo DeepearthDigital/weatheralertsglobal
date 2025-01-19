@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<html>
 <head>
   <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-4E0TWQ9M43"></script>
@@ -21,6 +22,7 @@ body {
 </style>
 </head>
 <body>
+{% include 'navbar.html' %}
 	  <main>
 <div class="page-container">
   <div class="container top">
@@ -32,7 +34,6 @@ body {
   </div>
   <div class="container bottom">
     <div id="login">
-      {% extends "main.html" %}
       {% block content %}
       <h1>Weather Alerts Global</h1>
       <h2>About</h2>
@@ -100,10 +101,15 @@ body {
         We are committed to providing a simple and intuitive experience to keep
         you updated on weather conditions that matter.
       </p>
+      <p>
+Please contact us at <a href="mailto:support@weatheralerts.global">support@weatheralerts.global</a> if you need help. </p>
       {% endblock %}
     </div>
   </div>
 </div>
   </main>
+    <!-- JS, Popper.js, and jQuery -->
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" ></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<html>
 <head>
     <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-4E0TWQ9M43"></script>
@@ -22,6 +23,7 @@ body {
 </head>
 
 <body>
+	{% include 'navbar.html' %}
 <div class="page-container">
   <div class="container top">
     <div class="wag-logo">
@@ -32,7 +34,6 @@ body {
   </div>
   <div class="container bottom">
 <div id="login">		
-{% extends "main.html" %}
 {% block content %}
 	<h1>Weather Alerts Global</h1>
     <h2>Reset Password</h2>
@@ -49,6 +50,8 @@ body {
         </div>
     </div>
   </div>
-</div>
+		    <!-- JS, Popper.js, and jQuery -->
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" ></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

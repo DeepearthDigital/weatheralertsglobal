@@ -1005,7 +1005,7 @@ def send_weather_alert(user_email, owa_alert, wag_alert_id):
             map_url = create_map_image_url(center_lat, center_lon, json.dumps(geometry), GOOGLE_MAPS_API_KEY, color)
 
         # Construct the email body with the extracted content.
-        subject = "Weather Alert!"
+        subject = f"""Weather Alert issued for Alert Zone {alert_name}!"""
         body = f"""
             <html>
             <head>
