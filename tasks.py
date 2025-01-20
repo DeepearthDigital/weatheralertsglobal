@@ -553,6 +553,14 @@ def populate_map_data_if_needed():
     except Exception as e:
         app_logger.exception("Error checking or populating map data:")
 
+@app.task(name='populate_map_data_task')
+def populate_map_data_task():
+    try:
+        populate_map_data_task.apply_async()
+        app_logger.info("Starting populate_map_data_task process called from index")
+    except Exception as e:
+        app_logger.error("Error populate_map_data_task process called from index")
+        app_logger.error(str(e))
 
 @app.task(name='cache_map_data_task')
 def cache_map_data_task():

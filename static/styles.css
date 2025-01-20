@@ -131,8 +131,8 @@ a:hover {
   max-height: 100%;
 }
 .wag-logo.menu {
-  width: 250px;
-  height: 156px;
+  width: 200px;
+  height: 125px;
   margin-bottom: -15px; /* remove any negative margin*/
   z-index: auto;
   margin-top: -20px; /* Offset to move the logo upwards */
@@ -146,8 +146,8 @@ a:hover {
 }
 @media (max-width: 768px) {
   .wag-logo.menu {
-    width: 300px;
-    height: 188px;
+    width: 150px;
+    height: 94px;
     margin-bottom: 0px; /* Offset to move the logo upwards */
   }
 }
@@ -200,7 +200,7 @@ a:hover {
   max-width: 500px;
   max-height: 800px; /* Adjust this value as needed */
   background-color: #002044;
-  border: 15px solid #898989;
+  border: 10px solid #898989;
   padding: 15px;
   border-radius: 10px;
   box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.25);
@@ -210,7 +210,7 @@ a:hover {
   font-optical-sizing: auto;
   font-weight: 300;
   font-style: normal;
-  font-size: 16px;
+  font-size: 1em;
   color: #FFFFFF;
   line-height: 1.5;
   box-sizing: border-box;
@@ -259,7 +259,6 @@ a:hover {
   width: auto;
   min-width: 500px;
   max-width: 600px;
-  padding: 5px;
   overflow: auto; /* Makes the content scrollable if needed */
 }
 .leaflet-control-zoom-out {

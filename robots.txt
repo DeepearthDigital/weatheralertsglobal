@@ -7,4 +7,7 @@ Disallow:
 User-agent: Slurp
 Disallow:
 
+User-agent: *
+Disallow: /privacy_policy.html/
+
 Sitemap: https://weatheralerts.global/sitemap.xml
