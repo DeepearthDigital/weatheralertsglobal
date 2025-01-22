@@ -117,7 +117,6 @@ def setup_loggers(logger, *args, **kwargs):
     for handler in app_logger.handlers:
         logger.addHandler(handler)
 
-
 @after_setup_task_logger.connect
 def setup_task_loggers(logger, *args, **kwargs):
     for handler in app_logger.handlers:
@@ -140,13 +139,14 @@ celery_config = {
     "log_level": "INFO",
     "task_default_queue": "celery",
     "worker_hijack_root_logger": False,
+    "broker_connection_retry_on_startup": True,
     'task_routes': {
         'tasks.keep_recent_entries_efficient': {'queue': 'celery-map-data'},
         'tasks.generate_map_data_task': {'queue': 'celery-map-data'},
         'tasks.populate_map_data_if_needed': {'queue': 'celery-map-data'},
         'tasks.find_matching_owa_alerts_task': {'queue': 'celery-alert-matching'},
         'tasks.process_matching_alerts': {'queue': 'celery-alert-processing'},
-        'tasks.check_for_and_send_alerts': {'queue': 'celery-alert-processing'},
+        'tasks.check_for_and_send_alerts': {'queue': 'celery-map-data'},
         'tasks.send_alert_notification_zone_creation_email': {'queue': 'celery-email'},
         'tasks.send_weather_alert': {'queue': 'celery-email'},
         'tasks.send_weather_alert_email': {'queue': 'celery-email'},
@@ -155,15 +155,15 @@ celery_config = {
     'beat_schedule': {
         'scheduled_map_data': {
             'task': 'tasks.scheduled_map_data', # path to your celery task function
-            'schedule': 3600.0, # every 1 hour in seconds
+            'schedule': map_generation_interval * 3600, # hours interval set in environment variable
             'options': {'queue': 'celery-map-data'}  # queue to send the task to
-         },
-         'scheduled_alert_processing': {
+        },
+        'scheduled_alert_processing': {
              'task': 'tasks.scheduled_alert_processing',
-             'schedule': 3600.0, # every 1 hour in seconds
+             'schedule': map_generation_interval * 3600, # hours interval set in environment variable
              'options': {'queue': 'celery-alert-processing'} # queue to send the task to
-         }
-     }
+        }
+    }
 }
 app.conf.update(celery_config)
 
@@ -171,9 +171,9 @@ app.conf.update(celery_config)
 def initial_load_task():
     try:
         with Flask(__name__).app_context(): # CREATE THE CONTEXT HERE
-            celery_app.send_task('tasks.keep_recent_entries_efficient') # fully qualified task name
-            celery_app.send_task('tasks.populate_map_data_if_needed')
-            celery_app.send_task('tasks.check_for_and_send_alerts')
+            # celery_app.send_task('tasks.keep_recent_entries_efficient') # fully qualified task name
+            # celery_app.send_task('tasks.populate_map_data_if_needed')
+            # elery_app.send_task('tasks.check_for_and_send_alerts')
             app_logger.info("Celery initial_load_task Scheduled task completed.")
     except Exception as e:
         app_logger.exception("Celery Error in initial_load_task scheduled task:")
@@ -186,16 +186,17 @@ def scheduled_map_data():
         with Flask(__name__).app_context(): # CREATE THE CONTEXT HERE
             celery_app.send_task('tasks.keep_recent_entries_efficient') # fully qualified task name
             celery_app.send_task('tasks.populate_map_data_if_needed')
+            celery_app.send_task('tasks.check_for_and_send_alerts')
             app_logger.info("Celery scheduled_map_data Scheduled task completed.")
     except Exception as e:
         app_logger.exception("Celery Error in scheduled_map_data scheduled task:")
 
-@shared_task(queue='celery-alert-processing')
+@shared_task(queue='celery-map-data')
 def scheduled_alert_processing():
     app_logger.info("Celery scheduled_alert_processing task started.")  # Log start of the task
     try:
         with Flask(__name__).app_context(): # CREATE THE CONTEXT HERE
-            celery_app.send_task('tasks.check_for_and_send_alerts')
+            # celery_app.send_task('tasks.check_for_and_send_alerts')
             app_logger.info("Celery scheduled_alert_processing Scheduled task completed.")
     except Exception as e:
         app_logger.exception("Celery Error in scheduled_alert_processing scheduled task:")
@@ -523,7 +524,6 @@ def generate_map_data_task(future_days=14, page=1, page_size=3000, total_alerts=
 
     return map_data
 
-
 @shared_task(queue='celery-map-data')
 def populate_map_data_if_needed():
     """Check if we need to regenerate the map data"""
@@ -566,13 +566,13 @@ def populate_map_data_if_needed():
     except Exception as e:
         app_logger.exception("Error checking or populating map data:")
 
-@app.task(name='populate_map_data_task')
-def populate_map_data_task():
+@app.task(name='populate_map_data_if_needed_task')
+def populate_map_data_if_needed_task():
     try:
-        populate_map_data_task.apply_async()
-        app_logger.info("Starting populate_map_data_task process called from index")
+        populate_map_data_if_needed.apply_async()
+        app_logger.info("Starting populate_map_data_if_needed_task process called from index")
     except Exception as e:
-        app_logger.error("Error populate_map_data_task process called from index")
+        app_logger.error("Error populate_map_data_if_needed_task process called from index")
         app_logger.error(str(e))
 
 @app.task(name='cache_map_data_task')
@@ -1097,13 +1097,13 @@ def send_weather_alert(user_email, owa_alert, wag_alert_id):
 @app.task(name='check_for_and_send_alerts_on_enabled_button')
 def check_for_and_send_alerts_on_enabled_button():
     try:
-        check_for_and_send_alerts()
+        check_for_and_send_alerts.apply_async()
         app_logger.info("Starting check_for_and_send_alerts_on_enabled_button process")
     except Exception as e:
         app_logger.error("Error check_for_and_send_alerts_on_enabled_button process")
         app_logger.error(str(e))
 
-@shared_task(queue='celery-alert-processing')
+@shared_task(queue='celery-map-data')
 def check_for_and_send_alerts():
     """Checks for new OWA alerts and sends emails to affected users."""
     app_logger.info("check_for_and_send_alerts task is running")  # Added this log

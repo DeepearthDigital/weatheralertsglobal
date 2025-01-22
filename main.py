@@ -480,6 +480,70 @@ def index():
         loading = False
         task_id = None
 
+        try:
+            app_logger.info("index Attempting to retrieve map_data from Redis...")
+            map_data_json, cached_task_id = get_map_data_from_redis()
+            cached_task_id = redis_client.get('map_data_task_id')  # Returns None if not found
+
+            if map_data_json:
+                try:
+                    map_data = json.loads(map_data_json)
+                    app_logger.info("Retrieved map_data from Redis.")
+                    loading = False
+                except json.JSONDecodeError:
+                    app_logger.error("Error decoding map_data from redis in / route")
+                    loading = True
+                if map_data and map_data.get('alerts'):
+                    app_logger.info(f"Number of alerts found in map data: {len(map_data['alerts'])}")
+                else:
+                    app_logger.info(f"No alerts found in map data")
+            elif cached_task_id:
+                app_logger.info("Task ID found in Redis, checking if running...")
+                async_result = AsyncResult(cached_task_id.decode('utf-8'), app=celery_app)
+                if async_result.state in ['PENDING', 'STARTED', 'RETRY']:
+                    app_logger.info("Map Data task is running, setting loading screen")
+                    loading = True
+                elif async_result.state == 'SUCCESS':
+                    map_data_json, cached_task_id = get_map_data_from_redis()
+                    if map_data_json:
+                        map_data = json.loads(map_data_json)
+                        app_logger.info("Retrieved map_data from Redis after successful task completion")
+                        loading = False
+                    else:
+                        app_logger.info("Redis data not found after a successful task.")
+                        task = celery_app.send_task('populate_map_data_if_needed_task')
+                        redis_client.set('map_data_task_id', task.id)
+                        app_logger.info(f"Triggered map data generation, task id: {task.id}")
+                        loading = True
+                elif async_result.state == 'FAILURE':
+                    app_logger.error(f"Previous task failed with traceback: {async_result.traceback}")
+                    flash("Error generating map data. Please try again later.")
+                    loading = False  # Ensure loading is false
+                    # Optionally trigger a new task here
+                    task = celery_app.send_task('populate_map_data_if_needed_task')
+                    redis_client.set('map_data_task_id', task.id)
+                    app_logger.info(f"Triggered new map data generation, task id: {task.id}")
+                else:
+                    app_logger.warning(
+                        f"Previous task in unknown state: {async_result.state}")  # Handle task failure (e.g., retry or display an error)
+                    flash("Error generating map data. Please try again later.")
+                    loading = False  # Ensure loading is false
+            else:
+                app_logger.info("Map data not found in Redis. Generating...")
+                loading = True
+                task = celery_app.send_task('populate_map_data_if_needed_task')
+                redis_client.set('map_data_task_id', task.id)
+                app_logger.info(f"Starting map data generation task id: {task.id}")
+
+        except ConnectionError as e:
+            app_logger.error(f"Redis connection error: ")
+            flash("A temporary error occurred. Please try again later.")  # More user-friendly message
+            return render_template('error.html')  # Handle Redis connection errors appropriately
+        except Exception as e:
+            app_logger.exception("Unhandled error in index route:")
+            flash("An unexpected error occurred.")
+            return render_template('error.html')
+
         # Handle the response - this section is now ALWAYS executed
         alerts = map_data.get('alerts', [])
         map_js = map_data.get('map_js', '')
@@ -495,11 +559,11 @@ def index():
             severity = alert.get('severity', 'Unknown')  # Handle potential missing keys
             alert_counts[severity] = alert_counts.get(severity, 0) + 1
 
+        # app_logger.info(f"Alerts sent to template: ")  # Debugging
         return render_template('index.html', map_js=map_js, alerts=alerts,
                                active_alerts_time=active_alerts_time, current_date=current_date,
                                alert_count=alert_count, date_range=date_range,
                                alert_counts=alert_counts, loading=loading, task_id=task_id)
-
     else:  # If not authenticated
         return redirect(url_for('login'))
 
@@ -846,7 +910,7 @@ def handle_map_data():
                              app_logger.info("Retrieved non JSON map_data from Redis after successful task completion")
                     else:
                         app_logger.info("Redis data not found after a successful task.")
-                        task = celery_app.send_task('populate_map_data_task')
+                        task = celery_app.send_task('populate_map_data_if_needed_task')
                         redis_client.set('map_data_task_id', task.id)
                         app_logger.info(f"Triggered map data generation, task id: {task.id}")
                         # If the task has completed or failed, emit the loading signal as False.
@@ -857,7 +921,7 @@ def handle_map_data():
                     app_logger.warning("Previous task failed.")  # Handle task failure (e.g., retry or display an error)
             else:
                 app_logger.info("Map data not found in Redis. Generating...")
-                task = celery_app.send_task('populate_map_data_task')
+                task = celery_app.send_task('populate_map_data_if_needed_task')
                 redis_client.set('map_data_task_id', task.id)
                 app_logger.info(f"Starting map data generation task id: {task.id}")
 
