@@ -32,6 +32,7 @@ from celery import signals
 import logging
 from flask import Flask
 from celery import current_app as celery_app
+from celery.signals import after_setup_logger, after_setup_task_logger
 
 load_dotenv()
 app = Flask(__name__)
@@ -87,7 +88,6 @@ app.conf.update(
     worker_heartbeat_interval=120,
 )
 
-# Create a logger for the Celery app
 APP_LOGGER_NAME = 'celery-weather-alerts-global'
 app_logger = logging.getLogger(APP_LOGGER_NAME)
 app_logger.setLevel(logging.INFO)
@@ -111,6 +111,17 @@ if os.environ.get('ENVIRONMENT') != 'PRODUCTION':
 stream_handler = logging.StreamHandler()
 stream_handler.setFormatter(formatter)
 app_logger.addHandler(stream_handler)
+
+@after_setup_logger.connect
+def setup_loggers(logger, *args, **kwargs):
+    for handler in app_logger.handlers:
+        logger.addHandler(handler)
+
+
+@after_setup_task_logger.connect
+def setup_task_loggers(logger, *args, **kwargs):
+    for handler in app_logger.handlers:
+        logger.addHandler(handler)
 
 # Log that the app is started
 app_logger.info(f"Celery application logger created, logging started for {APP_LOGGER_NAME}")
@@ -142,15 +153,15 @@ celery_config = {
         'tasks.initial_load_task': {'queue': 'celery-map-data'},
     },
     'beat_schedule': {
-        'scheduled-task-two-hours': {
-            'task': 'tasks.scheduled_task_two_hours', # path to your celery task function
-            'schedule': 7200.0,  # every 2 hours in seconds
+        'scheduled_map_data': {
+            'task': 'tasks.scheduled_map_data', # path to your celery task function
+            'schedule': 3600.0, # every 1 hour in seconds
             'options': {'queue': 'celery-map-data'}  # queue to send the task to
          },
-         'scheduled-task-one-hour': {
-             'task': 'tasks.scheduled_task_one_hour',
+         'scheduled_alert_processing': {
+             'task': 'tasks.scheduled_alert_processing',
              'schedule': 3600.0, # every 1 hour in seconds
-             'options': {'queue': 'celery-map-data'} # queue to send the task to
+             'options': {'queue': 'celery-alert-processing'} # queue to send the task to
          }
      }
 }
@@ -169,23 +180,25 @@ def initial_load_task():
 
 
 @shared_task(queue='celery-map-data')
-def scheduled_task_two_hours():
+def scheduled_map_data():
+    app_logger.info("Celery scheduled_map_data task started.")  # Log start of the task
     try:
         with Flask(__name__).app_context(): # CREATE THE CONTEXT HERE
             celery_app.send_task('tasks.keep_recent_entries_efficient') # fully qualified task name
-            celery_app.send_task('tasks.check_for_and_send_alerts')
-            app_logger.info("Celery scheduled_task_two_hours Scheduled task completed.")
+            celery_app.send_task('tasks.populate_map_data_if_needed')
+            app_logger.info("Celery scheduled_map_data Scheduled task completed.")
     except Exception as e:
-        app_logger.exception("Celery Error in scheduled_task_two_hours scheduled task:")
+        app_logger.exception("Celery Error in scheduled_map_data scheduled task:")
 
-@shared_task(queue='celery-map-data')
-def scheduled_task_one_hour():
+@shared_task(queue='celery-alert-processing')
+def scheduled_alert_processing():
+    app_logger.info("Celery scheduled_alert_processing task started.")  # Log start of the task
     try:
         with Flask(__name__).app_context(): # CREATE THE CONTEXT HERE
-            celery_app.send_task('tasks.populate_map_data_if_needed')
-            app_logger.info("Celery scheduled_task_one_hour Scheduled task completed.")
+            celery_app.send_task('tasks.check_for_and_send_alerts')
+            app_logger.info("Celery scheduled_alert_processing Scheduled task completed.")
     except Exception as e:
-        app_logger.exception("Celery Error in scheduled_task_one_hour scheduled task:")
+        app_logger.exception("Celery Error in scheduled_alert_processing scheduled task:")
 
 
 # Database connections using MongoClient
@@ -1090,7 +1103,7 @@ def check_for_and_send_alerts_on_enabled_button():
         app_logger.error("Error check_for_and_send_alerts_on_enabled_button process")
         app_logger.error(str(e))
 
-@shared_task(queue='celery-map-data')
+@shared_task(queue='celery-alert-processing')
 def check_for_and_send_alerts():
     """Checks for new OWA alerts and sends emails to affected users."""
     app_logger.info("check_for_and_send_alerts task is running")  # Added this log

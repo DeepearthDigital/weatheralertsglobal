@@ -104,7 +104,6 @@ a:hover {
   display: flex; /* Center items within this container*/
   justify-content: center;
   align-items: center;
-  min-height: 200px;
 }
 .container.bottom {
   padding: 20px;
@@ -115,7 +114,7 @@ a:hover {
   flex-wrap: nowrap;
   align-items: center;
 }
-@media (max-width: 580px) {
+@media (max-width : 474px ){
   .page-container {
     min-width: auto;
   }
@@ -123,7 +122,7 @@ a:hover {
 .wag-logo {
   width: 400px;
   height: 250px;
-  margin-bottom: -120px; /* Offset to move the logo upwards */
+  margin-bottom: -100px; /* Offset to move the logo upwards */
   z-index: 1; /* Ensure overlay is above the image but below the map tiles*/
 }
 .wag-logo img {
@@ -141,7 +140,6 @@ a:hover {
   .wag-logo {
     width: 300px;
     height: 219px;
-    margin-bottom: -180px; /* Offset to move the logo upwards */
   }
 }
 @media (max-width: 768px) {
@@ -290,7 +288,7 @@ a:hover {
   justify-content: center;
 }
 .h-spaced-buttons {
-  margin-right: 20px; /* Adjust as needed */
+  margin-right: 10px; /* Adjust as needed */
   margin-top: 10px; /* Adjust as needed */
   margin-bottom: 10px; /* Adjust as needed */
 }
@@ -327,6 +325,9 @@ h5 {
   margin-top: 0.5em;
 }
 @media (max-width: 768px) {
+  body {
+	 font-size: 12px;
+	}
   h1 {
     font-size: 1.5em; /* Reduced size for h1 */
   }
@@ -343,13 +344,19 @@ h5 {
     font-size: 0.9em; /* Reduced font size for paragraphs */
     line-height: 1.4; /* Slightly adjusted line-height for readability */
   }
+	.btn
+	{
+		
+		font-size: 12px;
+		padding: .375rem .3rem;
+	}
 }
 @media (max-width: 768px) {
   .button-container a.btn, .button-container button.btn { /* Added this line to target button elements */
     padding: 0.25rem 0.5rem;
-    font-size: 0.9em;
     margin-right: 10px;
     margin-bottom: 5px;
+	  
   }
   .h-spaced-buttons { /* Also modify if needed */
     margin-right: 10px; /* Reduced right margin */
@@ -443,7 +450,7 @@ h5 {
 @media (min-width: 768px) {
   .severity-key-container {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); /* Responsive grid columns */
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 10px;
   }
   .severity-row {
@@ -465,7 +472,6 @@ h5 {
   margin-bottom: 10px;
   text-decoration: none;
   margin-right: 20px;
-  font-size: 14px; /* Set font size to match main buttons */
   line-height: 1.5; /* Set line height to match main buttons */
   font-weight: 300; /* Ensure font weight matches main buttons */
 }
