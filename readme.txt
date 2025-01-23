@@ -29,6 +29,13 @@ Terminal run for Celery and Main (Pycharm or GCP):
 celery -A tasks worker --loglevel=info
 celery -A tasks worker --loglevel=info --concurrency=10 -P gevent
 
+celery -A tasks worker --queue=celery-alert-processing -l info
+celery -A tasks worker --queue=celery-map-data -l info
+celery -A tasks worker --queue=celery-alert-processing -l info
+celery -A tasks worker --queue=celery-email -l info
+celery -A tasks worker -l info
+
+
 
 gunicorn -b :8080 main:app --worker-class gevent
 gunicorn -b 0.0.0.0:8080 main:app --worker-class gevent -w 5
