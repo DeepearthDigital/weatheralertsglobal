@@ -155,7 +155,7 @@ celery_config = {
     'beat_schedule': {
         'scheduled_map_data': {
             'task': 'tasks.scheduled_map_data', # path to your celery task function
-            'schedule': map_generation_interval * 3600, # hours interval set in environment variable
+            'schedule': 3600, # hours interval set in environment variable
             'options': {'queue': 'celery-map-data'}  # queue to send the task to
         },
         'scheduled_alert_processing': {
@@ -171,9 +171,9 @@ app.conf.update(celery_config)
 def initial_load_task():
     try:
         with Flask(__name__).app_context(): # CREATE THE CONTEXT HERE
-            # celery_app.send_task('tasks.keep_recent_entries_efficient') # fully qualified task name
-            # celery_app.send_task('tasks.populate_map_data_if_needed')
-            # elery_app.send_task('tasks.check_for_and_send_alerts')
+            celery_app.send_task('tasks.keep_recent_entries_efficient') # fully qualified task name
+            celery_app.send_task('tasks.populate_map_data_if_needed')
+            celery_app.send_task('tasks.check_for_and_send_alerts')
             app_logger.info("Celery initial_load_task Scheduled task completed.")
     except Exception as e:
         app_logger.exception("Celery Error in initial_load_task scheduled task:")
