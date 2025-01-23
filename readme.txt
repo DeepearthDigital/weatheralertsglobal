@@ -44,6 +44,7 @@ if you need to stop processs locally then
             lsof -i :8080
             kill
             lsof -i :8080 | awk 'NR!=1 {print $2}' | xargs kill
+            lsof -i :8080 | awk 'NR!=1 {print $2}' | xargs kill -9
 
 
 curl -X POST -d 'username=simon@deepearth.digital&password=sydjes-1finjA-jevbor' -c cookies.txt  http://localhost:8080/login

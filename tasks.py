@@ -88,42 +88,59 @@ app.conf.update(
     worker_heartbeat_interval=120,
 )
 
-APP_LOGGER_NAME = 'celery-weather-alerts-global'
-app_logger = logging.getLogger(APP_LOGGER_NAME)
-app_logger.setLevel(logging.INFO)
+# Define logger names
+APP_WORKER_LOGGER_NAME = 'celery-weather-alerts-worker'
+APP_BEAT_LOGGER_NAME = 'celery-weather-alerts-beat'
 
-# Create a formatter for both file and stream handlers
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(filename)s - %(lineno)d - %(message)s')
+# Define log file paths
+worker_log_file_path = 'celery-weather-alerts-worker.log'
+beat_log_file_path = 'celery-weather-alerts-beat.log'
 
-# Check if running locally, if not, log to stdout only.
-if os.environ.get('ENVIRONMENT') != 'PRODUCTION':
-    # Truncate the log file at the start
-    log_file_path = 'celery-weather-alerts-global.log'
-    with open(log_file_path, 'w'):
-        pass  # This line erases the file
 
-    # Create a file handler for local development
-    file_handler = logging.handlers.RotatingFileHandler(log_file_path, maxBytes=10 * 1024 * 1024, backupCount=5)
-    file_handler.setFormatter(formatter)
-    app_logger.addHandler(file_handler)
 
-# Create a stream handler for app logs (to stdout for both local/GCP)
-stream_handler = logging.StreamHandler()
-stream_handler.setFormatter(formatter)
-app_logger.addHandler(stream_handler)
+def setup_logger(logger_name, log_file_path):
+    """Setup logger with given name and filepath."""
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(filename)s - %(lineno)d - %(message)s')
+
+    if os.environ.get('ENVIRONMENT') != 'PRODUCTION':
+        # Check if running locally, if not, log to stdout only.
+        with open(log_file_path, 'w'):
+            pass  # This line erases the file
+
+        # Create a file handler for local development
+        file_handler = logging.handlers.RotatingFileHandler(log_file_path, maxBytes=10 * 1024 * 1024, backupCount=5)
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+
+    # Create a stream handler for app logs (to stdout for both local/GCP)
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    logger.addHandler(stream_handler)
+
+    return logger
+
+
+# Initialize different loggers for worker and beat
+worker_logger = setup_logger(APP_WORKER_LOGGER_NAME, worker_log_file_path)
+beat_logger = setup_logger(APP_BEAT_LOGGER_NAME, beat_log_file_path)
 
 @after_setup_logger.connect
-def setup_loggers(logger, *args, **kwargs):
-    for handler in app_logger.handlers:
+def setup_worker_loggers(logger, *args, **kwargs):
+    for handler in worker_logger.handlers:
         logger.addHandler(handler)
+
 
 @after_setup_task_logger.connect
 def setup_task_loggers(logger, *args, **kwargs):
-    for handler in app_logger.handlers:
+    for handler in beat_logger.handlers:
         logger.addHandler(handler)
 
-# Log that the app is started
-app_logger.info(f"Celery application logger created, logging started for {APP_LOGGER_NAME}")
+
+# Log that the loggers are set up
+worker_logger.info(f"Worker logger created, logging started for {APP_WORKER_LOGGER_NAME}")
+beat_logger.info(f"Beat logger created, logging started for {APP_BEAT_LOGGER_NAME}")
 
 # Set the task to run once upon worker startup
 @signals.worker_init.connect
@@ -155,12 +172,12 @@ celery_config = {
     'beat_schedule': {
         'scheduled_map_data': {
             'task': 'tasks.scheduled_map_data', # path to your celery task function
-            'schedule': 3600, # hours interval set in environment variable
+            'schedule': map_generation_interval * 3600, # interval set in environment variable
             'options': {'queue': 'celery-map-data'}  # queue to send the task to
         },
         'scheduled_alert_processing': {
              'task': 'tasks.scheduled_alert_processing',
-             'schedule': map_generation_interval * 3600, # hours interval set in environment variable
+             'schedule': map_generation_interval * 3600, # interval set in environment variable
              'options': {'queue': 'celery-alert-processing'} # queue to send the task to
         }
     }
@@ -169,37 +186,39 @@ app.conf.update(celery_config)
 
 @shared_task(queue='celery-map-data')
 def initial_load_task():
+    beat_logger.info(f"Celery initial_load_task task started. Subsequent intervals for scheduled_map_data and "
+                    f"scheduled_alert_processing are set to {map_generation_interval} hour(s).")
     try:
         with Flask(__name__).app_context(): # CREATE THE CONTEXT HERE
             celery_app.send_task('tasks.keep_recent_entries_efficient') # fully qualified task name
             celery_app.send_task('tasks.populate_map_data_if_needed')
             celery_app.send_task('tasks.check_for_and_send_alerts')
-            app_logger.info("Celery initial_load_task Scheduled task completed.")
+            beat_logger.info("Celery initial_load_task Scheduled task completed.")
     except Exception as e:
-        app_logger.exception("Celery Error in initial_load_task scheduled task:")
+        beat_logger.exception("Celery Error in initial_load_task scheduled task:")
 
 
 @shared_task(queue='celery-map-data')
 def scheduled_map_data():
-    app_logger.info("Celery scheduled_map_data task started.")  # Log start of the task
+    beat_logger.info(f"Celery scheduled_map_data task started. Interval is set to {map_generation_interval} hour(s).")
     try:
         with Flask(__name__).app_context(): # CREATE THE CONTEXT HERE
             celery_app.send_task('tasks.keep_recent_entries_efficient') # fully qualified task name
             celery_app.send_task('tasks.populate_map_data_if_needed')
             celery_app.send_task('tasks.check_for_and_send_alerts')
-            app_logger.info("Celery scheduled_map_data Scheduled task completed.")
+            beat_logger.info("Celery scheduled_map_data Scheduled task completed.")
     except Exception as e:
-        app_logger.exception("Celery Error in scheduled_map_data scheduled task:")
+        beat_logger.exception("Celery Error in scheduled_map_data scheduled task:")
 
 @shared_task(queue='celery-map-data')
 def scheduled_alert_processing():
-    app_logger.info("Celery scheduled_alert_processing task started.")  # Log start of the task
+    beat_logger.info(f"Celery scheduled_alert_processing task started. Interval is set to {map_generation_interval} hour(s).")
     try:
         with Flask(__name__).app_context(): # CREATE THE CONTEXT HERE
             # celery_app.send_task('tasks.check_for_and_send_alerts')
-            app_logger.info("Celery scheduled_alert_processing Scheduled task completed.")
+            beat_logger.info("Celery scheduled_alert_processing Scheduled task completed.")
     except Exception as e:
-        app_logger.exception("Celery Error in scheduled_alert_processing scheduled task:")
+        beat_logger.exception("Celery Error in scheduled_alert_processing scheduled task:")
 
 
 # Database connections using MongoClient
@@ -213,7 +232,7 @@ wag_user_alerts_notification_zone_collection = wag_db[WAG_USER_ALERTS_NOTIFICATI
 MAP_DATA_CALLBACK_URL = os.getenv('MAP_DATA_CALLBACK_URL')
 
 
-def get_mongo_client():
+def get_mongo_client(MONGODB_DATABASE=None):
     client = MongoClient(MONGODB_URI)
     return client[MONGODB_DATABASE]
 
@@ -263,16 +282,16 @@ def send_request_with_retry(url, data, max_retries=3, backoff_factor=1, status_f
     )
 
     try:
-        app_logger.info(f"Sending POST request to: {url} with data sample: {str(data)[:100]}...")
+        worker_logger.info(f"Sending POST request to: {url} with data sample: {str(data)[:100]}...")
         response = session.post(url, json=data)
         response.raise_for_status()
-        app_logger.info(
+        worker_logger.info(
             f"Successful POST request to: {url}, Status Code: {response.status_code}, Response Text: {response.text}")
         return response
     except requests.exceptions.RequestException as e:
-        app_logger.exception(f"Error sending request to {url} after {max_retries} retries: ")
+        worker_logger.exception(f"Error sending request to {url} after {max_retries} retries: ")
         if 'response' in locals() and response:
-            app_logger.error(f"Response status code: {response.status_code}")
+            worker_logger.error(f"Response status code: {response.status_code}")
         return None
 
 
@@ -286,15 +305,15 @@ def keep_recent_entries_efficient(days_to_keep=1):
 
         # Delete only alerts that are completely in the past
         result = owa_collection.delete_many({"end": {"$lte": retention_cutoff_timestamp}})
-        app_logger.info(f"Deleted {result.deleted_count} entries completely in the past.")
+        worker_logger.info(f"Deleted {result.deleted_count} entries completely in the past.")
     except Exception as e:
-        app_logger.exception("Error cleaning up entries:")
+        worker_logger.exception("Error cleaning up entries:")
 
 
 @app.task(name='generate_map_data_task')
 def generate_map_data_task(future_days=14, page=1, page_size=3000, total_alerts=0):
     start_time = time.time()
-    app_logger.info(
+    worker_logger.info(
         f"Generating map data task... Celery task started. QUERY_LIMIT_BATCH: , QUERY_LIMIT: , Page: {page}, Page Size: {page_size}")
     my_map = folium.Map(location=[51.4779, 0.0015], zoom_start=5)
     alerts = []  # Initialize if passed.
@@ -317,11 +336,11 @@ def generate_map_data_task(future_days=14, page=1, page_size=3000, total_alerts=
         ]
     })
     if total_alerts == 0:
-        app_logger.info(f"Total alerts is 0. Halting map data generation.")
+        worker_logger.info(f"Total alerts is 0. Halting map data generation.")
 
     total_pages = (total_alerts + page_size - 1) // page_size
     if page > total_pages:
-        app_logger.info(f"Requested page is greater than the total number of pages. Halting map data generation.")
+        worker_logger.info(f"Requested page is greater than the total number of pages. Halting map data generation.")
         return {'map_js': "", 'alerts': [], 'total_pages': total_pages,
                 'page': page}  # Exit early if page is out of range
 
@@ -396,7 +415,7 @@ def generate_map_data_task(future_days=14, page=1, page_size=3000, total_alerts=
                 simplified_geometry = mapping(transform(project_utm_to_wgs, simplified_shape))
                 geometry = simplified_geometry
             except Exception as e:
-                app_logger.exception(f"Error simplifying geometry for alert id: {alert_data.get('_id')}")
+                worker_logger.exception(f"Error simplifying geometry for alert id: {alert_data.get('_id')}")
 
             msg_type = alert_data['msg_type']
             categories = alert_data['categories']
@@ -455,17 +474,17 @@ def generate_map_data_task(future_days=14, page=1, page_size=3000, total_alerts=
                            name=f"Alert ").add_to(my_map)
 
         except Exception as e:
-            app_logger.exception("Critical error generating map data:")
+            worker_logger.exception("Critical error generating map data:")
             return None  # Indicate failure
 
         except (KeyError, TypeError, IndexError) as e:
-            app_logger.exception(f"Error processing alert data from MongoDB: ")
+            worker_logger.exception(f"Error processing alert data from MongoDB: ")
 
     folium.LayerControl().add_to(my_map)
     map_js = my_map.get_root().render()
     end_time = time.time()
     elapsed_time = end_time - start_time
-    app_logger.info(f"Map data generated in {elapsed_time:.4f} seconds. Celery task completed.")  # Added this line
+    worker_logger.info(f"Map data generated in {elapsed_time:.4f} seconds. Celery task completed.")  # Added this line
 
     map_data = {'map_js': map_js, 'alerts': alerts, 'total_pages': total_pages, 'page': page}
 
@@ -480,7 +499,7 @@ def generate_map_data_task(future_days=14, page=1, page_size=3000, total_alerts=
         cache_timestamp = datetime.fromtimestamp(float(gen_map_last_run_timestamp), tz=timezone.utc).isoformat()
     else:
         cache_timestamp = datetime.now(timezone.utc).isoformat()
-        app_logger.warning("'gen_map_last_run_timestamp' was not found in Redis database. "
+        worker_logger.warning("'gen_map_last_run_timestamp' was not found in Redis database. "
                            "Using current date-time as cache_timestamp.")
 
     map_data['cache_timestamp'] = cache_timestamp
@@ -493,7 +512,7 @@ def generate_map_data_task(future_days=14, page=1, page_size=3000, total_alerts=
     redis_client = create_redis_client()
 
     if page == 1:
-        app_logger.info(f"Setting Redis key 'temp_map_data'")
+        worker_logger.info(f"Setting Redis key 'temp_map_data'")
     else:
         # For pages > 1, attempt to get the existing data and append the new alerts.
         existing_map_data_json = redis_client.get('temp_map_data')
@@ -503,23 +522,23 @@ def generate_map_data_task(future_days=14, page=1, page_size=3000, total_alerts=
             map_data = existing_map_data
     redis_client.set('temp_map_data', json.dumps(map_data))
 
-    app_logger.info(f"Celery task completed successfully: ")
+    worker_logger.info(f"Celery task completed successfully: ")
 
     # Send the map data to the callback URL - this will trigger the socket.io broadcast.
     redis_client.set('map_data_task_id', generate_map_data_task.request.id)  # Set the task ID
-    app_logger.info(f"Task ID {generate_map_data_task.request.id} saved to Redis for generate_map_data.")
+    worker_logger.info(f"Task ID {generate_map_data_task.request.id} saved to Redis for generate_map_data.")
     try:
         response = send_request_with_retry(MAP_DATA_CALLBACK_URL, data={'map_data': map_data})
         if response and response.status_code == 200:
             # Now include the timestamp when saving to Redis
             if page == 1:
-                app_logger.info(f"Setting Redis key 'temp_map_data'")
+                worker_logger.info(f"Setting Redis key 'temp_map_data'")
                 redis_client.set('temp_map_data', json.dumps(map_data))
-            app_logger.info("Map data update successful, sent via socketio.")
+            worker_logger.info("Map data update successful, sent via socketio.")
         else:
-            app_logger.error("Map data update failed via SocketIO.")
+            worker_logger.error("Map data update failed via SocketIO.")
     except requests.exceptions.RequestException as e:
-        app_logger.exception(f"Error sending request to : ")
+        worker_logger.exception(f"Error sending request to : ")
         raise e  # Instead of return None, raise the exception
 
     return map_data
@@ -536,7 +555,7 @@ def populate_map_data_if_needed():
 
         if not gen_map_last_run_timestamp or (current_timestamp - float(gen_map_last_run_timestamp)) >= map_generation_interval * 60 * 60:
             # It's been 2 hours since last map generation, force it now
-            app_logger.info("2 hours since last forced map generation. Generating...")
+            worker_logger.info("2 hours since last forced map generation. Generating...")
             generate_map_data_task.apply_async()
 
             # Update timestamp of last run
@@ -546,34 +565,34 @@ def populate_map_data_if_needed():
             return
 
         if not map_data_json or not cached_task_id:
-            app_logger.info("Map data not found in Redis or Task ID is missing. Generating...")
+            worker_logger.info("Map data not found in Redis or Task ID is missing. Generating...")
             generate_map_data_task.apply_async()
             cache_map_data_task.apply_async()
             return
-        app_logger.info(f"Task ID {cached_task_id} retrieved from Redis.")
+        worker_logger.info(f"Task ID {cached_task_id} retrieved from Redis.")
         task = app.AsyncResult(cached_task_id.decode('utf-8'))
         if task.status in ['PENDING', 'STARTED', 'RETRY']:
-            app_logger.info(
+            worker_logger.info(
                 f"Map data found in Redis, and a task with id: {cached_task_id.decode('utf-8')} is already running.")
             cache_map_data_task.apply_async()
             return
         else:
-            app_logger.info("Previous task finished, and map data found in Redis. Regenerating data...")
+            worker_logger.info("Previous task finished, and map data found in Redis. Regenerating data...")
             generate_map_data_task.apply_async()
             cache_map_data_task.apply_async()
     except ConnectionError as e:
-        app_logger.error(f"Redis connection error: ")
+        worker_logger.error(f"Redis connection error: ")
     except Exception as e:
-        app_logger.exception("Error checking or populating map data:")
+        worker_logger.exception("Error checking or populating map data:")
 
 @app.task(name='populate_map_data_if_needed_task')
 def populate_map_data_if_needed_task():
     try:
         populate_map_data_if_needed.apply_async()
-        app_logger.info("Starting populate_map_data_if_needed_task process called from index")
+        worker_logger.info("Starting populate_map_data_if_needed_task process called from index")
     except Exception as e:
-        app_logger.error("Error populate_map_data_if_needed_task process called from index")
-        app_logger.error(str(e))
+        worker_logger.error("Error populate_map_data_if_needed_task process called from index")
+        worker_logger.error(str(e))
 
 @app.task(name='cache_map_data_task')
 def cache_map_data_task():
@@ -591,7 +610,7 @@ def cache_map_data_task():
                     redis_client.set('map_data', temp_data)  # Save the temp data to main key
                     redis_client.delete('temp_map_data')  # Now you can delete the temp key
                 else:
-                    app_logger.info("No temporary map data available.")
+                    worker_logger.info("No temporary map data available.")
                     break
             elif task.state in ['FAILURE', 'REVOKED']:
                 # The task failed, no new map data will be arriving
@@ -610,7 +629,7 @@ def find_matching_owa_alerts(wag_zone_geometry, future_days=14):
         # Validate geometry before querying.
         geojson.loads(json.dumps(wag_zone_geometry))
         if wag_zone_geometry['type'] not in ['Polygon', 'MultiPolygon', 'Point', 'LineString']:
-            app_logger.info(f"Invalid geometry type in find_matching_owa_alerts: {wag_zone_geometry['type']}")
+            worker_logger.info(f"Invalid geometry type in find_matching_owa_alerts: {wag_zone_geometry['type']}")
             return []  # Return empty list for invalid geometry
 
         today_utc = datetime.now(timezone.utc)
@@ -655,11 +674,11 @@ def find_matching_owa_alerts(wag_zone_geometry, future_days=14):
                                 'id': alert['id']
                             })
                     except (KeyError, TypeError) as e:
-                        app_logger.exception(f"Error processing cached alert data: ")
+                        worker_logger.exception(f"Error processing cached alert data: ")
                         continue
                 return formatted_alerts
             except json.JSONDecodeError:
-                app_logger.error("Error decoding cached map data from Redis.")
+                worker_logger.error("Error decoding cached map data from Redis.")
                 # Fallback to database query if we cannot use cached data.
 
             cursor = owa_collection.aggregate([
@@ -756,12 +775,12 @@ def find_matching_owa_alerts(wag_zone_geometry, future_days=14):
 
                     })
                 except (KeyError, TypeError, IndexError) as e:
-                    app_logger.exception(f"Error processing alert data from MongoDB: {e}")
+                    worker_logger.exception(f"Error processing alert data from MongoDB: {e}")
                     continue
             return formatted_alerts
 
     except (KeyError, TypeError) as e:
-        app_logger.info(f"Error validating or querying OWA alerts: {e}")
+        worker_logger.info(f"Error validating or querying OWA alerts: {e}")
         return []
 
 
@@ -785,10 +804,10 @@ def calculate_center(geometry):
             center_lon = sum(lons) / len(lons)
             return center_lat, center_lon
         else:
-            app_logger.info(f"Invalid GeoJSON type. Type: {shape_obj.geom_type}")
+            worker_logger.info(f"Invalid GeoJSON type. Type: {shape_obj.geom_type}")
             return None, None
     except Exception as e:
-        app_logger.exception(f"Error calculating center: ")
+        worker_logger.exception(f"Error calculating center: ")
         return None, None
 
 
@@ -805,7 +824,7 @@ def send_email(recipient_email, subject, body, mail_server, mail_port, mail_user
             server.send_message(msg)
         return True
     except Exception as e:
-        app_logger.error(f"Error sending email: {e}")
+        worker_logger.error(f"Error sending email: {e}")
         return False
 
 
@@ -890,12 +909,12 @@ def send_alert_notification_zone_creation_email(email_data, mail_server, mail_po
             }
         )
         if success:
-            app_logger.info(f"Alert zone creation email sent to  for alert ID: {alert_id}")
+            worker_logger.info(f"Alert zone creation email sent to  for alert ID: {alert_id}")
         else:
-            app_logger.error(f"Failed to send alert zone creation email to {recipient} for alert ID: {alert_id}")
+            worker_logger.error(f"Failed to send alert zone creation email to {recipient} for alert ID: {alert_id}")
 
     except Exception as e:
-        app_logger.exception(f"Error in send_alert_notification_zone_creation_email: {e}")
+        worker_logger.exception(f"Error in send_alert_notification_zone_creation_email: {e}")
 
 
 def calculate_zoom_level(geometry, image_size=(400, 400)):
@@ -934,7 +953,7 @@ def calculate_zoom_level(geometry, image_size=(400, 400)):
         return adjusted_zoom
 
     except Exception as e:
-        app_logger.exception(f"Error calculating zoom level: ")
+        worker_logger.exception(f"Error calculating zoom level: ")
         return 7  # Return a default value
 
 
@@ -969,11 +988,11 @@ def create_map_image_url(center_lat, center_lon, geojson_str, api_key, color):
 
             zoom = calculate_zoom_level(geojson_data)
             map_url = f"https://maps.googleapis.com/maps/api/staticmap?center={center_lat},{center_lon}&zoom={zoom}&size=400x200&maptype=roadmap&{fill_path_str}&{border_path_str}&key={api_key}"
-            app_logger.info(f"Map URL generated: {map_url}")
+            worker_logger.info(f"Map URL generated: {map_url}")
             return map_url
 
     except Exception as e:
-        app_logger.error(f"Error creating map URL: {e}")
+        worker_logger.error(f"Error creating map URL: {e}")
     return None
 
 
@@ -1010,14 +1029,14 @@ def send_weather_alert(user_email, owa_alert, wag_alert_id):
         color = owa_alert.get('color', '#313131')
         geometry = owa_alert.get('geometry')
         if geometry:
-            app_logger.info(f"Geometry found: ")  # Check what the geometry is
+            worker_logger.info(f"Geometry found: ")  # Check what the geometry is
             try:
                 geojson.loads(json.dumps(geometry))
-                app_logger.info("Geometry is valid")
+                worker_logger.info("Geometry is valid")
             except Exception as e:
-                app_logger.info(f"Error validating geometry: {e}")
+                worker_logger.info(f"Error validating geometry: {e}")
         else:
-            app_logger.info("No geometry found")
+            worker_logger.info("No geometry found")
 
         # Generate Map URL
         map_url = None
@@ -1092,24 +1111,24 @@ def send_weather_alert(user_email, owa_alert, wag_alert_id):
 
 
     except Exception as e:
-        app_logger.error(f"Error in send_weather_alert: {e}")
+        worker_logger.error(f"Error in send_weather_alert: {e}")
 
 @app.task(name='check_for_and_send_alerts_on_enabled_button')
 def check_for_and_send_alerts_on_enabled_button():
     try:
         check_for_and_send_alerts.apply_async()
-        app_logger.info("Starting check_for_and_send_alerts_on_enabled_button process")
+        worker_logger.info("Starting check_for_and_send_alerts_on_enabled_button process")
     except Exception as e:
-        app_logger.error("Error check_for_and_send_alerts_on_enabled_button process")
-        app_logger.error(str(e))
+        worker_logger.error("Error check_for_and_send_alerts_on_enabled_button process")
+        worker_logger.error(str(e))
 
 @shared_task(queue='celery-map-data')
 def check_for_and_send_alerts():
     """Checks for new OWA alerts and sends emails to affected users."""
-    app_logger.info("check_for_and_send_alerts task is running")  # Added this log
+    worker_logger.info("check_for_and_send_alerts task is running")  # Added this log
 
     try:
-        app_logger.info("Starting check_for_and_send_alerts process")
+        worker_logger.info("Starting check_for_and_send_alerts process")
 
         users = wag_user_alerts_notification_zone_collection.find({},
                                                                   {"_id": 1, "user_id": 1, "email": 1, "geometry": 1,
@@ -1117,24 +1136,24 @@ def check_for_and_send_alerts():
                                                                    "email_alerts_enabled": 1, "owa_alerts": 1}).limit(
             100)
         users_list = list(users)
-        app_logger.info(f"Number of users found: {len(users_list)}")
+        worker_logger.info(f"Number of users found: {len(users_list)}")
 
         if not users_list:
-            app_logger.info("User list is empty - Exiting")
+            worker_logger.info("User list is empty - Exiting")
             return  # Exit if user list is empty
 
         for user in users_list:
             user_id = user["_id"]
             user_email = user["email"]
             wag_zone_geometry = user.get("geometry", None)
-            app_logger.info(
+            worker_logger.info(
                 f"Processing user: {user_id}, User ID: {user.get('user_id', 'N/A')}, Geometry: {wag_zone_geometry}")
-            app_logger.info(f"USER: {user}")
+            worker_logger.info(f"USER: {user}")
 
             if user.get('email_alerts_enabled', False) == True:
-                app_logger.info(f"Email alerts enabled for user: ")
+                worker_logger.info(f"Email alerts enabled for user: {user_email}")
                 if wag_zone_geometry:
-                    app_logger.info(f"Finding matching alerts for user: ")
+                    worker_logger.info(f"Finding matching alerts for user: {user_email}")
                     # Convert _id to string
                     user_id_str = str(user["_id"])
                     # Extract only serializable data
@@ -1153,18 +1172,18 @@ def check_for_and_send_alerts():
 
 
                 else:
-                    app_logger.info(f"User:  has no valid geometry defined")
+                    worker_logger.info(f"User: {user_email} has no valid geometry defined")
             else:
-                app_logger.info(f"Email alerts are disabled for user:  - Skipping")
-        app_logger.info("Completed check_for_and_send_alerts process")
+                worker_logger.info(f"Email alerts are disabled for user: {user_email} - Skipping")
+        worker_logger.info("Completed check_for_and_send_alerts process")
     except Exception as e:  # Colon added here
-        app_logger.exception("Error in check_for_and_send_alerts:")
+        worker_logger.exception("Error in check_for_and_send_alerts:")
 
 
 @app.task(name='process_matching_alerts')
 def process_matching_alerts(matching_alerts, user, user_email):
     """Processes matching OWA alerts for a user and sends notifications."""
-    app_logger.info(f"Starting process_matching_alerts for user: {user.get('user_id', 'N/A')}")
+    worker_logger.info(f"Starting process_matching_alerts for user: {user.get('user_id', 'N/A')}")
 
     try:
         # Ensure owa_alerts exists, create it if it does not
@@ -1178,13 +1197,13 @@ def process_matching_alerts(matching_alerts, user, user_email):
         new_alerts = [alert for alert in matching_alerts if alert["id"] not in sent_alert_ids]
 
         num_alerts = len(new_alerts)
-        app_logger.info(f"Number of matching alerts for user: : {num_alerts}")
+        worker_logger.info(f"Number of matching alerts for user: : {num_alerts}")
         if num_alerts > 0:
             # Log a sample of the alerts, not all of them
             sample_alerts = new_alerts[:min(num_alerts, 5)]  # Limit to 5 for logging
-            app_logger.info(f"Sample of matching alerts for user: : (sample_alerts)")
+            worker_logger.info(f"Sample of matching alerts for user: : (sample_alerts)")
             for owa_alert in new_alerts:
-                app_logger.info(
+                worker_logger.info(
                     f"Sending alert for User: {user.get('user_id', 'N/A')}, Alert ID: {owa_alert['id']}, OWA Alert: (owa_alert)")
                 send_weather_alert.delay(user_email, owa_alert, user["_id"])  # Delay the task.
 
@@ -1202,14 +1221,14 @@ def process_matching_alerts(matching_alerts, user, user_email):
                     }
                 )
         else:
-            app_logger.info(f"No matching alerts found for user: {user.get('user_id', 'N/A')}")
+            worker_logger.info(f"No matching alerts found for user: {user.get('user_id', 'N/A')}")
 
     except Exception as e:
-        app_logger.exception(
+        worker_logger.exception(
             f"Error in process_matching_alerts task: {e} - for user: {user.get('user_id', 'N/A')}")
 
     except Exception as e:
-        app_logger.exception(
+        worker_logger.exception(
             f"Error in process_matching_alerts task: {e} - for user: {user.get('user_id', 'N/A')}")
 
 
@@ -1241,8 +1260,8 @@ def send_weather_alert_email(user_email, subject, body, MAIL_SERVER, MAIL_PORT, 
             )
 
     except smtplib.SMTPException as e:
-        app_logger.error(f"SMTP error sending weather alert email to : {e}")
+        worker_logger.error(f"SMTP error sending weather alert email to : {e}")
     except pymongo.errors.PyMongoError as e:
-        app_logger.error(f"Database error updating notification status: {e}")
+        worker_logger.error(f"Database error updating notification status: {e}")
     except Exception as e:
-        app_logger.exception(f"Unexpected error sending weather alert email to : {e}")
+        worker_logger.exception(f"Unexpected error sending weather alert email to : {e}")
