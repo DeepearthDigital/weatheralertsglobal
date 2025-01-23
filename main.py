@@ -511,18 +511,18 @@ def index():
                         loading = False
                     else:
                         app_logger.info("Redis data not found after a successful task.")
-                        task = celery_app.send_task('populate_map_data_if_needed_task')
-                        redis_client.set('map_data_task_id', task.id)
-                        app_logger.info(f"Triggered map data generation, task id: {task.id}")
+                        #task = celery_app.send_task('populate_map_data_if_needed_task')
+                        #redis_client.set('map_data_task_id', task.id)
+                        #app_logger.info(f"Triggered map data generation, task id: {task.id}")
                         loading = True
                 elif async_result.state == 'FAILURE':
                     app_logger.error(f"Previous task failed with traceback: {async_result.traceback}")
                     flash("Error generating map data. Please try again later.")
                     loading = False  # Ensure loading is false
                     # Optionally trigger a new task here
-                    task = celery_app.send_task('populate_map_data_if_needed_task')
-                    redis_client.set('map_data_task_id', task.id)
-                    app_logger.info(f"Triggered new map data generation, task id: {task.id}")
+                    #task = celery_app.send_task('populate_map_data_if_needed_task')
+                    #redis_client.set('map_data_task_id', task.id)
+                    #app_logger.info(f"Triggered new map data generation, task id: {task.id}")
                 else:
                     app_logger.warning(
                         f"Previous task in unknown state: {async_result.state}")  # Handle task failure (e.g., retry or display an error)
@@ -530,10 +530,10 @@ def index():
                     loading = False  # Ensure loading is false
             else:
                 app_logger.info("Map data not found in Redis. Generating...")
-                loading = True
-                task = celery_app.send_task('populate_map_data_if_needed_task')
-                redis_client.set('map_data_task_id', task.id)
-                app_logger.info(f"Starting map data generation task id: {task.id}")
+                #loading = True
+                #task = celery_app.send_task('populate_map_data_if_needed_task')
+                #redis_client.set('map_data_task_id', task.id)
+                #app_logger.info(f"Starting map data generation task id: {task.id}")
 
         except ConnectionError as e:
             app_logger.error(f"Redis connection error: ")
@@ -910,9 +910,9 @@ def handle_map_data():
                              app_logger.info("Retrieved non JSON map_data from Redis after successful task completion")
                     else:
                         app_logger.info("Redis data not found after a successful task.")
-                        task = celery_app.send_task('populate_map_data_if_needed_task')
-                        redis_client.set('map_data_task_id', task.id)
-                        app_logger.info(f"Triggered map data generation, task id: {task.id}")
+                        #task = celery_app.send_task('populate_map_data_if_needed_task')
+                        #redis_client.set('map_data_task_id', task.id)
+                        #app_logger.info(f"Triggered map data generation, task id: {task.id}")
                         # If the task has completed or failed, emit the loading signal as False.
                         # Keep 'loading' as True while the task is being run.
                         flask_socketio.emit('loading', {'loading': True}, room=request.sid)
@@ -921,9 +921,9 @@ def handle_map_data():
                     app_logger.warning("Previous task failed.")  # Handle task failure (e.g., retry or display an error)
             else:
                 app_logger.info("Map data not found in Redis. Generating...")
-                task = celery_app.send_task('populate_map_data_if_needed_task')
-                redis_client.set('map_data_task_id', task.id)
-                app_logger.info(f"Starting map data generation task id: {task.id}")
+                #task = celery_app.send_task('populate_map_data_if_needed_task')
+                #redis_client.set('map_data_task_id', task.id)
+                #app_logger.info(f"Starting map data generation task id: {task.id}")
 
     except ConnectionError as e:
         app_logger.error(f"Redis connection error: ")

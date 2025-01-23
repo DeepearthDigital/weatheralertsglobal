@@ -248,7 +248,7 @@ def create_redis_client():
                        db=redis_cloud_db)
 
 
-def send_request_with_retry(url, data, max_retries=3, backoff_factor=1, status_forcelist=(500, 502, 503, 504)):
+def send_request_with_retry(url, data, max_retries=4, backoff_factor=1, status_forcelist=(500, 502, 503, 504, 429)):
     """
     Sends a POST request with retry logic using exponential backoff.
 
@@ -261,7 +261,6 @@ def send_request_with_retry(url, data, max_retries=3, backoff_factor=1, status_f
 
     Returns:
         requests.Response or None: The Response object if successful, otherwise None.
-
     Raises:
         requests.exceptions.RequestException: If the request fails after all retry attempts.
     """
@@ -281,18 +280,29 @@ def send_request_with_retry(url, data, max_retries=3, backoff_factor=1, status_f
         connections=10
     )
 
-    try:
-        worker_logger.info(f"Sending POST request to: {url} with data sample: {str(data)[:100]}...")
-        response = session.post(url, json=data)
-        response.raise_for_status()
-        worker_logger.info(
-            f"Successful POST request to: {url}, Status Code: {response.status_code}, Response Text: {response.text}")
-        return response
-    except requests.exceptions.RequestException as e:
-        worker_logger.exception(f"Error sending request to {url} after {max_retries} retries: ")
-        if 'response' in locals() and response:
-            worker_logger.error(f"Response status code: {response.status_code}")
-        return None
+    for i in range(max_retries):  # retry loop
+        try:
+            worker_logger.info(f"Sending POST request to: {url} with data sample: {str(data)[:100]}...")
+            response = session.post(url, json=data)
+            response.raise_for_status()
+            worker_logger.info(
+                f"Successful POST request to: {url}, Status Code: {response.status_code}, Response Text: {response.text}")
+            return response
+        except requests.exceptions.RequestException as e:
+            worker_logger.exception(f"Error sending request to {url} after {i + 1} retries: ")
+            if 'response' in locals() and response:
+                worker_logger.error(f"Response status code: {response.status_code}")
+                if response.status_code == 429:
+                    retry_after = response.headers.get('Retry-After')  # Use .get to avoid KeyError
+                    if retry_after is not None:
+                        sleep_time = int(retry_after)
+                    else:
+                        sleep_time = 60  # Default sleep time
+                    worker_logger.info(f"Rate limit hit; Retrying in {sleep_time} seconds...")
+                    time.sleep(sleep_time)
+
+    worker_logger.error(f"Failed to send request to {url} after {max_retries} tries.")
+    return None
 
 
 # Trim the database
@@ -555,7 +565,7 @@ def populate_map_data_if_needed():
 
         if not gen_map_last_run_timestamp or (current_timestamp - float(gen_map_last_run_timestamp)) >= map_generation_interval * 60 * 60:
             # It's been 2 hours since last map generation, force it now
-            worker_logger.info("2 hours since last forced map generation. Generating...")
+            worker_logger.info(f"{map_generation_interval} hours since last forced map generation. Generating...")
             generate_map_data_task.apply_async()
 
             # Update timestamp of last run
