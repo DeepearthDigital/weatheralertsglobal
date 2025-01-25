@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script type="text/javascript" src="https://app.termly.io/resource-blocker/41a0dc0a-edce-413c-aba8-f73cc931bead?autoBlock=off"></script> 
+<!-- Google tag (gtag.js) --> 
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-4E0TWQ9M43"></script> 
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-4E0TWQ9M43');
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Welcome to Weather Alerts Global{% endblock %}</title>
+	{% block head %}
+    {% endblock %}<!-- Add a head block for adding page-specific head content -->
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+{% include 'navbar-top.html' %}
+<header> 
+  <!-- header content --> 
+</header>
+<main> {% block content %}{% endblock %} </main>
+<footer> 
+  <!-- footer content --> 
+</footer>
+
+<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" ></script> 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/js/bootstrap.bundle.min.js"></script>
+	    {% block bottom_scripts %}
+    {% endblock %}
+
+	</body>
+</html>

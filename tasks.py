@@ -161,33 +161,28 @@ celery_config = {
         'tasks.keep_recent_entries_efficient': {'queue': 'celery-map-data'},
         'tasks.generate_map_data_task': {'queue': 'celery-map-data'},
         'tasks.populate_map_data_if_needed': {'queue': 'celery-map-data'},
-        'tasks.find_matching_owa_alerts_task': {'queue': 'celery-alert-matching'},
-        'tasks.process_matching_alerts': {'queue': 'celery-alert-processing'},
-        'tasks.check_for_and_send_alerts': {'queue': 'celery-alert-matching'},
-        'tasks.send_alert_notification_zone_creation_email': {'queue': 'celery-email'},
-        'tasks.send_weather_alert': {'queue': 'celery-email'},
-        'tasks.send_weather_alert_email': {'queue': 'celery-email'},
+        'tasks.find_matching_owa_alerts_task': {'queue': 'celery-map-data'},
+        'tasks.process_matching_alerts': {'queue': 'celery-map-data'},
+        'tasks.check_for_and_send_alerts': {'queue': 'celery-map-data'},
+        'tasks.send_alert_notification_zone_creation_email': {'queue': 'celery-map-data'},
+        'tasks.send_weather_alert': {'queue': 'celery-map-data'},
+        'tasks.send_weather_alert_email': {'queue': 'celery-map-data'},
         'tasks.initial_load_task': {'queue': 'celery-map-data'},
     },
     'beat_schedule': {
-        'scheduled_map_data': {
-            'task': 'tasks.scheduled_map_data', # path to your celery task function
+        'scheduled_map_data_and_alert_processing': {
+            'task': 'tasks.scheduled_map_data_and_alert_processing', # path to your celery task function
             'schedule': map_generation_interval * 3600, # interval set in environment variable
             'options': {}
         },
-        'scheduled_alert_processing': {
-             'task': 'tasks.scheduled_alert_processing',
-             'schedule': map_generation_interval * 3600, # interval set in environment variable
-             'options': {}
-        }
     }
 }
 app.conf.update(celery_config)
 
 @shared_task
 def initial_load_task():
-    beat_logger.info(f"Celery initial_load_task task started. Subsequent intervals for scheduled_map_data and "
-                    f"scheduled_alert_processing are set to {map_generation_interval} hour(s).")
+    beat_logger.info(f"Celery initial_load_task task started. Subsequent intervals for "
+                     f"scheduled_map_data_and_alert_processing are set to {map_generation_interval} hour(s).")
     task_name = 'initial_load_task'
 
     task_results = []  # List to store the results of each task
@@ -238,9 +233,10 @@ def initial_load_task():
         send_completion_email(task_name , success=False, error_message=str(e))
 
 @shared_task
-def scheduled_map_data():
-    beat_logger.info(f"Celery scheduled_map_data task started. Interval is set to {map_generation_interval} hour(s).")
-    task_name = 'scheduled_map_data'
+def scheduled_map_data_and_alert_processing():
+    beat_logger.info(f"Celery scheduled_map_data_and_alert_processing task started. Interval is set to {map_generation_interval} hour(s).")
+
+    task_name = 'scheduled_map_data_and_alert_processing'
 
     task_results = []  # List to store the results of each task
 
@@ -264,6 +260,15 @@ def scheduled_map_data():
                 task_results.append(('tasks.populate_map_data_if_needed', False))
                 beat_logger.exception("Error scheduling populate_map:")
 
+            try:
+                celery_app.send_task('tasks.check_for_and_send_alerts')
+                send_completion_email(task_name + ' check_for_and_send_alerts', success=True, error_message=None)
+                task_results.append(('tasks.check_for_and_send_alerts', True))
+            except Exception as e:
+                send_completion_email(task_name + ' check_for_and_send_alerts', success=False, error_message=str(e))
+                task_results.append(('tasks.check_for_and_send_alerts', False))
+                beat_logger.exception("Error scheduling check_alerts:")
+
             # Send a final summary email (optional)
             summary_message = "Task scheduling summary:\n"
             for task_name, success in task_results:
@@ -274,28 +279,12 @@ def scheduled_map_data():
             #       was successful
             send_completion_email(task_name + ' summary', success=True, error_message=summary_message)
 
-            beat_logger.info("Celery scheduled_map_data scheduled completed.")
+            beat_logger.info("Celery scheduled_map_data_and_alert_processing scheduled completed.")
 
     except Exception as e:
-        beat_logger.exception("Celery Error in scheduled_map_data scheduled task:")
+        beat_logger.exception("Celery Error in scheduled_map_data_and_alert_processing scheduled task:")
         send_completion_email(task_name , success=False, error_message=str(e))
 
-@shared_task
-def scheduled_alert_processing():
-    beat_logger.info(f"Celery scheduled_alert_processing task started. Interval is set to {map_generation_interval} hour(s).")
-    try:
-        with Flask(__name__).app_context():
-            celery_app.send_task('tasks.check_for_and_send_alerts',
-                                 link=completion_callback.s("scheduled_alert_processing"),
-                                 link_error=error_callback.s("scheduled_alert_processing"))  # corrected line
-            # Send success email here:
-            send_completion_email("scheduled_alert_processing check_for_and_send_alerts", success=True,
-                                  error_message=None)  # error_message is None as no error occured
-
-            beat_logger.info("Celery scheduled_alert_processing Scheduled task completed.")
-    except Exception as e:
-        beat_logger.exception("Celery Error in scheduled_alert_processing scheduled task:")
-        send_completion_email("scheduled_alert_processing check_for_and_send_alerts", success=False, error_message=str(e))
 
 @shared_task
 def completion_callback(task_name):
@@ -666,8 +655,11 @@ def generate_map_data_task(future_days=14, page=1, page_size=3000, total_alerts=
     return map_data
 
 @shared_task
-def populate_map_data_if_needed():
-    """Check if we need to regenerate the map data"""
+def populate_map_data_if_needed(*args, **kwargs):
+    """
+    Check if we need to regenerate the map data.
+    Accepts Celery's hidden positional arguments (*args) and keyword arguments (**kwargs)
+    """
     try:
         map_data_json = redis_client.get('map_data')
         cached_task_id = redis_client.get('map_data_task_id')
@@ -676,14 +668,14 @@ def populate_map_data_if_needed():
         current_timestamp = datetime.now(timezone.utc).timestamp()
 
         if not gen_map_last_run_timestamp or (current_timestamp - float(gen_map_last_run_timestamp)) >= map_generation_interval * 60 * 60:
-            # It's been 2 hours since last map generation, force it now
+            # It's been longer than the interval since last map generation, force it now
             worker_logger.info(f"{map_generation_interval} hours since last forced map generation. Generating...")
-            generate_map_data_task.apply_async()
+            generate_map_data_task.apply_async() # assuming this is a celery task
 
             # Update timestamp of last run
             redis_client.set('gen_map_last_run_timestamp', str(current_timestamp))
 
-            cache_map_data_task.apply_async()
+            cache_map_data_task.apply_async() # assuming this is a celery task
             return
 
         if not map_data_json or not cached_task_id:
@@ -703,7 +695,7 @@ def populate_map_data_if_needed():
             generate_map_data_task.apply_async()
             cache_map_data_task.apply_async()
     except ConnectionError as e:
-        worker_logger.error(f"Redis connection error: ")
+        worker_logger.error(f"Redis connection error: {e}")
     except Exception as e:
         worker_logger.exception("Error checking or populating map data:")
 
@@ -1245,7 +1237,7 @@ def check_for_and_send_alerts_on_enabled_button():
         worker_logger.error(str(e))
 
 @shared_task
-def check_for_and_send_alerts():
+def check_for_and_send_alerts(*args, **kwargs):
     """Checks for new OWA alerts and sends emails to affected users."""
     worker_logger.info("check_for_and_send_alerts task is running")  # Added this log
 

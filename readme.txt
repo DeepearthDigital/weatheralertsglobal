@@ -35,6 +35,8 @@ celery -A tasks worker --queue=celery-alert-processing -l info
 celery -A tasks worker --queue=celery-email -l info
 celery -A tasks worker -l info
 
+celery -A tasks:app beat --loglevel=info
+
 
 
 gunicorn -b :8080 main:app --worker-class gevent

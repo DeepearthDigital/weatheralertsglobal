@@ -1,9 +1,9 @@
 @charset "UTF-8";
 /* CSS Document */
-@import url('https://fonts.googleapis.com/css2?family=Parkinsans:wght@300..800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@300&display=swap');
 body {
   margin: 0;
-  font-family: "Parkinsans", sans-serif;
+  font-family: "Funnel Sans", serif;
   font-optical-sizing: auto;
   font-weight: 300;
   font-style: normal;
@@ -75,13 +75,15 @@ a:hover {
 #mapid {
   flex: 1;
   position: relative; /* Make map a positioning context */
-  z-index: 1;
   background-image: url('../static/images/roaring-ocean.jpg');
   background-size: cover; /* Or 'contain' depending on what you prefer*/
   background-repeat: no-repeat;
   background-position: center; /* Or top, bottom, left, right or any other position you want*/
   background-attachment: fixed;
   background-blend-mode: multiply;
+  height: 100vh; /* set the height of the map to 80% of the viewport height  */
+  width: 100%; /* set the width to 100% of its parent */
+  z-index: 1; /* Prevent any overlap with other elements */
 }
 #mapid::before {
   content: "";
@@ -114,7 +116,7 @@ a:hover {
   flex-wrap: nowrap;
   align-items: center;
 }
-@media (max-width : 474px ){
+@media (max-width : 474px) {
   .page-container {
     min-width: auto;
   }
@@ -326,8 +328,8 @@ h5 {
 }
 @media (max-width: 768px) {
   body {
-	 font-size: 12px;
-	}
+    font-size: 12px;
+  }
   h1 {
     font-size: 1.5em; /* Reduced size for h1 */
   }
@@ -344,19 +346,16 @@ h5 {
     font-size: 0.9em; /* Reduced font size for paragraphs */
     line-height: 1.4; /* Slightly adjusted line-height for readability */
   }
-	.btn
-	{
-		
-		font-size: 12px;
-		padding: .375rem .3rem;
-	}
+  .btn {
+    font-size: 12px;
+    padding: .375rem .3rem;
+  }
 }
 @media (max-width: 768px) {
   .button-container a.btn, .button-container button.btn { /* Added this line to target button elements */
     padding: 0.25rem 0.5rem;
     margin-right: 10px;
     margin-bottom: 5px;
-	  
   }
   .h-spaced-buttons { /* Also modify if needed */
     margin-right: 10px; /* Reduced right margin */
@@ -422,7 +421,7 @@ h5 {
   width: 40px;
   height: 40px;
   margin-right: 10px;
-	color: black;
+  color: black;
 }
 .severity-text {
   flex-grow: 1;
@@ -489,6 +488,8 @@ h5 {
   display: flex;
 }
 .modal-content {
-	background-color: #3282B8;
-	
+  background-color: #3282B8;
+}
+.fixed-bottom {
+  padding: 20px;
 }

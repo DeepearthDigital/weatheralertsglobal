@@ -259,7 +259,7 @@ function displayAlerts(incidentAlerts, alert_name) {
         layer.on({
           mouseover: function () {
             this.setStyle({
-              fillOpacity: 0.2
+              fillOpacity: 0.1
             });
           },
           mouseout: function () {
@@ -284,7 +284,7 @@ $(document).ready(function () {
   console.log("Document ready");
   console.log($('#createAlertModal').length); // Check if element exists
 
-  const fillOpacity = 0.5;
+  const fillOpacity = 0.2;
   const maxWidth = 600;
 
 
@@ -747,7 +747,7 @@ $(document).ready(function () {
             color: '#000',
             weight: 2,
             fillColor: color,
-            fillOpacity: 0.7
+            fillOpacity: 0.2
           });
         } else if (geometry.type === 'Point') {
           leafletGeoJSON = L.marker([geometry.coordinates[1], geometry.coordinates[0]]);
@@ -764,7 +764,7 @@ $(document).ready(function () {
         leafletGeoJSON.on({
           mouseover: function (e) {
             e.target.setStyle({
-              fillOpacity: 0.4
+              fillOpacity: 0.1
             });
           },
           mouseout: function (e) {

@@ -1,58 +1,34 @@
-<!DOCTYPE html>
-<html>
-<head>
-	<script type="text/javascript" src="https://app.termly.io/resource-blocker/41a0dc0a-edce-413c-aba8-f73cc931bead?autoBlock=on"></script>
-    <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-4E0TWQ9M43"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+{% extends 'base.html' %}
 
-  gtag('config', 'G-4E0TWQ9M43');
-</script>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome to Weather Alerts Global</title>
-	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-	<link rel="stylesheet" href="../static/styles.css">
-    <style>
-body {
-  background-image: url(../static/images/stormy-sea-art.jpg); /* Your image path */
-	}
-	</style>
-</head>
+{% block title %}Reset With Token | {{ super() }}{% endblock %}
 
-<body>
-	{% include 'navbar.html' %}
+{% block head %}
+<style>
+  body {
+    background-image: url({{ url_for('static', filename='images/stormy-sea-art.jpg') }});
+  }
+</style>
+{% endblock %}
+
+{% block content %}
 <div class="page-container">
   <div class="container top">
-    <div class="wag-logo">
-      <a href="{{ url_for('index') }}">
-        <img src="../static/images/WAG-brand.png" alt="Weather Alerts Global">
-      </a>
-    </div>
+    <div class="wag-logo"> <a href="{{ url_for('index') }}"> <img src="../static/images/WAG-brand.png" alt="Weather Alerts Global"> </a> </div>
   </div>
   <div class="container bottom">
-<div id="login">	
-{% block content %}
-	<h1>Weather Alerts Global</h1>
-    <h2>Reset Password</h2>
-    <form method="POST">
-		<div class="form-group">
-        <input type="password" name="password" placeholder="New password">
-        <input type="password" name="confirm" placeholder="Re-enter password">
-		</div>
-		<div class="d-flex"> 
-        <button type="submit" class="btn btn-primary h-spaced-buttons">Update Password</button>
-		</div>
-	</form>
-{% endblock %}
+    <div id="login"> {% block content %}
+      <h1>Weather Alerts Global</h1>
+      <h2>Reset Password</h2>
+      <form method="POST">
+        <div class="form-group">
+          <input type="password" name="password" placeholder="New password">
+          <input type="password" name="confirm" placeholder="Re-enter password">
+        </div>
+        <div class="d-flex">
+          <button type="submit" class="btn btn-primary h-spaced-buttons">Update Password</button>
+        </div>
+      </form>
     </div>
   </div>
 </div>
-	    <!-- JS, Popper.js, and jQuery -->
-    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" ></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+{% endblock %}

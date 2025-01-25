@@ -1,30 +1,16 @@
-<!DOCTYPE html>
-<html>
-<head>
-<script type="text/javascript" src="https://app.termly.io/resource-blocker/41a0dc0a-edce-413c-aba8-f73cc931bead?autoBlock=on"></script>
-    <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-4E0TWQ9M43"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+{% extends 'base.html' %}
 
-  gtag('config', 'G-4E0TWQ9M43');
-</script>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Error</title>
-	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-	<link rel="stylesheet" href="../static/styles.css">
-    <style>
-body {
-  background-image: url(../static/images/drought-by-lake.jpg); /* Your image path */
-	}
-    </style>
-</head>
+{% block title %}Error | {{ super() }}{% endblock %}
 
-<body>
-	{% include 'navbar.html' %}
+{% block head %}
+<style>
+  body {
+    background-image: url({{ url_for('static', filename='images/drought-by-lake.jpg') }});
+  }
+</style>
+{% endblock %}
+
+{% block content %}
 <div class="page-container">
   <div class="container top">
     <div class="wag-logo">
@@ -38,8 +24,4 @@ body {
 <h3>Sorry! An error occurred</h3>
 	  </div></div>
 </div>
-</body>
-		    <!-- JS, Popper.js, and jQuery -->
-    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" ></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/js/bootstrap.bundle.min.js"></script>
-</html>
+{% endblock %}

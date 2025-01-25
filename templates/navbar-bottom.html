@@ -1,0 +1,85 @@
+<!--
+
+<!DOCTYPE html>
+<html>
+<head>
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+<link rel="stylesheet" href="../static/styles.css">
+<style>
+body {
+    background-image: url(../static/images/storm-small-town.jpg); /* Your image path */
+}
+</style>
+</head>
+<body>-->
+	
+<nav class="navbar navbar fixed-bottom navbar-expand-lg navbar-dark bg-dark">
+  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation"> <span class="navbar-toggler-icon"></span> </button>
+  <h2>Welcome, {{ current_user.first_name }}!</h2>
+  <div id="alert-count">
+    <p>There are <b>{{ alert_count }}</b> live alerts in place covering the period <b>{{ date_range }}</b></p>
+    <div id="date-range"></div>
+  </div>
+  <p><b>Last Map Update: </b><span id="cache-timestamp"></span></p>
+  <!--<p><b>Next Map Update: </b><span id="cache-timestamp-next-update"></span></p>-->
+  <div class="collapse navbar-collapse" id="navbarNav">
+    <ul class="navbar-nav">
+      <li class="nav-item"> <a class="nav-link" href="/">
+        <div class="severity-row">
+          <div class="severity-square" style="background-color: #E8E8E8;">
+            <h3 class="square">{{ alert_count }}</h3>
+          </div>
+          <div class="severity-text"> </div>
+        </div>
+        </a> </li>
+      <li class="nav-item"> <a class="nav-link" href="/about">
+        <div class="severity-row">
+          <div class="severity-square" style="background-color: #00FF00;">
+            <h3 class="square">{{ alert_counts.Minor|default(0) }}</h3>
+          </div>
+          <div class="severity-text"> </div>
+        </div>
+        </a> </li>
+      <li class="nav-item"> <a class="nav-link" href="{{ url_for('logout') }}">
+        <div class="severity-row">
+          <div class="severity-square" style="background-color: #FFA500;">
+            <h3>{{ alert_counts.Moderate|default(0) }}</h3>
+          </div>
+          <div class="severity-text"> </div>
+        </div>
+        </a> </li>
+      <li class="nav-item"> <a class="nav-link" href="{{ url_for('change_password') }}">
+        <div class="severity-row">
+          <div class="severity-square" style="background-color: #FF0000;">
+            <h3 class="text-severe-extreme">{{ alert_counts.Severe|default(0) }}</h3>
+          </div>
+          <div class="severity-text"> </div>
+        </div>
+        </a> </li>
+      <li class="nav-item"> <a class="nav-link" href="/">
+        <div class="severity-row">
+          <div class="severity-square" style="background-color: #313131;">
+            <h3 class="text-severe-extreme">{{ alert_counts.Extreme|default(0) }}</h3>
+          </div>
+          <div class="severity-text"> </div>
+        </div>
+        </a> </li>
+      <li class="nav-item">
+        <button id="createAlertButton" class="btn btn-primary h-spaced-buttons">Create Alert Zone Notification</button>
+      </li>
+		      <li class="nav-item">
+              <button id="showAlertsButton" class="btn btn-primary h-spaced-buttons">Show Active Alert Notifications Zone</button>
+      </li>
+				      <li class="nav-item">
+      <button id="deleteAllAlertsButton" class="btn btn-danger h-spaced-buttons">Delete All Active Alert Zones</button>
+      </li>
+    </ul>
+  </div>
+</nav>
+
+<!--
+<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script> 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+-->
