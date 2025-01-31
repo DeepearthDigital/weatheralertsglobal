@@ -405,8 +405,15 @@ $(document).ready(function () {
         if (response.alerts && response.alerts.length > 0) {
           response.alerts.forEach(addAlertToMap);
           map.fitBounds(drawnItems.getBounds());
+          // If alerts exist, ensure visibility is on (fa-eye state)
+          if (!showHideAlertZonesIcon.classList.contains('fa-eye')) {
+            toggleAlertVisibility(showHideAlertZonesIcon);
+          }
         } else {
-          displayError("No active alert zones found for this user.");
+          // No alerts - switch to visibility off (fa-eye-slash state)
+          if (!showHideAlertZonesIcon.classList.contains('fa-eye-slash')) {
+            toggleAlertVisibility(showHideAlertZonesIcon);
+          }
         }
       },
       error: function (xhr, status, errorThrown) {
@@ -454,7 +461,7 @@ $(document).ready(function () {
     }
   });
   map.addControl(drawControl);
-	
+
   $('#openModalButton').click(function () {
     $('#createAlertModal').modal('show');
   });
@@ -538,7 +545,7 @@ $(document).ready(function () {
       setTimeout(function () {
         console.log("Showing modal (setTimeout)");
         $('#createAlertModal').modal('show');
-		  
+
       }, 100);
     });
 
@@ -568,7 +575,7 @@ $(document).ready(function () {
       // Clear the drawing layer before adding a new layer
       drawingLayer.clearLayers();
       drawingLayer.addLayer(layer);
-	  latestLayer = layer; // save the layer that's just been drawn
+      latestLayer = layer; // save the layer that's just been drawn
       drawnItems.addLayer(layer);
       updateAlertZonePreview();
 
@@ -585,20 +592,20 @@ $(document).ready(function () {
         }
       }
       // **New code to open the modal after drawing**
-  setTimeout(function () {
-    $('#createAlertModal').modal('show');
-    if (currentDrawer) {
-      currentDrawer.disable();
-    }
-  }, 100);
-});
-	  
-$('#cancel-button').click(function () {
-  if (latestLayer) {
-    drawnItems.removeLayer(latestLayer);
-    latestLayer = null; // reset to null after removal
-  }
-});
+      setTimeout(function () {
+        $('#createAlertModal').modal('show');
+        if (currentDrawer) {
+          currentDrawer.disable();
+        }
+      }, 100);
+    });
+
+    $('#cancel-button').click(function () {
+      if (latestLayer) {
+        drawnItems.removeLayer(latestLayer);
+        latestLayer = null; // reset to null after removal
+      }
+    });
 
     map.on('draw:edited', function (e) {
       console.log("draw:edited event:", e);
@@ -704,30 +711,6 @@ $('#cancel-button').click(function () {
       drawingLayer.clearLayers(); // Clear the drawing layer
     }
   });
-
-  function loadAlerts() {
-    $.ajax({
-      type: "GET",
-      url: "/get_user_alerts",
-      success: function (response) {
-        drawnItems.clearLayers();
-        if (response.alerts && response.alerts.length > 0) {
-          response.alerts.forEach(addAlertToMap);
-          map.fitBounds(drawnItems.getBounds());
-        } else {
-          displayError("No active alert zones found for this user.");
-        }
-      },
-      error: function (xhr, status, errorThrown) {
-        console.error("AJAX error:", status, errorThrown, xhr);
-        let errorMessage = "Error fetching active alert zones.";
-        if (xhr.responseJSON && xhr.responseJSON.error) {
-          errorMessage = xhr.responseJSON.error;
-        }
-        displayError(errorMessage);
-      }
-    });
-  }
 
   function addAlertToMap(alert) {
     return new Promise((resolve, reject) => {
