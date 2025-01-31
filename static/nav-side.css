@@ -1,0 +1,125 @@
+@charset "UTF-8";
+/* CSS Document */
+.top-right-button-set {
+    position: fixed;
+    top: 0px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    z-index: 1002;
+	height: 100%;
+    justify-content: center;
+}
+
+.icon-button-stats-toggle, .icon-button-show-hide-alert-zones-toggle, .icon-button {
+    font-size: 2rem;
+    background: #0088f7;
+    border: none;
+    color: white;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    width: 60px;
+    height: 60px;
+}
+
+.icon-button-stats-toggle:hover, .icon-button-show-hide-alert-zones-toggle:hover, .icon-button:hover {
+    background: #0046b3;
+}
+
+.icon-button-stats-toggle:focus, .icon-button-show-hide-alert-zones-toggle:hover, .icon-button:focus {
+    outline: none;
+}
+
+/* Active Button Styles */
+.icon-button-stats-toggle.active, .icon-button-show-hide-alert-zones-toggle.active {
+    background: #0046b3;  /* Or any other active color */
+    color: #e0e0e0;
+    border: 2px solid white;
+}
+@media (max-width: 768px) {
+.icon-button-stats-toggle, .icon-button-show-hide-alert-zones-toggle, .icon-button {
+    font-size: 1rem;
+    width: 40px;
+    height: 40px;
+}	
+}
+.leaflet-draw-draw-polygon {
+  display: inline-block; /* or block, depending on your layout needs */
+  width: 60px; /* Adjust as needed */
+  height: 60px; /* Adjust as needed */
+  text-align: center;
+  line-height: 60px; /* Center the icon vertically */
+  font-size: 2rem; /* Adjust icon size */
+  background: #0088f7;
+  color: white;
+  border: none;
+  margin-top: 10px;
+  margin-bottom: 10px;
+  border-radius: 0; /* Or other value if needed */
+}
+
+.leaflet-draw-draw-polygon:hover {
+    background: #0046b3;
+}
+
+
+.leaflet-draw-draw-polygon::before {
+  content: "\f5ee"; /* Unicode for the fa-draw-polygon icon */
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900; /*Solid style*/
+}
+
+.leaflet-draw-draw-polygon .sr-only {
+    display: none;
+}
+ #drawPolygonButton > i.fa-draw-polygon::before{
+     content: "\f5ee"; /* Unicode for the fa-draw-polygon icon */
+     font-family: "Font Awesome 6 Free";
+     font-weight: 900; /*Solid style*/
+ }
+
+
+
+.leaflet-draw-draw-rectangle {
+  display: inline-block; /* or block, depending on your layout needs */
+  width: 60px; /* Adjust as needed */
+  height: 60px; /* Adjust as needed */
+  text-align: center;
+  line-height: 60px; /* Center the icon vertically */
+  font-size: 2rem; /* Adjust icon size */
+  background: #0088f7;
+  color: white;
+  border: none;
+  margin-top: 10px;
+  margin-bottom: 10px;
+  border-radius: 0; /* Or other value if needed */
+}
+
+.leaflet-draw-draw-rectangle:hover {
+    background: #0046b3;
+}
+
+
+.leaflet-draw-draw-rectangle::before {
+  content: "\f5cb"; /* Unicode for the fa-draw-polygon icon */
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900; /*Solid style*/
+}
+
+.leaflet-draw-draw-rectangle .sr-only {
+    display: none;
+}
+ #drawRectangleButton > i.fa-draw-rectangle::before{
+     content: "\f5cb"; /* Unicode for the fa-draw-polygon icon */
+     font-family: "Font Awesome 6 Free";
+     font-weight: 900; /*Solid style*/
+ }
+.leaflet-control-container,
+.leaflet-draw-toolbar,
+.leaflet-draw-actions,
+.leaflet-draw-toolbar-top,
+.leaflet-draw-toolbar-bottom,
+.leaflet-draw-tooltip{
+    display: none !important;
+}
+

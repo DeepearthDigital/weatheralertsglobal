@@ -6,6 +6,11 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/switchery/0.8.2/switchery.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
+        integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" 
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+<link rel="stylesheet" href="{{ url_for('static', filename='carousel-style.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='nav-side.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -22,82 +27,12 @@
     <p>Please be patient</p>
   </div>
 </div>
-<button class="hamburger-button">☰</button>
-<nav class="mobile-nav">
-  <div id="top-right-panel">
-    <div id="login-welcome">
-      <div id="app-title">
-        <div class="wag-logo menu"> <a href="{{ url_for('index') }}"> <img src="../static/images/WAG-brand.png" alt="Weather Alerts Global"> </a> </div>
-        <h1>Weather Alerts Global</h1>
-        <h5>Version Beta 1.0 | © <a href="https://www.deepearth.digital" target="_blank">DeepEarth Digital 2025</a></h5>
-        <h5><a href="about" target="_blank">About WAG</a></h5>
-        <p>Need help? Send our helpdesk an e-mail: <a href="mailto:support@weatheralerts.global">support@weatheralerts.global</a></p>
-      </div>
-    </div>
-    <h2>Welcome, {{ current_user.first_name }}!</h2>
-    <div id="alert-count">
-      <p>There are <b>{{ alert_count }}</b> live alerts in place covering the period <b>{{ date_range }}</b></p>
-      <div id="date-range"></div>
-    </div>
-    <p><b>Last Map Update: </b><span id="cache-timestamp"></span></p>
-    <!--<p><b>Next Map Update: </b><span id="cache-timestamp-next-update"></span></p>--> 
-    <div class="severity-key-container">
-      <div class="severity-row">
-        <div class="severity-square" style="background-color: #E8E8E8;">
-          <h3 class="square">{{ alert_count }}</h3>
-        </div>
-        <div class="severity-text">
-          <h3>Live Alerts</h3>
-        </div>
-      </div>
-      <div class="severity-row">
-        <div class="severity-square" style="background-color: #00FF00;">
-          <h3 class="square">{{ alert_counts.Minor|default(0) }}</h3>
-        </div>
-        <div class="severity-text">
-          <h3>Minor</h3>
-        </div>
-      </div>
-      <div class="severity-row">
-        <div class="severity-square" style="background-color: #FFA500;">
-          <h3>{{ alert_counts.Moderate|default(0) }}</h3>
-        </div>
-        <div class="severity-text">
-          <h3>Moderate</h3>
-        </div>
-      </div>
-      <div class="severity-row">
-        <div class="severity-square" style="background-color: #FF0000;">
-          <h3 class="text-severe-extreme">{{ alert_counts.Severe|default(0) }}</h3>
-        </div>
-        <div class="severity-text">
-          <h3>Severe</h3>
-        </div>
-      </div>
-      <div class="severity-row">
-        <div class="severity-square" style="background-color: #313131;">
-          <h3 class="text-severe-extreme">{{ alert_counts.Extreme|default(0) }}</h3>
-        </div>
-        <div class="severity-text">
-          <h3>Extreme/Unknown</h3>
-        </div>
-      </div>
-    </div>
-    <div class="button-container">
-      <button id="createAlertButton" class="btn btn-primary h-spaced-buttons">Create Alert Zone Notification</button>
-      <button id="showAlertsButton" class="btn btn-primary h-spaced-buttons">Show Active Alert Notifications Zone</button>
-      <button id="deleteAllAlertsButton" class="btn btn-danger h-spaced-buttons">Delete All Active Alert Zones</button>
-	</div>
-  </div>
-  <!--  <p>Light/Dark Mode
-    <input type="checkbox" class="lightdark-switch" />
-  </p>-->
-</nav>
+{% include 'nav-side.html' %}
 <div id="createAlertModal" class="modal fade" role="dialog">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h4 class="modal-title">Create Alert</h4>
+        <h4 class="modal-title">Create Alert Zone</h4>
         <button type="button" class="close" data-dismiss="modal">&times;</button>
       </div>
       <div class="modal-body">
@@ -113,23 +48,24 @@
         <p>Enable e-mail alerts
           <input type="checkbox" class="email-alerts" data-alert-id="{{current_user.id}}"/>
         </p>
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+        <button id="cancel-button" type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
         <button type="button" id="createAlertSubmit" class="btn btn-primary">Create</button>
       </div>
     </div>
   </div>
 </div>
+{% include 'carousel.html' %}
 {% endblock %}
 
 
-		    {% block bottom_scripts %}
+{% block bottom_scripts %} 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script> 
 <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script> 
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script> 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/switchery/0.8.2/switchery.min.js"></script> 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script> 
-<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script> 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
-<script src="../static/main.js"></script>
-    {% endblock %}
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script> 
+<script src="{{ url_for('static', filename='main.js') }}"></script> 
+<script src="{{ url_for('static', filename='carousel-script.js') }}"></script> 
+<script src="{{ url_for('static', filename='alert-filter.js') }}"></script> 
+<script src="{{ url_for('static', filename='nav-side.js') }}"></script> 
+{% endblock %} 

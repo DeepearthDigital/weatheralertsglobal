@@ -1,0 +1,67 @@
+<!--
+
+<!doctype html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Nav Side</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/switchery/0.8.2/switchery.min.css">
+<link rel="stylesheet" href="../static/carousel-style.css">
+</head>
+<body>
+
+-->
+
+ <div class="top-right-button-set">
+    <button class="icon-button-stats-toggle" aria-label="View Statistics" title="Click to view more information">
+        <i class="fa-solid fa-info"></i>
+    </button>
+    <!--<button id="createAlertButton" class="icon-button" aria-label="Create Alert Zone" title="Click to create an alert zone">
+        <i class="fa-solid fa-square-plus"></i>
+    </button>-->
+    <button id="showAlertsButton" class="icon-button-show-hide-alert-zones-toggle" aria-label="Hide Alert Zones" title="Click to hide alert zones">
+        <i class="fa-solid fa-eye-slash"></i>
+    </button>
+      <button id="drawPolygonButton" class="icon-button" aria-label="Draw a polygon alert zone" title="Click to draw a polygon">
+        <i class="fa-solid fa-draw-polygon"></i>
+    </button>
+	       <button id="drawRectangleButton" class="icon-button" aria-label="Draw a rectangle alert zone" title="Click to draw a rectangle">
+        <i class="fa-solid fa-vector-square"></i>
+    </button>
+    <button id="deleteAllAlertsButton" class="icon-button" aria-label="Delete Alert Zones" title="Click to delete all alert zones">
+        <i class="fa-solid fa-trash"></i>
+    </button>
+</div>
+
+
+<nav class="mobile-nav">
+  <div id="top-right-panel">
+    <h2>Welcome, {{ current_user.first_name }}!</h2>
+    <div id="alert-count">
+      <p>There are <b>{{ alert_count }}</b> live alerts in place covering the period <b>{{ date_range }}</b></p>
+      <div id="date-range"></div>
+    </div>
+    <p><b>Last Map Update: </b><span id="cache-timestamp"></span></p>
+    <!--<p><b>Next Map Update: </b><span id="cache-timestamp-next-update"></span></p>--> 
+  </div>
+  <!--  <p>Light/Dark Mode
+    <input type="checkbox" class="lightdark-switch" />
+  </p>-->
+</nav>
+	
+	
+	
+<!--	
+	
+	<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script> 
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script></script>
+	<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script> 
+<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script> 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/switchery/0.8.2/switchery.min.js"></script> 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+
+	</body>
+</html>
+
+-->

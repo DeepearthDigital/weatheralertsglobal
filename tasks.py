@@ -74,8 +74,13 @@ try:
 except ValueError:
     raise ValueError("redis_cloud_db must be an integer.")
 
+# Initialize a single redis connection for the whole application
 redis_client = redis.Redis(host=redis_cloud_host, port=redis_cloud_port, password=redis_cloud_password,
                            db=redis_cloud_db)
+
+# Define a function for creating redis client
+def create_redis_client():
+    return redis_client
 
 # Celery configuration
 app = Celery('tasks',
@@ -191,28 +196,28 @@ def initial_load_task():
         with Flask(__name__).app_context():  # CREATE THE CONTEXT HERE
             try:
                 celery_app.send_task('tasks.keep_recent_entries_efficient')  # fully qualified task name
-                send_completion_email(task_name + ' keep_recent_entries_efficient', success=True, error_message=None)
+                # send_completion_email(task_name + ' keep_recent_entries_efficient', success=True, error_message=None)
                 task_results.append(('tasks.keep_recent_entries_efficient', True))
             except Exception as e:
-                send_completion_email(task_name + ' keep_recent_entries_efficient', success=False, error_message=str(e))
+                # send_completion_email(task_name + ' keep_recent_entries_efficient', success=False, error_message=str(e))
                 task_results.append(('tasks.keep_recent_entries_efficient', False))
                 beat_logger.exception("Error scheduling keep_recent:")
 
             try:
                 celery_app.send_task('tasks.populate_map_data_if_needed')
-                send_completion_email(task_name + ' populate_map_data_if_needed', success=True, error_message=None)
+                # send_completion_email(task_name + ' populate_map_data_if_needed', success=True, error_message=None)
                 task_results.append(('tasks.populate_map_data_if_needed', True))
             except Exception as e:
-                send_completion_email(task_name + ' populate_map_data_if_needed', success=False, error_message=str(e))
+                # send_completion_email(task_name + ' populate_map_data_if_needed', success=False, error_message=str(e))
                 task_results.append(('tasks.populate_map_data_if_needed', False))
                 beat_logger.exception("Error scheduling populate_map:")
 
             try:
                 celery_app.send_task('tasks.check_for_and_send_alerts')
-                send_completion_email(task_name + ' check_for_and_send_alerts', success=True, error_message=None)
+                # send_completion_email(task_name + ' check_for_and_send_alerts', success=True, error_message=None)
                 task_results.append(('tasks.check_for_and_send_alerts', True))
             except Exception as e:
-                send_completion_email(task_name + ' check_for_and_send_alerts', success=False, error_message=str(e))
+                # send_completion_email(task_name + ' check_for_and_send_alerts', success=False, error_message=str(e))
                 task_results.append(('tasks.check_for_and_send_alerts', False))
                 beat_logger.exception("Error scheduling check_alerts:")
 
@@ -224,13 +229,13 @@ def initial_load_task():
             # Now sends one final task after all tasks are sent
             # Note: Summary Email is only sent if initial_load_task scheduling
             #       was successful
-            send_completion_email(task_name + ' summary', success=True, error_message=summary_message)
+            #send_completion_email(task_name + ' summary', success=True, error_message=summary_message)
 
             beat_logger.info("Celery initial_load_task scheduled completed.")
 
     except Exception as e:
         beat_logger.exception("Celery Error in initial_load_task scheduled task:")
-        send_completion_email(task_name , success=False, error_message=str(e))
+        # send_completion_email(task_name , success=False, error_message=str(e))
 
 @shared_task
 def scheduled_map_data_and_alert_processing():
@@ -244,28 +249,28 @@ def scheduled_map_data_and_alert_processing():
         with Flask(__name__).app_context():  # CREATE THE CONTEXT HERE
             try:
                 celery_app.send_task('tasks.keep_recent_entries_efficient')  # fully qualified task name
-                send_completion_email(task_name + ' keep_recent_entries_efficient', success=True, error_message=None)
+                #send_completion_email(task_name + ' keep_recent_entries_efficient', success=True, error_message=None)
                 task_results.append(('tasks.keep_recent_entries_efficient', True))
             except Exception as e:
-                send_completion_email(task_name + ' keep_recent_entries_efficient', success=False, error_message=str(e))
+                #send_completion_email(task_name + ' keep_recent_entries_efficient', success=False, error_message=str(e))
                 task_results.append(('tasks.keep_recent_entries_efficient', False))
                 beat_logger.exception("Error scheduling keep_recent:")
 
             try:
                 celery_app.send_task('tasks.populate_map_data_if_needed')
-                send_completion_email(task_name + ' populate_map_data_if_needed', success=True, error_message=None)
+                #send_completion_email(task_name + ' populate_map_data_if_needed', success=True, error_message=None)
                 task_results.append(('tasks.populate_map_data_if_needed', True))
             except Exception as e:
-                send_completion_email(task_name + ' populate_map_data_if_needed', success=False, error_message=str(e))
+                #send_completion_email(task_name + ' populate_map_data_if_needed', success=False, error_message=str(e))
                 task_results.append(('tasks.populate_map_data_if_needed', False))
                 beat_logger.exception("Error scheduling populate_map:")
 
             try:
                 celery_app.send_task('tasks.check_for_and_send_alerts')
-                send_completion_email(task_name + ' check_for_and_send_alerts', success=True, error_message=None)
+                #send_completion_email(task_name + ' check_for_and_send_alerts', success=True, error_message=None)
                 task_results.append(('tasks.check_for_and_send_alerts', True))
             except Exception as e:
-                send_completion_email(task_name + ' check_for_and_send_alerts', success=False, error_message=str(e))
+                #send_completion_email(task_name + ' check_for_and_send_alerts', success=False, error_message=str(e))
                 task_results.append(('tasks.check_for_and_send_alerts', False))
                 beat_logger.exception("Error scheduling check_alerts:")
 
@@ -277,13 +282,13 @@ def scheduled_map_data_and_alert_processing():
             # Now sends one final task after all tasks are sent
             # Note: Summary Email is only sent if initial_load_task scheduling
             #       was successful
-            send_completion_email(task_name + ' summary', success=True, error_message=summary_message)
+            #send_completion_email(task_name + ' summary', success=True, error_message=summary_message)
 
             beat_logger.info("Celery scheduled_map_data_and_alert_processing scheduled completed.")
 
     except Exception as e:
         beat_logger.exception("Celery Error in scheduled_map_data_and_alert_processing scheduled task:")
-        send_completion_email(task_name , success=False, error_message=str(e))
+        #send_completion_email(task_name , success=False, error_message=str(e))
 
 
 @shared_task
@@ -341,12 +346,6 @@ def get_mongo_client(MONGODB_DATABASE=None):
 # Define a function to format timestamps for alert names
 def format_timestamp(timestamp):
     return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S UTC')
-
-
-# Define a function for creating redis client
-def create_redis_client():
-    return redis.Redis(host=redis_cloud_host, port=redis_cloud_port, password=redis_cloud_password,
-                       db=redis_cloud_db)
 
 
 def send_request_with_retry(url, data, max_retries=4, backoff_factor=1, status_forcelist=(500, 502, 503, 504, 429)):
@@ -408,7 +407,7 @@ def send_request_with_retry(url, data, max_retries=4, backoff_factor=1, status_f
 
 # Trim the database
 @shared_task
-def keep_recent_entries_efficient(days_to_keep=1):
+def keep_recent_entries_efficient(days_to_keep=4):
     try:
         today_utc = datetime.now(timezone.utc)
         retention_cutoff_utc = today_utc - timedelta(days=days_to_keep)
@@ -601,7 +600,6 @@ def generate_map_data_task(future_days=14, page=1, page_size=3000, total_alerts=
 
     # Add the timestamp here!
     # Retrieve the last run timestamp from Redis
-    redis_client = create_redis_client()
     gen_map_last_run_timestamp = redis_client.get('gen_map_last_run_timestamp')
 
     # If 'gen_map_last_run_timestamp' does not exist in Redis,
@@ -619,8 +617,6 @@ def generate_map_data_task(future_days=14, page=1, page_size=3000, total_alerts=
     cache_timestamp_next_update = (datetime.fromisoformat(cache_timestamp) + timedelta(hours=map_generation_interval)).isoformat()
 
     map_data['cache_timestamp_next_update'] = cache_timestamp_next_update
-
-    redis_client = create_redis_client()
 
     if page == 1:
         worker_logger.info(f"Setting Redis key 'temp_map_data'")
@@ -753,7 +749,6 @@ def find_matching_owa_alerts(wag_zone_geometry, future_days=14):
         today_end_timestamp = int(today_end_utc.timestamp())
         future_timestamp = int((today_utc + timedelta(days=future_days)).timestamp())
 
-        redis_client = create_redis_client()
         cached_map_data = redis_client.get('map_data')
         if cached_map_data:
             try:
@@ -960,10 +955,10 @@ def send_alert_notification_zone_creation_email(email_data, mail_server, mail_po
         <html>
         <head>
             <style>
-                @import url('https://fonts.googleapis.com/css2?family=Parkinsans:wght@300..800&display=swap');
+                @import url('https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@300&display=swap');
 
                 body {{
-                    font-family: 'Parkinsans', sans-serif;
+                    font-family: 'Funnel Sans', serif;
                     font-optical-sizing: auto;
                     font-weight: 300;
                     font-style: normal;
@@ -1164,10 +1159,10 @@ def send_weather_alert(user_email, owa_alert, wag_alert_id):
             <html>
             <head>
                 <style>
-                    @import url('https://fonts.googleapis.com/css2?family=Parkinsans:wght@300..800&display=swap');
+                    @import url('https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@300&display=swap');
 
                     body {{
-                        font-family: 'Parkinsans', sans-serif;
+                        font-family: 'Funnel Sans', serif;
                         font-optical-sizing: auto;
                         font-weight: 300;
                         font-style: normal;

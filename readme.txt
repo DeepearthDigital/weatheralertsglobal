@@ -25,26 +25,21 @@ Click on the edit button
 Go to the "Variables" tab, where you can set environment variables that will be available to your application.
 
 
+Celery
 Terminal run for Celery and Main (Pycharm or GCP):
-celery -A tasks worker --loglevel=info
-celery -A tasks worker --loglevel=info --concurrency=10 -P gevent
+celery -A tasks:app worker --loglevel=info -c 10 --pool=gevent
 
-celery -A tasks worker --queue=celery-alert-processing -l info
-celery -A tasks worker --queue=celery-map-data -l info
-celery -A tasks worker --queue=celery-alert-processing -l info
-celery -A tasks worker --queue=celery-email -l info
-celery -A tasks worker -l info
-
+Beat
 celery -A tasks:app beat --loglevel=info
 
 
-
-gunicorn -b :8080 main:app --worker-class gevent
-gunicorn -b 0.0.0.0:8080 main:app --worker-class gevent -w 5
-
-THIS ONE!
-gunicorn -k geventwebsocket.gunicorn.workers.GeventWebSocketWorker -w 1 main:app -b 0.0.0.0:8080
+Main
 gunicorn -k geventwebsocket.gunicorn.workers.GeventWebSocketWorker -w 5 main:app -b 0.0.0.0:8080
+gunicorn -k geventwebsocket.gunicorn.workers.GeventWebSocketWorker -w 1 main:app -b 0.0.0.0:8080 --log-level debug
+
+Local testing
+gunicorn -k geventwebsocket.gunicorn.workers.GeventWebSocketWorker -w 5 main:app -b localhost:8080 --log-level debug
+
 
 gunicorn -b 0.0.0.0:8080 main:app --worker-class gevent
 
@@ -54,6 +49,8 @@ if you need to stop processs locally then
             kill
             lsof -i :8080 | awk 'NR!=1 {print $2}' | xargs kill
             lsof -i :8080 | awk 'NR!=1 {print $2}' | xargs kill -9
+
+celery -A tasks inspect active
 
 
 curl -X POST -d 'username=simon@deepearth.digital&password=sydjes-1finjA-jevbor' -c cookies.txt  http://localhost:8080/login

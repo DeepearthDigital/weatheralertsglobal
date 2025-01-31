@@ -20,6 +20,12 @@ body {
   flex-direction: column;
   /*align-items: center;*/
 }
+hr {
+  border: none; /* Removes default border */
+  height: 4px; /* Specifies the thickness of the line */
+  background-color: #FFFFFF; /* Specifies the color of the line */
+  margin: 5px 0; /* Add some vertical margin around the line */
+}
 a {
   color: #FFFFFF;
   text-decoration: none;
@@ -37,6 +43,7 @@ a:hover {
   background-image: url('../static/images/roaring-ocean.jpg');
   background-size: cover; /* Or contain, depending on your image */
   background-position: center; /* Center the image */
+  opacity: 0%;
   z-index: 9998;
   pointer-events: none;
   background-color: slategrey;
@@ -151,37 +158,6 @@ a:hover {
     margin-bottom: 0px; /* Offset to move the logo upwards */
   }
 }
-#top-right-panel {
-  position: absolute;
-  top: 0px;
-  left: 21px;
-  padding: 25px;
-  z-index: 1000;
-  display: flex;
-  flex-direction: column;
-  flex: 1; /* Allow panel to take up remaining space */
-  align-items: flex-start;
-  min-width: 200px;
-  max-width: 400px;
-  overflow-y: auto; /* Enable vertical scrolling */
-  max-height: 95vh; /* Limit the panel's maximum height */
-}
-#top-right-panel .button-container {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  margin-top: auto; /* Push buttons to the bottom */
-}
-#top-right-panel .table-container {
-  overflow-x: auto; /* Enables horizontal scrolling */
-}
-#top-right-panel table {
-  width: 100%; /* Makes sure that the table take sup the full width */
-}
-#top-right-panel th, #top-right-panel td {
-  padding: 8px;
-  font-size: 0.9em;
-}
 #severity-key {
   border-collapse: collapse; /* Improves table appearance */
   text-align: centre;
@@ -190,9 +166,6 @@ a:hover {
 #severity-key th, #severity-key td {
   padding: 5px;
   text-align: centre;
-}
-.text-severe-extreme {
-  color: #FFFFFF;
 }
 .my-tooltip {
   width: auto;
@@ -217,12 +190,12 @@ a:hover {
   overflow-y: auto; /* Add scrollbar when needed */
 }
 .my-tooltip p {
-  margin-bottom: 10px;
-  margin-top: 10px;
+  margin-bottom: 5px;
+  margin-top: 5px;
 }
 .description-text p {
-  margin-bottom: 10px;
-  margin-top: 10px;
+  margin-bottom: 5px;
+  margin-top: 5px;
 }
 @media (max-width: 768px) {
   .my-tooltip {
@@ -314,7 +287,7 @@ h3 {
   margin-top: 0.5em;
 }
 h4 {
-  font-size: 1.25em;
+  font-size: 1em;
   font-weight: bold; /* Example of different style for h2 */
   margin-bottom: 0.5em;
   margin-top: 0.5em;
@@ -328,7 +301,7 @@ h5 {
 }
 @media (max-width: 768px) {
   body {
-    font-size: 12px;
+    font-size: 10px;
   }
   h1 {
     font-size: 1.5em; /* Reduced size for h1 */
@@ -363,22 +336,12 @@ h5 {
     margin-bottom: 5px; /* Reduced bottom margin */
   }
 }
-.hamburger-button {
-  position: fixed;
-  top: 80px;
-  right: 20px;
-  font-size: 2rem;
-  background: #FFFFFF;
-  border: none;
-  cursor: pointer;
-  z-index: 1000;
-}
 .mobile-nav {
   position: fixed;
   top: 40px;
-  right: -400px; /* Changed from left to right */
-  width: 400px;
-  height: 100vh;
+  right: -470px; /* Changed from left to right */
+  width: 470px;
+  height: 200px;
   background-color: #002044;
   border-width: 0px 0px 0px 20px;
   border-style: solid;
@@ -401,69 +364,43 @@ h5 {
 }
 @media (max-width: 768px) {
   .mobile-nav {
-    right: -400px; /* Ensure it is hidden on page load */
+    right: -260px; /* Ensure it is hidden on page load */
+    width: 260px;
+    height: 160px;
+  }
+  #top-right-panel {
+    width: 200px;
   }
 }
-.severity-key-container {
+#top-right-panel {
+  position: absolute;
+  top: 0px;
+  padding: 25px;
+  z-index: 1000;
   display: flex;
   flex-direction: column;
-  gap: 10px; /* Space between rows */
-  width: 100%;
+  flex: 1; /* Allow panel to take up remaining space */
+  align-items: flex-start;
+  min-width: 200px;
+  max-width: 400px;
+  overflow-y: auto; /* Enable vertical scrolling */
+  max-height: 95vh; /* Limit the panel's maximum height */
 }
-.severity-row {
+#top-right-panel .button-container {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: auto; /* Push buttons to the bottom */
 }
-.severity-square {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 40px;
-  height: 40px;
-  margin-right: 10px;
-  color: black;
+#top-right-panel .table-container {
+  overflow-x: auto; /* Enables horizontal scrolling */
 }
-.severity-text {
-  flex-grow: 1;
-  text-align: left;
+#top-right-panel table {
+  width: 100%; /* Makes sure that the table take sup the full width */
 }
-@media (max-width: 768px) {
-  .severity-key-container {
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
-  .severity-row {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-  .severity-square {
-    margin-right: 0px;
-    width: 50px;
-    height: 50px;
-  }
-  .severity-text {
-    display: none; /* Hide text labels on mobile */
-  }
-}
-@media (min-width: 768px) {
-  .severity-key-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 10px;
-  }
-  .severity-row {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-  }
-  .severity-square {
-    width: 60px;
-    height: 60px;
-  }
-  .severity-text {
-    display: block;
-  }
+#top-right-panel th, #top-right-panel td {
+  padding: 8px;
+  font-size: 0.9em;
 }
 .button-container a.btn, .button-container button.btn, .my-tooltip .btn, .leaflet-popup-content-wrapper .btn {
   display: inline-block;

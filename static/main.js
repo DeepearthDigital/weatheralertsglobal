@@ -1,23 +1,11 @@
 // JavaScript Document - main.js
-const hamburgerButton = document.querySelector('.hamburger-button');
-const mobileNav = document.querySelector('.mobile-nav');
 
 // Get data from data attributes
 const bodyElement = document.body;
 var alerts = bodyElement.dataset.alerts ? JSON.parse(bodyElement.dataset.alerts) : [];
 const loading = bodyElement.dataset.loading === 'True';
 
-hamburgerButton.addEventListener('click', () => {
-  mobileNav.classList.toggle('open');
-});
 
-document.addEventListener('DOMContentLoaded', function () {
-  if (window.innerWidth > 768) {
-    if (!mobileNav.classList.contains('open')) {
-      mobileNav.classList.add('open');
-    }
-  }
-});
 let map; // Declare the variable here
 const fillOpacity = 0.5;
 let alertLayers = new L.FeatureGroup(); //Create the layer group at the top level
@@ -44,16 +32,16 @@ const socket = io.connect(socketUrl, {
   timeout: 10000
 });
 
-  // Listen for 'loading' websocket message from server
-  socket.on('loading', function (data) {
-    if (data.loading === true) {
-      loadingScreen.removeClass('hidden');
-      loadingMessage.removeClass('hidden');
-    } else {
-      loadingScreen.addClass('hidden');
-      loadingMessage.addClass('hidden');
-    }
-  });
+// Listen for 'loading' websocket message from server
+socket.on('loading', function (data) {
+  if (data.loading === true) {
+    loadingScreen.removeClass('hidden');
+    loadingMessage.removeClass('hidden');
+  } else {
+    loadingScreen.addClass('hidden');
+    loadingMessage.addClass('hidden');
+  }
+});
 
 
 // Handle connection and request initial map data
@@ -83,6 +71,8 @@ function connectSocket() {
     //displaySuccess("Reconnected to server via WebSockets!");
     socket.emit('map_data'); // Re-request data on reconnect
   });
+
+
   // Handle incoming map data updates from server
   socket.on('map_data_update', function (data) {
     console.log("Received map data update via SocketIO:", data);
@@ -100,6 +90,8 @@ function connectSocket() {
       // Recalculate statistics and update the display
       updateAlertStatistics(alerts);
 
+      // Update the carousel counts
+      handleNewAlertData(alerts);
 
       // Display the cached timestamp
       const timestampElement = document.getElementById('cache-timestamp');
@@ -108,12 +100,12 @@ function connectSocket() {
       } else {
         console.warn("cache-timestamp element not found in DOM")
       }
-		      // Display the cache_timestamp_next_update
+      // Display the cache_timestamp_next_update
       const timestampNextUpdateElement = document.getElementById('cache-timestamp-next-update');
       if (timestampNextUpdateElement) {
-        timestampNextUpdateElement.textContent = data.cache_timestamp_next_update ?
-          moment(data.cache_timestamp_next_update).format('YYYY-MM-DD HH:mm:ss UTC') : 
-          "No next update timestamp available";
+        timestampNextUpdateElement.textContent = data.cache_timestamp_next_update
+          ? moment(data.cache_timestamp_next_update).format('YYYY-MM-DD HH:mm:ss UTC')
+          : "No next update timestamp available";
       } else {
         console.warn("cache-timestamp-next-update element not found in DOM")
       }
@@ -284,6 +276,9 @@ $(document).ready(function () {
   console.log("Document ready");
   console.log($('#createAlertModal').length); // Check if element exists
 
+  // Initialise the carousel counts.
+  updateCarouselCounts(alerts);
+
   const fillOpacity = 0.2;
   const maxWidth = 600;
 
@@ -293,10 +288,6 @@ $(document).ready(function () {
     maxZoom: 19,
   });
 
-  const darkLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    maxZoom: 19,
-  });
   voyagerLayer.addTo(map);
 
 
@@ -317,7 +308,6 @@ $(document).ready(function () {
       //displayError("Error: Invalid map data received.");
     }
   }
-
 
   function getAlertsForZone(alertData) {
     const geometry = alertData.geometry;
@@ -464,7 +454,7 @@ $(document).ready(function () {
     }
   });
   map.addControl(drawControl);
-
+	
   $('#openModalButton').click(function () {
     $('#createAlertModal').modal('show');
   });
@@ -548,6 +538,7 @@ $(document).ready(function () {
       setTimeout(function () {
         console.log("Showing modal (setTimeout)");
         $('#createAlertModal').modal('show');
+		  
       }, 100);
     });
 
@@ -577,6 +568,7 @@ $(document).ready(function () {
       // Clear the drawing layer before adding a new layer
       drawingLayer.clearLayers();
       drawingLayer.addLayer(layer);
+	  latestLayer = layer; // save the layer that's just been drawn
       drawnItems.addLayer(layer);
       updateAlertZonePreview();
 
@@ -593,10 +585,20 @@ $(document).ready(function () {
         }
       }
       // **New code to open the modal after drawing**
-      setTimeout(function () {
-        $('#createAlertModal').modal('show');
-      }, 100); // Add a small delay to ensure everything is ready
-    });
+  setTimeout(function () {
+    $('#createAlertModal').modal('show');
+    if (currentDrawer) {
+      currentDrawer.disable();
+    }
+  }, 100);
+});
+	  
+$('#cancel-button').click(function () {
+  if (latestLayer) {
+    drawnItems.removeLayer(latestLayer);
+    latestLayer = null; // reset to null after removal
+  }
+});
 
     map.on('draw:edited', function (e) {
       console.log("draw:edited event:", e);
@@ -669,8 +671,6 @@ $(document).ready(function () {
 
           // Load the alerts
           loadAlerts();
-          // Ensure the button says 'Hide Active Notification Zones'
-          showAlertsButton.text("Hide Active Alert Notification Zones");
 
         },
         error: function (xhr, status, errorThrown) {
@@ -687,27 +687,21 @@ $(document).ready(function () {
     console.error("Modal element not found!");
   }
 
-
   let showAlerts = true;
   const showAlertsButton = $('#showAlertsButton');
 
   // Set initial button state and text on load
   if (showAlerts) {
     loadAlerts(); // Load alerts if it's initially set to true
-    showAlertsButton.text("Hide Active Alert Notification Zones");
-  } else {
-    showAlertsButton.text("Show Active Alert Notification Zones");
   }
 
   showAlertsButton.click(function () {
     showAlerts = !showAlerts; // Toggle showAlerts state
     if (showAlerts) {
       loadAlerts(); // Separate function to load alerts
-      showAlertsButton.text("Hide Active Alert Notification Zones");
     } else {
       drawnItems.clearLayers(); // Clear the drawn items
       drawingLayer.clearLayers(); // Clear the drawing layer
-      showAlertsButton.text("Show Active Alert Notification Zones");
     }
   });
 

@@ -1,0 +1,181 @@
+date-carouseldate-carousel.date-carousel.dashboard-inner {
+  width: 720px;
+  padding: 20px;
+  justify-content: center;
+  align-items: center;
+  scroll-snap-align: start; /* Align item to start of container */
+  background-color: #0046b3;
+  border: none;
+  outline: none;
+  word-wrap: break-word; /* Older browsers */
+  overflow-wrap: break-word; /* Modern browsers */
+  color: white;
+}
+.date-carousel {
+  display: flex;
+  height: 100%;
+  transition: transform 0.3s ease-in-out; /* Smooth transition */
+  scroll-snap-type: x mandatory; /* Enables snapping on the X-axis*/
+  justify-content: center;
+  align-items: center;
+}
+.date-carousel.interactive {
+  pointer-events: visible; /* This is the key */
+}
+.date-carousel.interactive * {
+  pointer-events: visible;
+}
+.date-carousel-container {
+  width: 100%;
+  margin-top: 10px;
+  margin-bottom: 10px;
+  overflow: hidden; /* Hide overflow */
+  position: fixed; /* Needed for button positioning */
+  z-index: 2;
+  bottom: 10px;
+  transition: transform 0.3s ease-out;
+}
+.date-carousel-container.active {
+  transform: translateY(-150%);
+}
+.date-carousel-item {
+  width: 100%;
+  height: 80px;
+  justify-content: center;
+  align-items: center;
+  scroll-snap-align: start; /* Align item to start of container */
+  margin-right: 5px;
+  margin-left: 5px;
+  background-color: #0088F7;
+  outline: none;
+  word-wrap: break-word; /* Older browsers */
+  overflow-wrap: break-word; /* Modern browsers */
+  color: white;
+  border-bottom-width: 0px;
+  border-top-width: 0px;
+  border-left-width: 0px;
+  border-right-width: 0px;
+  border-style: inset;
+}
+.date-carousel-item.active {
+  background-color: #0046b3; /* this is a darker shade of blue */
+  border-bottom-width: 5px;
+  border-bottom-color: red;
+  outline: none;
+}
+.date-carousel-item.hover {
+  background-color: #0046b3; /* this is a darker shade of blue */
+  border-bottom-width: 5px;
+  border-bottom-color: red;
+  outline: none;
+}
+@media (max-width: 768px) {
+  .date-carousel-container.active {
+    transform: translateY(-85%);
+  }
+}
+.info-menu-container {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  transform: translateY(100%);
+  transition: transform 0.3s ease-out;
+  background: #0046b3;
+  z-index: 1;
+  padding: 15px;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+}
+/* Active state - Menu Visible */
+.info-menu-container.active {
+  transform: translateY(0%);
+}
+.severity-key-container {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  gap: 10px; /* Space between rows */
+  width: 100%;
+}
+.severity-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.severity-square {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 60px;
+  height: 60px;
+  margin-right: 10px;
+  border: none;
+  outline: none;
+  border-bottom-width: 0px;
+  border-top-width: 0px;
+  border-left-width: 0px;
+  border-right-width: 0px;
+  border-style: inset;
+}
+.severity-square.active {
+  border-bottom-width: 5px;
+  border-color: white;
+  filter: brightness(150%) contrast(130%);
+  outline: none;
+}
+.severity-square.hover {
+  border-bottom-width: 5px;
+  border-color: white;
+  filter: brightness(150%) contrast(130%);
+  outline: none;
+}
+.severity-text {
+  flex-grow: 1;
+  text-align: left;
+}
+#severe-alerts {
+  color: white;
+}
+#extreme-alerts {
+  color: white;
+}
+#unknown-alerts {
+  color: white;
+}
+@media (max-width: 768px) {
+  .severity-key-container {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .severity-square {
+    margin-right: 0px;
+    width: 50px;
+    height: 50px;
+  }
+  .severity-text {
+    display: none; /* Hide text labels on mobile */
+  }
+}
+@media (min-width: 768px) {
+  .severity-key-container {
+    gap: 10px;
+  }
+  .severity-text {
+    display: block;
+  }
+}
+.nav-button {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  border: none;
+  padding: 10px;
+  cursor: pointer;
+  font-size: 20px;
+  z-index: 1; /* Ensure buttons are above content */
+}
