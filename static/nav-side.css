@@ -20,6 +20,10 @@
     margin-bottom: 10px;
     width: 60px;
     height: 60px;
+	display: flex;
+    align-content: center;
+    justify-content: center;
+    align-items: center;
 }
 
 .icon-button-stats-toggle:hover, .icon-button-show-hide-alert-zones-toggle:hover, .icon-button:hover {

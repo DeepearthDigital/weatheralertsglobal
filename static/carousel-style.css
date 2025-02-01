@@ -136,6 +136,12 @@ date-carouseldate-carousel.date-carousel.dashboard-inner {
   flex-grow: 1;
   text-align: left;
 }
+#minor-alerts {
+  color: black;
+}
+#moderate-alerts {
+  color: black;
+}
 #severe-alerts {
   color: white;
 }

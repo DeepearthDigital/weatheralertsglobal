@@ -304,19 +304,22 @@ h5 {
     font-size: 10px;
   }
   h1 {
-    font-size: 1.5em; /* Reduced size for h1 */
+    font-size: 2.2em; /* Reduced size for h1 */
   }
   h2 {
-    font-size: 1.2em; /* Reduced size for h2 */
+    font-size: 2em; /* Reduced size for h2 */
   }
   h3 {
-    font-size: 1em; /* Reduced size for h3 */
+    font-size: 1.8em; /* Reduced size for h3 */
   }
   h4 {
-    font-size: 0.9em; /* Reduced size for h4 */
+    font-size: 1.6em; /* Reduced size for h4 */
+  }
+  h5 {
+    font-size: 1em; /* Reduced size for h4 */
   }
   p {
-    font-size: 0.9em; /* Reduced font size for paragraphs */
+    font-size: 1.2em; /* Reduced font size for paragraphs */
     line-height: 1.4; /* Slightly adjusted line-height for readability */
   }
   .btn {
@@ -366,10 +369,10 @@ h5 {
   .mobile-nav {
     right: -260px; /* Ensure it is hidden on page load */
     width: 260px;
-    height: 160px;
+    height: 200px;
   }
   #top-right-panel {
-    width: 200px;
+    width: 250px;
   }
 }
 #top-right-panel {

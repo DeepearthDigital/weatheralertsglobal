@@ -36,16 +36,13 @@
         <button type="button" class="close" data-dismiss="modal">&times;</button>
       </div>
       <div class="modal-body">
-        <input type="text" id="alertName" placeholder="Alert Name" class="form-control mb-2">
+        <input type="text" id="alertName" placeholder="Your alert zone name" class="form-control mb-2">
         <br>
-        <textarea id="alertDescription" placeholder="Describe your alert" class="form-control mb-2"></textarea>
+        <textarea id="alertDescription" placeholder="Describe your alert zone" class="form-control mb-2"></textarea>
         <br>
-        <div id="alertZonePreview"> 
-          <!-- GeoJSON preview will go here --> 
-        </div>
       </div>
       <div class="modal-footer">
-        <p>Enable e-mail alerts
+        <p>Enable alert zone e-mail notifications
           <input type="checkbox" class="email-alerts" data-alert-id="{{current_user.id}}"/>
         </p>
         <button id="cancel-button" type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
@@ -64,8 +61,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/switchery/0.8.2/switchery.min.js"></script> 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script> 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script> 
-<script src="{{ url_for('static', filename='main.js') }}"></script> 
 <script src="{{ url_for('static', filename='carousel-script.js') }}"></script> 
 <script src="{{ url_for('static', filename='alert-filter.js') }}"></script> 
-<script src="{{ url_for('static', filename='nav-side.js') }}"></script> 
+<script src="{{ url_for('static', filename='nav-side.js') }}"></script>
+<script src="{{ url_for('static', filename='main.js') }}"></script> 
 {% endblock %} 
