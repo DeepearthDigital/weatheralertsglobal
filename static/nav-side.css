@@ -41,7 +41,7 @@
     border: 2px solid white;
 }
 @media (max-width: 768px) {
-.icon-button-stats-toggle, .icon-button-show-hide-alert-zones-toggle, .icon-button {
+.icon-button-stats-toggle, .icon-button-show-hide-alert-zones-toggle, .icon-button, .icon-button-light-dark-toggle {
     font-size: 1rem;
     width: 40px;
     height: 40px;

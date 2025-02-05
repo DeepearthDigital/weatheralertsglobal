@@ -18,6 +18,11 @@ date-carouseldate-carousel.date-carousel.dashboard-inner {
   scroll-snap-type: x mandatory; /* Enables snapping on the X-axis*/
   justify-content: center;
   align-items: center;
+  overflow: scroll;
+  white-space: nowrap;
+}
+.date-carousel.active {
+  cursor: grabbing;
 }
 .date-carousel.interactive {
   pointer-events: visible; /* This is the key */
