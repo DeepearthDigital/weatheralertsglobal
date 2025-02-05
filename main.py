@@ -3,7 +3,7 @@
 from gevent import monkey
 monkey.patch_all()
 import certifi
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_from_directory
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from pymongo import MongoClient, errors as pymongo_errors
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -252,6 +252,14 @@ def load_user(user_id):
 def inject_registration_needed():
     return dict(REGISTRATION_NEEDED=app.config.get('REGISTRATION_NEEDED',
                                                    'YES'))  # Uses 'YES' if REGISTRATION_NEEDED is not yet set
+@app.route('/robots.txt')
+def serve_robots_txt():
+    return send_from_directory(app.static_folder, 'robots.txt')
+
+
+@app.route('/sitemap.xml')
+def serve_sitemap_xml():
+    return send_from_directory(app.static_folder, 'sitemap.xml')
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
