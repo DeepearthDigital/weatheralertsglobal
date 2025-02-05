@@ -156,22 +156,31 @@ app_logger.info(owa_collection.index_information())
 app_logger.info("\nIndex information for wag_user_alerts_notification_zone_collection:")
 app_logger.info(wag_user_alerts_notification_zone_collection.index_information())
 
+REGISTRATION_NEEDED = os.getenv('REGISTRATION_NEEDED', 'YES')
+app.config['REGISTRATION_NEEDED'] = REGISTRATION_NEEDED  # Set the value in application config
+app_logger.info(f"Environment variable REGISTRATION_NEEDED: {REGISTRATION_NEEDED}")
+ALLOW_ALL_DOMAINS = os.getenv('ALLOW_ALL_DOMAINS')
+app_logger.info(f"Environment variable ALLOW_ALL_DOMAINS: {ALLOW_ALL_DOMAINS}")  # Added debugging line
+ALLOW_ALL_DOMAINS = ALLOW_ALL_DOMAINS.lower() == 'yes' if ALLOW_ALL_DOMAINS else False
+
 allowed_domains_str = os.getenv('ALLOWED_DOMAINS')
-app_logger.info(f"Environment variable ALLOWED_DOMAINS: {allowed_domains_str}") # Added debugging line
+app_logger.info(f"Environment variable ALLOWED_DOMAINS: {allowed_domains_str}")  # Added debugging line
 
+# Only populate ALLOWED_DOMAINS if ALLOW_ALL_DOMAINS is False
 ALLOWED_DOMAINS = set()
-for i in range(1, 100):  # Adjust 100 to a sufficiently large number
-    domain = os.getenv(f'ALLOWED_DOMAINS_{i}')
-    if domain:
-        ALLOWED_DOMAINS.add(domain.strip().lower())
-    else:
-        break  # Stop when no more domains are found
+if not ALLOW_ALL_DOMAINS:
+    for i in range(1, 100):  # Adjust 100 to a sufficiently large number
+        domain = os.getenv(f'ALLOWED_DOMAINS_{i}')
+        if domain:
+            ALLOWED_DOMAINS.add(domain.strip().lower())
+        else:
+            break  # Stop when no more domains are found
 
-if not ALLOWED_DOMAINS:
-    ALLOWED_DOMAINS = {"example.com"}  # Default
-    logging.warning("Environment variable ALLOWED_DOMAINS not set. Using default domains.")
+    if not ALLOWED_DOMAINS:
+        ALLOWED_DOMAINS = {"example.com"}  # Default
+        logging.warning("Environment variable ALLOWED_DOMAINS not set. Using default domains.")
 
-app_logger.info(f"ALLOWED_DOMAINS set: {ALLOWED_DOMAINS}") # Added debugging line
+app_logger.info(f"ALLOWED_DOMAINS set: {ALLOWED_DOMAINS}")  # Added debugging line
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -239,6 +248,10 @@ class User(UserMixin):
 def load_user(user_id):
     return User.get(user_id)
 
+@app.context_processor
+def inject_registration_needed():
+    return dict(REGISTRATION_NEEDED=app.config.get('REGISTRATION_NEEDED',
+                                                   'YES'))  # Uses 'YES' if REGISTRATION_NEEDED is not yet set
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -285,8 +298,9 @@ def register():
     if not is_valid_email(email):
         error_message = "Please enter a valid email address."
         error = True  # Set error if validation fails
-    elif email.split('@')[-1].lower() not in ALLOWED_DOMAINS:
-        error_message = f"Registration is restricted to users from {', '.join(ALLOWED_DOMAINS)}."
+    elif not ALLOW_ALL_DOMAINS and email.split('@')[-1].lower() not in ALLOWED_DOMAINS:
+        error_message = f"Registration is restricted to users from {', '.join(ALLOWED_DOMAINS)}. " \
+                        "If you would like access, please email support@weatheralerts.global"
         error = True  # Set error if domain is invalid
 
     if error:  # Now error is defined
@@ -475,7 +489,7 @@ def logout():
 def index():
     app_logger.info(
         f"Index page accessed by user: {current_user.email if current_user.is_authenticated else 'Anonymous User'}")
-    if current_user.is_authenticated:
+    if current_user.is_authenticated or app.config.get('REGISTRATION_NEEDED', 'YES') == 'NO':
         map_data = {'map_js': "", 'alerts': []}  # Initialize map_data here.  Important!
         loading = False
         task_id = None

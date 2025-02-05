@@ -6,16 +6,25 @@ var alerts = bodyElement.dataset.alerts ? JSON.parse(bodyElement.dataset.alerts)
 const loading = bodyElement.dataset.loading === 'True';
 
 
-let map; // Declare the variable here
+let map;
+let voyagerLayer;
 const fillOpacity = 0.5;
-let alertLayers = new L.FeatureGroup(); //Create the layer group at the top level
-map = L.map('mapid', { // Assign it here, with out the var keyword.
-  worldCopyJump: true, // This makes the map wrap seamlessly
-  // Removed maxBounds, since this stops the world copy jump from working.
+let isLight = false; // Track the current theme
+let alertLayers = new L.FeatureGroup();
 
+// Initial dark theme
+voyagerLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 19
+});
+
+map = L.map('mapid', {
+  worldCopyJump: true,
 }).setView([51.4779, 0.0015], 5);
 
-map.addLayer(alertLayers); // Add it to the map
+map.addLayer(alertLayers);
+voyagerLayer.addTo(map);
 
 const loadingScreen = $('#loading-screen');
 const loadingMessage = $('#loading-message');
@@ -283,12 +292,6 @@ $(document).ready(function () {
   const maxWidth = 600;
 
 
-  const voyagerLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    maxZoom: 19,
-  });
-
-  voyagerLayer.addTo(map);
 
 
   // Function to process map data and handle alerts

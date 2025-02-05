@@ -11,7 +11,7 @@
     justify-content: center;
 }
 
-.icon-button-stats-toggle, .icon-button-show-hide-alert-zones-toggle, .icon-button {
+.icon-button-stats-toggle, .icon-button-show-hide-alert-zones-toggle, .icon-button, .icon-button-light-dark-toggle {
     font-size: 2rem;
     background: #0088f7;
     border: none;
@@ -22,7 +22,7 @@
     height: 60px;
 	display: flex;
     align-content: center;
-    justify-content: center;
+	justify-content: space-around;
     align-items: center;
 }
 
@@ -35,7 +35,7 @@
 }
 
 /* Active Button Styles */
-.icon-button-stats-toggle.active, .icon-button-show-hide-alert-zones-toggle.active {
+.icon-button-stats-toggle.active, .icon-button-show-hide-alert-zones-toggle.active, .icon-button-light-dark-toggle.active {
     background: #0046b3;  /* Or any other active color */
     color: #e0e0e0;
     border: 2px solid white;
@@ -65,7 +65,29 @@
 .leaflet-draw-draw-polygon:hover {
     background: #0046b3;
 }
+.nav-side-tooltip {
+	position: fixed;
+	right: 100px;
+    padding: 10px;
+    background: #0088f7;
+    color: #fff;
+    visibility: hidden;
+    opacity: 0;
+    white-space: nowrap;
+    pointer-events: none;
+    transition: opacity 0.3s;
+    z-index: 1003;
+	font-size: 14px;
+}
 
+.icon-button-show-hide-alert-zones-toggle:hover .nav-side-tooltip,
+.icon-button-stats-toggle:hover .nav-side-tooltip,
+.icon-button:hover .nav-side-tooltip,
+.icon-button-light-dark-toggle:hover .nav-side-tooltip
+{
+    visibility: visible;
+    opacity: 1;
+}
 
 .leaflet-draw-draw-polygon::before {
   content: "\f5ee"; /* Unicode for the fa-draw-polygon icon */

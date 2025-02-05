@@ -13,57 +13,50 @@
 {% block content %}
 <div class="page-container">
   <div class="container top">
-    <div class="wag-logo">
-      <a href="{{ url_for('index') }}">
-        <img src="../static/images/WAG-brand.png" alt="Weather Alerts Global">
-      </a>
-    </div>
+    <div class="wag-logo"> <a href="{{ url_for('index') }}"> <img src="../static/images/WAG-brand.png" alt="Weather Alerts Global"> </a> </div>
   </div>
   <div class="container bottom">
-<div id="login">	
-			<h1>Weather Alerts Global</h1>
-            <h2>Register</h2>
-            {% with messages = get_flashed_messages() %}
-                {% if messages %}
-                    <ul class="flashes">
-                        {% for message in messages %}
-                            <li>{{ message }}</li>
-                        {% endfor %}
-                    </ul>
-                {% endif %}
-            {% endwith %}
-            <form id="registerForm" method="POST">
-                <p>Registration is currently limited.</p>
-				                {% if error_message %}
-                    <div id="error-message-container"> </div>
-                {% endif %}
-				<p>If you would like access please e-mail <a href="mailto:support@weatheralerts.global">support@weatheralerts.global</a></p>
-                <div class="form-group">
-                    <label for="first_name">First Name:</label>
-                    <input type="text" id="first_name" name="first_name" required>
-                </div>
-                <div class="form-group">
-                    <label for="last_name">Last Name:</label>
-                    <input type="text" id="last_name" name="last_name" required>
-                </div>
-                <div class="form-group">
-                    <label for="email">Email:</label>
-                    <input type="email" id="email" name="email" required>
-                </div>
-                <div class="form-group">
-                    <label for="password">Password:</label>
-                    <input type="password" id="password" name="password" required>
-                </div>
-				<div class="d-flex">
-                <button type="submit" class="btn btn-primary h-spaced-buttons">Register</button>
-            </div>
-				</form>
-            <p>Upon successful registration, a verification email will be sent to your email address.</p>
+    <div id="login">
+      <h1>Weather Alerts Global</h1>
+      <h2>Register</h2>
+      {% with messages = get_flashed_messages() %}
+      {% if messages %}
+      <ul class="flashes">
+        {% for message in messages %}
+        <li>{{ message }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      {% endwith %}
+      <form id="registerForm" method="POST">
+        {% if error_message %}
+        <div id="error-message-container"> {{ error_message | safe }} </div>
+        {% endif %}
+        <div class="form-group">
+          <label for="first_name">First Name:</label>
+          <input type="text" id="first_name" name="first_name" required>
+        </div>
+        <div class="form-group">
+          <label for="last_name">Last Name:</label>
+          <input type="text" id="last_name" name="last_name" required>
+        </div>
+        <div class="form-group">
+          <label for="email">Email:</label>
+          <input type="email" id="email" name="email" required>
+        </div>
+        <div class="form-group">
+          <label for="password">Password:</label>
+          <input type="password" id="password" name="password" required>
+        </div>
+        <div class="d-flex">
+          <button type="submit" class="btn btn-primary h-spaced-buttons">Register</button>
+        </div>
+      </form>
+      <p>Upon successful registration, a verification email will be sent to your email address.</p>
     </div>
   </div>
 </div>
-
-    <script>
+<script>
 document.addEventListener('DOMContentLoaded', function() {
     const registerForm = document.getElementById('registerForm');
     const errorMessageContainer = document.getElementById('error-message-container');
@@ -95,5 +88,5 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error("Container element with ID 'error-message-container' not found.");
     }
 });
-    </script>
+    </script> 
 {% endblock %}
