@@ -15,14 +15,14 @@
   <button class="icon-button-stats-toggle" aria-label="View Statistics"> <i class="fa-solid fa-info"></i> <span class="nav-side-tooltip">View Statistics</span> </button>
   <!--<button id="createAlertButton" class="icon-button" aria-label="Create Alert Zone" title="Click to create an alert zone">
         <i class="fa-solid fa-square-plus"></i>
-    </button>-->
+    </button>--> 
+  {% if current_user.is_authenticated %}
   <button id="showAlertsButton" class="icon-button-show-hide-alert-zones-toggle" aria-label="Hide Alert Zones"> <i class="fa-solid fa-eye-slash"></i> <span class="nav-side-tooltip">Hide alert zones</span> </button>
   <button id="drawPolygonButton" class="icon-button" aria-label="Draw a polygon alert zone"> <i class="fa-solid fa-draw-polygon"></i> <span class="nav-side-tooltip">Draw a polygon alert zone</span> </button>
   <button id="drawRectangleButton" class="icon-button" aria-label="Draw a rectangle alert zone"> <i class="fa-solid fa-vector-square"></i> <span class="nav-side-tooltip">Draw a rectangle alert zone</span> </button>
-  <button id="deleteAllAlertsButton" class="icon-button" aria-label="Delete Alert Zones"> <i class="fa-solid fa-trash"></i> <span class="nav-side-tooltip">Delete all alert zones</span>
-  </button>
-  <button id="lightDarkToggle" class="icon-button-light-dark-toggle" aria-label="Light/Dark Map"> <i class="fa-solid fa-circle-half-stroke"></i> <span class="nav-side-tooltip">Light/Dark Map</span>
-  </button>
+  <button id="deleteAllAlertsButton" class="icon-button" aria-label="Delete Alert Zones"> <i class="fa-solid fa-trash"></i> <span class="nav-side-tooltip">Delete all alert zones</span> </button>
+  {% endif %}
+  <button id="lightDarkToggle" class="icon-button-light-dark-toggle" aria-label="Light/Dark Map"> <i class="fa-solid fa-circle-half-stroke"></i> <span class="nav-side-tooltip">Light/Dark Map</span> </button>
 </div>
 <nav class="mobile-nav">
   <div id="top-right-panel">

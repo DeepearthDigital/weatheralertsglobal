@@ -66,7 +66,7 @@
     const buttons = document.querySelectorAll('.top-right-button-set button');
     const statsButtonToggle = document.querySelector('.top-right-button-set .icon-button-stats-toggle');
     const showHideAlertZonesToggle = document.querySelector('.top-right-button-set .icon-button-show-hide-alert-zones-toggle');
-    showHideAlertZonesIcon = showHideAlertZonesToggle.querySelector('i');
+    let showHideAlertZonesIcon = (showHideAlertZonesToggle) ? showHideAlertZonesToggle.querySelector('i') : null;
     let lightDarkToggle = document.querySelector('.top-right-button-set .icon-button-light-dark-toggle');
 	  lightDarkToggle = document.getElementById('lightDarkToggle');
 

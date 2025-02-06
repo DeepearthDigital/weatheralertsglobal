@@ -409,12 +409,12 @@ $(document).ready(function () {
           response.alerts.forEach(addAlertToMap);
           map.fitBounds(drawnItems.getBounds());
           // If alerts exist, ensure visibility is on (fa-eye state)
-          if (!showHideAlertZonesIcon.classList.contains('fa-eye')) {
+          if (showHideAlertZonesIcon && showHideAlertZonesIcon.classList && !showHideAlertZonesIcon.classList.contains('fa-eye')) {
             toggleAlertVisibility(showHideAlertZonesIcon);
           }
         } else {
           // No alerts - switch to visibility off (fa-eye-slash state)
-          if (!showHideAlertZonesIcon.classList.contains('fa-eye-slash')) {
+          if (showHideAlertZonesIcon && showHideAlertZonesIcon.classList && !showHideAlertZonesIcon.classList.contains('fa-eye-slash')) {
             toggleAlertVisibility(showHideAlertZonesIcon);
           }
         }
